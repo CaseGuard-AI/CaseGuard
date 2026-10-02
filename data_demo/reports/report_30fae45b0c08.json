@@ -1,0 +1,43 @@
+{
+  "run_id": "30fae45b0c08",
+  "started_at": "2026-09-28T17:16:54.516645+00:00",
+  "finished_at": "2026-09-28T17:16:58.099911+00:00",
+  "totals": {
+    "discovered": 3,
+    "fetched": 3,
+    "skipped_seen": 0,
+    "skipped_unchanged": 0,
+    "changed": 0,
+    "parsed": 3,
+    "stored": 3,
+    "duplicates": 0,
+    "invalid": 0,
+    "failed": 0,
+    "pdfs": 3,
+    "html_docs": 0,
+    "pdf_extract_failed": 0,
+    "scanned_pdfs": 0,
+    "missing_metadata": 1
+  },
+  "sources": {
+    "pakistan_code": {
+      "discovered": 3,
+      "fetched": 3,
+      "skipped_seen": 0,
+      "skipped_unchanged": 0,
+      "changed": 0,
+      "parsed": 3,
+      "stored": 3,
+      "duplicates": 0,
+      "invalid": 0,
+      "failed": 0,
+      "pdfs": 3,
+      "html_docs": 0,
+      "pdf_extract_failed": 0,
+      "scanned_pdfs": 0,
+      "missing_metadata": 1
+    }
+  },
+  "error_count": 0,
+  "errors": []
+}
