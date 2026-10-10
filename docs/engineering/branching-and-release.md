@@ -115,3 +115,10 @@ These are applied by the setup script, or set them by hand in GitHub → Setting
 - Squash commit message: PR title + description.
 - Automatically delete head branches after merge.
 - Dependabot alerts and security updates on. Secret scanning and push protection on.
+
+## 9. Dependency updates (Dependabot)
+
+Dependabot opens update PRs into `staging` every Monday for GitHub Actions, npm (the pnpm workspace), uv (`services/ai` and `services/collector`) and the Dockerfiles. [`dependabot-automerge.yml`](../../.github/workflows/dependabot-automerge.yml) handles them:
+
+- **Auto-merged** (squash) once CI, the PR policy check and the secret scan are green: grouped `*-minor-and-patch` PRs, and single bumps within the same major version (within the same minor for `0.x`).
+- **Labelled `needs-review`** with a comment: major bumps, `0.x` minor bumps, anything it can't classify, and anything with a failing check. A human reads the changelog, checks the affected code path, then squash-merges.
