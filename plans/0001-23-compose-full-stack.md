@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#23](https://github.com/CaseGuard-AI/CaseGuard/issues/23) · **PR:** _tbd_
+> **Status:** In progress · **Issue:** [#23](https://github.com/CaseGuard-AI/CaseGuard/issues/23) · **PR:** [#32](https://github.com/CaseGuard-AI/CaseGuard/pull/32)
 
 # Plan: #23 — Full Docker stack (api, ai, web in docker-compose)
 
