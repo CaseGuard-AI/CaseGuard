@@ -1,0 +1,31 @@
+version: 2
+# All update PRs target `staging`, never `main`.
+# Uncomment the npm / uv entries once apps/web, apps/api and services/* are scaffolded.
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: staging
+    schedule: { interval: weekly }
+    commit-message: { prefix: "ci" }
+    groups:
+      actions: { patterns: ["*"] }
+
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: staging
+    schedule: { interval: weekly }
+    commit-message: { prefix: "chore(infra)" }
+
+  # - package-ecosystem: npm
+  #   directory: /
+  #   target-branch: staging
+  #   schedule: { interval: weekly }
+  #   commit-message: { prefix: "chore" }
+  #   groups:
+  #     minor-and-patch: { update-types: ["minor", "patch"] }
+
+  # - package-ecosystem: uv
+  #   directories: ["/services/ai", "/services/collector"]
+  #   target-branch: staging
+  #   schedule: { interval: weekly }
+  #   commit-message: { prefix: "chore" }

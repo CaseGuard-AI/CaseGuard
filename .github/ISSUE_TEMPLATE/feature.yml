@@ -1,0 +1,51 @@
+name: Feature / requirement
+description: Work item for a PRD requirement or new capability
+title: "feat(<area>): "
+labels: ["type: feature", "status: triage"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [web, api, ai, collector, contracts, infra, docs, eval]
+    validations:
+      required: true
+  - type: dropdown
+    id: stream
+    attributes:
+      label: Stream
+      options: ["A — Product", "B — Knowledge", "C — Trust & AI", "Cross-stream"]
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: PRD priority
+      options: [P0, P1, P2]
+    validations:
+      required: true
+  - type: input
+    id: requirements
+    attributes:
+      label: PRD requirement IDs
+      placeholder: "FR-RES-2, FR-RES-4"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What needs to be built
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Copy from the PRD and add any specifics. These define "done".
+    validations:
+      required: true
+  - type: input
+    id: milestone
+    attributes:
+      label: Milestone
+      placeholder: "M1 — Vertical slice"

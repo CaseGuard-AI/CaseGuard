@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/CaseGuard-AI/CaseGuard/security/advisories/new
+    about: Report privately. Do not open a public issue.
+  - name: Architecture decision
+    url: https://github.com/CaseGuard-AI/CaseGuard/blob/staging/docs/adr/0000-template.md
+    about: Propose an ADR in a docs/ PR instead of an issue.
