@@ -47,13 +47,16 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Iterator
+from collections.abc import Iterator
 from urllib.parse import urljoin
 
 from extractors.html_extractor import clean_text, make_soup
 from extractors.metadata_extractor import (
-    extract_case_status, extract_cited_laws, extract_citations,
-    extract_judges, split_parties,
+    extract_case_status,
+    extract_citations,
+    extract_cited_laws,
+    extract_judges,
+    split_parties,
 )
 from models.legal_document import DocumentType, LegalDocument
 from scrapers.base_scraper import BaseScraper, Discovered
@@ -114,7 +117,8 @@ class SindhHighCourtScraper(BaseScraper):
     def preflight(self) -> None:
         self.log.info(
             "Scope: %s (set PKLEGAL_SHC_SCOPE=all for every uploaded judgment, "
-            "not only those approved for reporting).", self.scope,
+            "not only those approved for reporting).",
+            self.scope,
         )
         if self.settings.download_pdfs and not self.settings.limit:
             self.log.warning(
@@ -132,8 +136,9 @@ class SindhHighCourtScraper(BaseScraper):
             return
 
         max_judges = self.settings.max_pages or len(judges)
-        self.log.info("Judge index: %d judges, visiting %d",
-                      len(judges), min(max_judges, len(judges)))
+        self.log.info(
+            "Judge index: %d judges, visiting %d", len(judges), min(max_judges, len(judges))
+        )
 
         for name, url in judges[:max_judges]:
             response = self._fetch(url)
@@ -178,17 +183,16 @@ class SindhHighCourtScraper(BaseScraper):
         return judges
 
     # ------------------------------------------------------------------
-    def _parse_table(self, html: str, base_url: str,
-                     judge_name: str) -> Iterator[Discovered]:
+    def _parse_table(self, html: str, base_url: str, judge_name: str) -> Iterator[Discovered]:
         soup = make_soup(html)
         for table in soup.find_all("table"):
             headers = self._headers(table)
             if "case_cell" not in headers.values():
-                continue                      # not the judgments table
+                continue  # not the judgments table
             for row in table.find_all("tr"):
                 cells = row.find_all("td")
                 if not cells:
-                    continue                  # header row
+                    continue  # header row
                 item = self._row_to_item(cells, headers, base_url, judge_name)
                 if item is not None:
                     yield item
@@ -211,8 +215,9 @@ class SindhHighCourtScraper(BaseScraper):
         return mapping
 
     # ------------------------------------------------------------------
-    def _row_to_item(self, cells, headers: dict[int, str], base_url: str,
-                     judge_name: str) -> Discovered | None:
+    def _row_to_item(
+        self, cells, headers: dict[int, str], base_url: str, judge_name: str
+    ) -> Discovered | None:
         values: dict[str, str] = {}
         download_url: str | None = None
 
@@ -237,7 +242,7 @@ class SindhHighCourtScraper(BaseScraper):
         court_text = parsed.group("court") or ""
         attached = ATTACHED.search(court_text)
         if attached:
-            court_text = court_text[:attached.start()].strip(" ;,")
+            court_text = court_text[: attached.start()].strip(" ;,")
 
         hints = {
             "case_number": parsed.group("number"),
@@ -248,16 +253,15 @@ class SindhHighCourtScraper(BaseScraper):
             "download_url": download_url,
             "listing_judge": judge_name,
         }
-        hints.update({k: v for k, v in values.items()
-                      if v and v.strip().lower() != "nil"})
+        hints.update({k: v for k, v in values.items() if v and v.strip().lower() != "nil"})
 
         return Discovered(
-            url=download_url or
-                f"{base_url}#case={parsed.group('number').replace('/', '-')}",
+            url=download_url or f"{base_url}#case={parsed.group('number').replace('/', '-')}",
             hints=hints,
             document_type=DocumentType.JUDGMENT.value,
-            year=(extract_year(values.get("case_year", ""))
-                  or extract_year(parsed.group("number"))),
+            year=(
+                extract_year(values.get("case_year", "")) or extract_year(parsed.group("number"))
+            ),
             inline=True,
         )
 
@@ -277,12 +281,13 @@ class SindhHighCourtScraper(BaseScraper):
             source_url=item.url,
             document_url=item.hint("download_url") or item.url,
             document_file_url=item.hint("download_url"),
-            title=parties_text or
-                  f"{item.hint('matter_type') or ''} {case_number}".strip(),
+            title=parties_text or f"{item.hint('matter_type') or ''} {case_number}".strip(),
             case_number=case_number,
-            document_type=(DocumentType.ORDER.value
-                           if order_or_judgment.startswith("order")
-                           else DocumentType.JUDGMENT.value),
+            document_type=(
+                DocumentType.ORDER.value
+                if order_or_judgment.startswith("order")
+                else DocumentType.JUDGMENT.value
+            ),
             court=court,
             bench=item.hint("bench"),
             province="Sindh",
@@ -314,8 +319,7 @@ class SindhHighCourtScraper(BaseScraper):
 
         connected: list[str] = []
         if item.hint("attached_cases"):
-            connected += [c.strip() for c in
-                          item.hint("attached_cases").split(",") if c.strip()]
+            connected += [c.strip() for c in item.hint("attached_cases").split(",") if c.strip()]
         if item.hint("apex_court"):
             connected += APEX_CASE.findall(item.hint("apex_court"))
         document.connected_cases = list(dict.fromkeys(connected))
@@ -325,7 +329,8 @@ class SindhHighCourtScraper(BaseScraper):
         download_url = item.hint("download_url")
         if download_url and self.settings.download_pdfs:
             self.ingest_pdf(
-                document, download_url,
+                document,
+                download_url,
                 name_hint=f"{item.hint('matter_type') or 'case'}_{case_number}",
             )
 
@@ -334,8 +339,8 @@ class SindhHighCourtScraper(BaseScraper):
             self.attach_html_text(document, "\n".join(p for p in parts if p))
             document.notes.append(
                 "full_text is the portal's table row (parties, head-note, "
-                "bench), not the judgment itself" +
-                ("" if download_url else "; no judgment file was linked")
+                "bench), not the judgment itself"
+                + ("" if download_url else "; no judgment file was linked")
             )
 
         document.cited_cases = extract_citations(document.summary or "")
@@ -353,7 +358,7 @@ class SindhHighCourtScraper(BaseScraper):
         soup = make_soup(response.text)
         for tag in soup(["script", "style", "nav", "header", "footer"]):
             tag.decompose()
-        lines = [l for l in clean_text(soup.get_text("\n")).splitlines() if l.strip()]
+        lines = [ln for ln in clean_text(soup.get_text("\n")).splitlines() if ln.strip()]
 
         block: list[str] = []
         for line in lines:
@@ -375,8 +380,7 @@ class SindhHighCourtScraper(BaseScraper):
         if not head:
             return None
         number, rest = head.group(2), head.group(3)
-        hints: dict = {"case_number": number, "parties": rest,
-                       "court_text": "Sindh High Court"}
+        hints: dict = {"case_number": number, "parties": rest, "court_text": "Sindh High Court"}
         for line in block[1:]:
             if line.lower().startswith("sindh high court"):
                 hints["court_text"] = line.strip()
@@ -389,6 +393,8 @@ class SindhHighCourtScraper(BaseScraper):
                 hints["bench"] = line.strip()
         return Discovered(
             url=f"{base_url}#case={number.replace('/', '-')}",
-            hints=hints, document_type=DocumentType.JUDGMENT.value,
-            year=extract_year(number), inline=True,
+            hints=hints,
+            document_type=DocumentType.JUDGMENT.value,
+            year=extract_year(number),
+            inline=True,
         )

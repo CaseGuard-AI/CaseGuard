@@ -6,9 +6,9 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from datetime import UTC, datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from datetime import datetime, timezone
 
 _CONFIGURED = False
 
@@ -22,7 +22,7 @@ class JsonlEventLogger:
 
     def emit(self, event: str, **fields) -> None:
         record = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "event": event,
             **fields,
         }
@@ -51,20 +51,20 @@ def setup_logging(log_dir: Path, level: str = "INFO", run_id: str = "") -> loggi
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
 
     if not _CONFIGURED:
-        fmt = logging.Formatter(
-            "%(asctime)s %(levelname)-7s %(name)s: %(message)s", "%H:%M:%S"
-        )
+        fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s", "%H:%M:%S")
         console = logging.StreamHandler(sys.stdout)
         console.setFormatter(fmt)
         root.addHandler(console)
 
         file_handler = RotatingFileHandler(
-            log_dir / "scraper.log", maxBytes=10 * 1024 * 1024,
-            backupCount=5, encoding="utf-8",
+            log_dir / "scraper.log",
+            maxBytes=10 * 1024 * 1024,
+            backupCount=5,
+            encoding="utf-8",
         )
-        file_handler.setFormatter(logging.Formatter(
-            "%(asctime)s %(levelname)-7s %(name)s: %(message)s"
-        ))
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
+        )
         root.addHandler(file_handler)
 
         # third-party noise

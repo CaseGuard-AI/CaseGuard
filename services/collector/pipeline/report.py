@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,12 +36,15 @@ class RunReport:
 
     # ------------------------------------------------------------------
     @classmethod
-    def from_events(cls, run_id: str, started_at: str,
-                    events: JsonlEventLogger) -> "RunReport":
+    def from_events(cls, run_id: str, started_at: str, events: JsonlEventLogger) -> RunReport:
         report = cls(run_id=run_id, started_at=started_at)
         for event in events.read():
-            if event.get("event") in {"fetch_failed", "document_failed",
-                                      "robots_blocked", "pdf_extract_failed"}:
+            if event.get("event") in {
+                "fetch_failed",
+                "document_failed",
+                "robots_blocked",
+                "pdf_extract_failed",
+            }:
                 report.errors.append(event)
         return report
 
@@ -82,18 +85,17 @@ class RunReport:
             lines.append(
                 "     discovered={discovered}  stored={stored}  "
                 "duplicates={duplicates}  failed={failed}  invalid={invalid}".format(
-                    **{k: stats.get(k, 0) for k in
-                       ("discovered", "stored", "duplicates", "failed", "invalid")}
+                    **{
+                        k: stats.get(k, 0)
+                        for k in ("discovered", "stored", "duplicates", "failed", "invalid")
+                    }
                 )
             )
 
         if self.errors:
-            lines += ["", "-" * 66, f" First 15 of {len(self.errors)} errors",
-                      "-" * 66]
+            lines += ["", "-" * 66, f" First 15 of {len(self.errors)} errors", "-" * 66]
             for event in self.errors[:15]:
-                lines.append(
-                    f"  [{event.get('event')}] {event.get('url', '')[:88]}"
-                )
+                lines.append(f"  [{event.get('event')}] {event.get('url', '')[:88]}")
                 if event.get("error"):
                     lines.append(f"      {str(event['error'])[:100]}")
         lines.append("")
@@ -102,17 +104,24 @@ class RunReport:
     # ------------------------------------------------------------------
     def save(self, directory: Path) -> tuple[Path, Path]:
         directory.mkdir(parents=True, exist_ok=True)
-        self.finished_at = self.finished_at or datetime.now(timezone.utc).isoformat()
+        self.finished_at = self.finished_at or datetime.now(UTC).isoformat()
         text_path = directory / f"report_{self.run_id}.txt"
         json_path = directory / f"report_{self.run_id}.json"
         text_path.write_text(self.render(), encoding="utf-8")
-        json_path.write_text(json.dumps({
-            "run_id": self.run_id,
-            "started_at": self.started_at,
-            "finished_at": self.finished_at,
-            "totals": self.totals(),
-            "sources": self.sources,
-            "error_count": len(self.errors),
-            "errors": self.errors[:200],
-        }, indent=2, default=str), encoding="utf-8")
+        json_path.write_text(
+            json.dumps(
+                {
+                    "run_id": self.run_id,
+                    "started_at": self.started_at,
+                    "finished_at": self.finished_at,
+                    "totals": self.totals(),
+                    "sources": self.sources,
+                    "error_count": len(self.errors),
+                    "errors": self.errors[:200],
+                },
+                indent=2,
+                default=str,
+            ),
+            encoding="utf-8",
+        )
         return text_path, json_path

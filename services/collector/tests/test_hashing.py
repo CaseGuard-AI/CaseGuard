@@ -30,9 +30,11 @@ def test_safe_filename_strips_path_characters():
 
 
 def test_document_id_is_stable_across_runs():
-    kwargs = dict(source="pakistan_code",
-                  source_website="https://pakistancode.gov.pk",
-                  source_url="https://pakistancode.gov.pk/x")
+    kwargs = dict(
+        source="pakistan_code",
+        source_website="https://pakistancode.gov.pk",
+        source_url="https://pakistancode.gov.pk/x",
+    )
     assert LegalDocument(**kwargs).id == LegalDocument(**kwargs).id
 
 
@@ -44,6 +46,5 @@ def test_document_id_differs_per_url():
 
 
 def test_compute_content_hash_returns_none_without_text():
-    doc = LegalDocument(source="s", source_website="https://x",
-                        source_url="https://x/a")
+    doc = LegalDocument(source="s", source_website="https://x", source_url="https://x/a")
     assert doc.compute_content_hash() is None

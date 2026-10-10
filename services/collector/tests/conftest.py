@@ -13,6 +13,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 @pytest.fixture
 def tmp_settings(tmp_path):
     from config import Settings
+
     settings = Settings()
     settings.output_dir = tmp_path / "data"
     settings.request_delay = 0.0
@@ -23,6 +24,7 @@ def tmp_settings(tmp_path):
 @pytest.fixture
 def state(tmp_settings):
     from storage.state_store import StateStore
+
     store = StateStore(tmp_settings.state_db)
     yield store
     store.close()
@@ -32,4 +34,5 @@ def state(tmp_settings):
 def fixture_html():
     def _read(name: str) -> str:
         return (FIXTURES / name).read_text(encoding="utf-8")
+
     return _read

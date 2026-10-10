@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -34,7 +34,7 @@ class DocumentType(str, Enum):
 
 class ExtractionStatus(str, Enum):
     OK = "ok"
-    EMPTY = "empty"                 # parsed fine, produced no text
+    EMPTY = "empty"  # parsed fine, produced no text
     SCANNED_NO_OCR = "scanned_no_ocr"
     FAILED = "failed"
     NOT_ATTEMPTED = "not_attempted"
@@ -43,24 +43,24 @@ class ExtractionStatus(str, Enum):
 @dataclass
 class Party:
     name: str
-    role: str | None = None         # petitioner / respondent / appellant / accused ...
+    role: str | None = None  # petitioner / respondent / appellant / accused ...
 
 
 @dataclass
 class LegalDocument:
     # --- provenance (mandatory) -------------------------------------------
-    source: str                      # short source key, e.g. "pakistan_code"
-    source_website: str              # e.g. "https://pakistancode.gov.pk"
-    source_url: str                  # page the record was discovered/parsed on
+    source: str  # short source key, e.g. "pakistan_code"
+    source_website: str  # e.g. "https://pakistancode.gov.pk"
+    source_url: str  # page the record was discovered/parsed on
     document_type: str = DocumentType.UNKNOWN.value
     jurisdiction: str = "Pakistan"
 
     # --- identity ---------------------------------------------------------
     id: str = ""
     title: str | None = None
-    document_url: str | None = None          # canonical landing page for the doc
-    document_file_url: str | None = None     # direct PDF/DOC URL if any
-    document_number: str | None = None       # "XVIII of 1999"
+    document_url: str | None = None  # canonical landing page for the doc
+    document_file_url: str | None = None  # direct PDF/DOC URL if any
+    document_number: str | None = None  # "XVIII of 1999"
     case_number: str | None = None
     citation: str | None = None
 
@@ -68,12 +68,12 @@ class LegalDocument:
     court: str | None = None
     bench: str | None = None
     province: str | None = None
-    category: str | None = None              # source's own taxonomy label
+    category: str | None = None  # source's own taxonomy label
     matter_type: str | None = None
     case_status: str | None = None
 
     # --- dates (ISO-8601 strings, or None) --------------------------------
-    date: str | None = None                  # primary date for the doc
+    date: str | None = None  # primary date for the doc
     publication_date: str | None = None
     promulgation_date: str | None = None
     judgment_date: str | None = None
@@ -93,9 +93,9 @@ class LegalDocument:
 
     # --- content ----------------------------------------------------------
     full_text: str | None = None
-    summary: str | None = None               # head-note / tag-line if supplied
+    summary: str | None = None  # head-note / tag-line if supplied
     language: str | None = None
-    file_path: str | None = None             # local path of the saved original
+    file_path: str | None = None  # local path of the saved original
     mime_type: str | None = None
 
     # --- ingestion bookkeeping -------------------------------------------
@@ -104,12 +104,12 @@ class LegalDocument:
     extraction_status: str = ExtractionStatus.NOT_ATTEMPTED.value
     extraction_error: str | None = None
     page_count: int | None = None
-    raw: dict[str, Any] = field(default_factory=dict)   # untouched source fields
+    raw: dict[str, Any] = field(default_factory=dict)  # untouched source fields
     notes: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.scraped_at:
-            self.scraped_at = datetime.now(timezone.utc).isoformat()
+            self.scraped_at = datetime.now(UTC).isoformat()
         if not self.id:
             self.id = self.make_id()
 
@@ -141,7 +141,8 @@ class LegalDocument:
         if not drop_empty:
             return data
         return {
-            k: v for k, v in data.items()
+            k: v
+            for k, v in data.items()
             if v not in (None, "", [], {}) or k in ("source", "source_url", "id")
         }
 

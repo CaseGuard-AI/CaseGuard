@@ -37,12 +37,14 @@ Even then, keep the delay high (config sets 6s) and the volume low.
 from __future__ import annotations
 
 import re
-from typing import Iterator
+from collections.abc import Iterator
 from urllib.parse import urljoin
 
 from extractors.html_extractor import clean_text, make_soup
 from extractors.metadata_extractor import (
-    extract_case_number, extract_judges, split_parties,
+    extract_case_number,
+    extract_judges,
+    split_parties,
 )
 from models.legal_document import DocumentType, LegalDocument
 from scrapers.base_scraper import BaseScraper, Discovered
@@ -88,13 +90,13 @@ class LahoreHighCourtScraper(BaseScraper):
 
     def _years(self) -> list[int]:
         import datetime
+
         end = self.settings.end_year or datetime.date.today().year
         start = self.settings.start_year or end
         return list(range(start, end + 1))
 
     # ------------------------------------------------------------------
-    def _parse_results(self, html: str, base_url: str,
-                       year: int | None) -> Iterator[Discovered]:
+    def _parse_results(self, html: str, base_url: str, year: int | None) -> Iterator[Discovered]:
         soup = make_soup(html)
         seen: set[str] = set()
         for anchor in soup.find_all("a", href=True):
@@ -103,12 +105,16 @@ class LahoreHighCourtScraper(BaseScraper):
                 continue
             seen.add(href)
             block = anchor.find_parent(["tr", "li", "div", "p"])
-            context = clean_text(block.get_text("\n") if block
-                                 else anchor.get_text(" ", strip=True))
+            context = clean_text(
+                block.get_text("\n") if block else anchor.get_text(" ", strip=True)
+            )
             yield Discovered(
                 url=href,
-                hints={"context": context[:2000], "listing_url": base_url,
-                       "link_text": anchor.get_text(" ", strip=True)},
+                hints={
+                    "context": context[:2000],
+                    "listing_url": base_url,
+                    "link_text": anchor.get_text(" ", strip=True),
+                },
                 document_type=DocumentType.JUDGMENT.value,
                 year=year or extract_year(context),
             )
@@ -139,7 +145,6 @@ class LahoreHighCourtScraper(BaseScraper):
         if document.full_text:
             document.judges = extract_judges(document.full_text[:4000])
         document.notes.append(
-            "collected under explicit permission; parser unverified -- "
-            "verify fields by hand"
+            "collected under explicit permission; parser unverified -- verify fields by hand"
         )
         return document

@@ -26,11 +26,12 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 FIXTURES = ROOT / "tests" / "fixtures"
-BASE_URL = ""          # set once the replay server has a port
+BASE_URL = ""  # set once the replay server has a port
 
 
 def make_pdf(title: str, clause: str) -> bytes:
     import fitz
+
     doc = fitz.open()
     page = doc.new_page()
     page.insert_text((72, 90), title, fontsize=13)
@@ -45,14 +46,13 @@ def make_pdf(title: str, clause: str) -> bytes:
 
 
 class ReplayHandler(http.server.BaseHTTPRequestHandler):
-    def log_message(self, *args):        # keep the demo output readable
+    def log_message(self, *args):  # keep the demo output readable
         pass
 
-    def do_GET(self):                     # noqa: N802
+    def do_GET(self):  # noqa: N802
         path = self.path
         if "LGu0xAD" in path:
-            name = ("pakistan_code_index.html" if "alp=A" in path
-                    else "pakistan_code_empty.html")
+            name = "pakistan_code_index.html" if "alp=A" in path else "pakistan_code_empty.html"
             return self._send((FIXTURES / name).read_text(), "text/html")
         if "-sg-j" in path:
             body = (FIXTURES / "pakistan_code_detail.html").read_text()
@@ -64,8 +64,7 @@ class ReplayHandler(http.server.BaseHTTPRequestHandler):
         if path.endswith(".pdf"):
             stem = Path(path).stem
             return self._send_bytes(
-                make_pdf("THE NATIONAL ARCHIVES ACT, 1993",
-                         f"Clause unique to {stem}."),
+                make_pdf("THE NATIONAL ARCHIVES ACT, 1993", f"Clause unique to {stem}."),
                 "application/pdf",
             )
         self.send_error(404)
@@ -100,14 +99,15 @@ def main() -> int:
         # Point the Pakistan Code source at the replay server for this run only.
         config.SOURCES["pakistan_code"] = dataclasses.replace(
             config.SOURCES["pakistan_code"],
-            base_url=base_url, min_delay_seconds=0.0,
+            base_url=base_url,
+            min_delay_seconds=0.0,
         )
 
         settings = Settings()
         settings.output_dir = ROOT / "data_demo"
         settings.request_delay = 0.0
         settings.max_pages = 1
-        settings.respect_robots = False        # local replay server, no robots
+        settings.respect_robots = False  # local replay server, no robots
         settings.ensure_dirs()
 
         print(f"Replay server on {base_url}\n")

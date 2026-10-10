@@ -14,20 +14,31 @@ court never needs a migration.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 try:
     from sqlalchemy import (
-        Column, Date, DateTime, ForeignKey, Integer, String, Table, Text,
-        UniqueConstraint, create_engine, select,
+        Column,
+        Date,
+        DateTime,
+        ForeignKey,
+        Integer,
+        String,
+        Table,
+        Text,
+        UniqueConstraint,
+        create_engine,
+        select,
     )
     from sqlalchemy.dialects.postgresql import JSONB
     from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship
     from sqlalchemy.types import JSON
+
     SQLALCHEMY_AVAILABLE = True
-except ImportError:                                     # pragma: no cover
+except ImportError:  # pragma: no cover
     SQLALCHEMY_AVAILABLE = False
 
 
@@ -39,11 +50,15 @@ if SQLALCHEMY_AVAILABLE:
         pass
 
     document_judges = Table(
-        "document_judges", Base.metadata,
-        Column("document_id", String(80), ForeignKey("legal_documents.id",
-                                                     ondelete="CASCADE"), primary_key=True),
-        Column("judge_id", Integer, ForeignKey("judges.id", ondelete="CASCADE"),
-               primary_key=True),
+        "document_judges",
+        Base.metadata,
+        Column(
+            "document_id",
+            String(80),
+            ForeignKey("legal_documents.id", ondelete="CASCADE"),
+            primary_key=True,
+        ),
+        Column("judge_id", Integer, ForeignKey("judges.id", ondelete="CASCADE"), primary_key=True),
     )
 
     class Source(Base):
@@ -59,21 +74,23 @@ if SQLALCHEMY_AVAILABLE:
         id: Mapped[int] = mapped_column(Integer, primary_key=True)
         name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
         province: Mapped[str | None] = mapped_column(String(64))
-        level: Mapped[str | None] = mapped_column(String(32))   # apex/high/federal/district
+        level: Mapped[str | None] = mapped_column(String(32))  # apex/high/federal/district
 
     class Judge(Base):
         __tablename__ = "judges"
         id: Mapped[int] = mapped_column(Integer, primary_key=True)
         name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-        documents: Mapped[list["LegalDocumentRow"]] = relationship(
+        documents: Mapped[list[LegalDocumentRow]] = relationship(
             secondary=document_judges, back_populates="judge_rows"
         )
 
     class LegalDocumentRow(Base):
         """One row per ingested document: statute, judgment or order."""
+
         __tablename__ = "legal_documents"
-        __table_args__ = (UniqueConstraint("source", "document_url",
-                                           name="uq_source_document_url"),)
+        __table_args__ = (
+            UniqueConstraint("source", "document_url", name="uq_source_document_url"),
+        )
 
         id: Mapped[str] = mapped_column(String(80), primary_key=True)
         source: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
@@ -176,13 +193,33 @@ def upsert_documents(database_url: str, documents: Iterable[dict]) -> dict[str, 
             else:
                 updated += 1
 
-            for field in ("source", "source_website", "source_url", "document_url",
-                          "document_file_url", "document_type", "title",
-                          "document_number", "case_number", "citation", "court",
-                          "bench", "jurisdiction", "province", "category",
-                          "matter_type", "case_status", "full_text", "summary",
-                          "language", "file_path", "page_count", "content_hash",
-                          "extraction_status", "extraction_error"):
+            for field in (
+                "source",
+                "source_website",
+                "source_url",
+                "document_url",
+                "document_file_url",
+                "document_type",
+                "title",
+                "document_number",
+                "case_number",
+                "citation",
+                "court",
+                "bench",
+                "jurisdiction",
+                "province",
+                "category",
+                "matter_type",
+                "case_status",
+                "full_text",
+                "summary",
+                "language",
+                "file_path",
+                "page_count",
+                "content_hash",
+                "extraction_status",
+                "extraction_error",
+            ):
                 if field in payload:
                     setattr(row, field, payload[field])
 
@@ -191,8 +228,16 @@ def upsert_documents(database_url: str, documents: Iterable[dict]) -> dict[str, 
             row.judgment_date = _parse_date(payload.get("judgment_date"))
             row.scraped_at = _parse_dt(payload.get("scraped_at"))
 
-            for field in ("parties", "advocates", "connected_cases", "cited_laws",
-                          "cited_cases", "hearing_dates", "raw", "notes"):
+            for field in (
+                "parties",
+                "advocates",
+                "connected_cases",
+                "cited_laws",
+                "cited_cases",
+                "hearing_dates",
+                "raw",
+                "notes",
+            ):
                 setattr(row, field, payload.get(field))
 
             row.judge_rows = []
@@ -212,4 +257,5 @@ def upsert_documents(database_url: str, documents: Iterable[dict]) -> dict[str, 
 
 def load_jsonl(database_url: str, jsonl_path: str | Path) -> dict[str, int]:
     from storage.jsonl_storage import JsonlStorage
+
     return upsert_documents(database_url, JsonlStorage.read(jsonl_path))

@@ -19,7 +19,7 @@ and mark the source "needs_probe" in config.py rather than guessing.
 
 from __future__ import annotations
 
-from typing import Iterator
+from collections.abc import Iterator
 
 from models.legal_document import DocumentType, LegalDocument
 from scrapers.base_scraper import BaseScraper, Discovered
@@ -48,7 +48,7 @@ class TemplateScraper(BaseScraper):
           * anything inferred goes in document.notes
           * use self.ingest_pdf(...) for PDFs, self.attach_html_text(...) for HTML
         """
-        document = self.new_document(
+        document = self.new_document(  # noqa: F841 (template: fill in, then store)
             source_url=response.url,
             document_url=response.url,
             document_type=DocumentType.JUDGMENT.value,

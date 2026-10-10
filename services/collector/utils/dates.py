@@ -11,10 +11,20 @@ import re
 from datetime import date, datetime
 
 _FORMATS = (
-    "%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y",
-    "%d-%b-%y", "%d-%b-%Y", "%d %b %Y", "%d %B %Y",
-    "%B %d %Y", "%B %d, %Y", "%b %d %Y", "%b %d, %Y",
-    "%Y/%m/%d", "%d-%B-%Y",
+    "%Y-%m-%d",
+    "%d-%m-%Y",
+    "%d/%m/%Y",
+    "%d.%m.%Y",
+    "%d-%b-%y",
+    "%d-%b-%Y",
+    "%d %b %Y",
+    "%d %B %Y",
+    "%B %d %Y",
+    "%B %d, %Y",
+    "%b %d %Y",
+    "%b %d, %Y",
+    "%Y/%m/%d",
+    "%d-%B-%Y",
 )
 
 _ORDINAL = re.compile(r"\b(\d{1,2})(st|nd|rd|th)\b", re.I)
@@ -31,7 +41,7 @@ def normalise_date(value: str | None) -> str | None:
         return None
 
     raw = _ORDINAL.sub(r"\1", raw)
-    raw = re.sub(r"\bSept\b", "Sep", raw)   # not "September"
+    raw = re.sub(r"\bSept\b", "Sep", raw)  # not "September"
     raw = _CLEAN.sub(" ", raw).strip(" .")
 
     for fmt in _FORMATS:
@@ -58,8 +68,7 @@ def extract_year(value: str | None) -> int | None:
     return int(match.group(1)) if match else None
 
 
-def in_year_range(iso_or_year: str | int | None,
-                  start: int | None, end: int | None) -> bool:
+def in_year_range(iso_or_year: str | int | None, start: int | None, end: int | None) -> bool:
     """Filter helper. Documents with an unknown year are kept -- dropping them
     would silently lose records whose date the source simply did not publish."""
     if start is None and end is None:

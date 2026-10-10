@@ -40,13 +40,11 @@ class PdfExtraction:
         return self.status == ExtractionStatus.OK.value
 
 
-def extract_pdf(path: str | Path, *, ocr: bool = False,
-                ocr_language: str = "eng") -> PdfExtraction:
+def extract_pdf(path: str | Path, *, ocr: bool = False, ocr_language: str = "eng") -> PdfExtraction:
     """Try PyMuPDF, then pdfplumber, then (optionally) OCR."""
     path = Path(path)
     if not path.exists():
-        return PdfExtraction(status=ExtractionStatus.FAILED.value,
-                             error=f"file not found: {path}")
+        return PdfExtraction(status=ExtractionStatus.FAILED.value, error=f"file not found: {path}")
 
     result = _extract_pymupdf(path)
     if not result.ok:
@@ -72,8 +70,7 @@ def extract_pdf(path: str | Path, *, ocr: bool = False,
 
 
 # ----------------------------------------------------------------------
-def _finalise(text: str, pages: int, engine: str,
-              metadata: dict | None = None) -> PdfExtraction:
+def _finalise(text: str, pages: int, engine: str, metadata: dict | None = None) -> PdfExtraction:
     text = _tidy(text)
     per_page = (len(text) / pages) if pages else 0.0
     scanned = pages > 0 and per_page < MIN_CHARS_PER_PAGE
@@ -84,8 +81,12 @@ def _finalise(text: str, pages: int, engine: str,
     else:
         status = ExtractionStatus.OK.value
     return PdfExtraction(
-        text=text, page_count=pages, status=status, engine=engine,
-        is_scanned=scanned, chars_per_page=round(per_page, 1),
+        text=text,
+        page_count=pages,
+        status=status,
+        engine=engine,
+        is_scanned=scanned,
+        chars_per_page=round(per_page, 1),
         metadata=metadata or {},
     )
 
@@ -94,30 +95,37 @@ def _extract_pymupdf(path: Path) -> PdfExtraction:
     try:
         import fitz  # PyMuPDF
     except ImportError:
-        return PdfExtraction(status=ExtractionStatus.FAILED.value,
-                             error="PyMuPDF not installed", engine="pymupdf")
+        return PdfExtraction(
+            status=ExtractionStatus.FAILED.value, error="PyMuPDF not installed", engine="pymupdf"
+        )
     try:
         with fitz.open(path) as doc:
             if doc.needs_pass:
-                return PdfExtraction(status=ExtractionStatus.FAILED.value,
-                                     error="PDF is password protected",
-                                     engine="pymupdf")
+                return PdfExtraction(
+                    status=ExtractionStatus.FAILED.value,
+                    error="PDF is password protected",
+                    engine="pymupdf",
+                )
             pages = doc.page_count
             meta = {k: v for k, v in (doc.metadata or {}).items() if v}
             chunks = [page.get_text("text") or "" for page in doc]
         return _finalise("\n".join(chunks), pages, "pymupdf", meta)
-    except Exception as exc:                            # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         log.debug("PyMuPDF failed on %s: %s", path.name, exc)
-        return PdfExtraction(status=ExtractionStatus.FAILED.value,
-                             error=f"pymupdf: {exc}", engine="pymupdf")
+        return PdfExtraction(
+            status=ExtractionStatus.FAILED.value, error=f"pymupdf: {exc}", engine="pymupdf"
+        )
 
 
 def _extract_pdfplumber(path: Path) -> PdfExtraction:
     try:
         import pdfplumber
     except ImportError:
-        return PdfExtraction(status=ExtractionStatus.FAILED.value,
-                             error="pdfplumber not installed", engine="pdfplumber")
+        return PdfExtraction(
+            status=ExtractionStatus.FAILED.value,
+            error="pdfplumber not installed",
+            engine="pdfplumber",
+        )
     try:
         chunks: list[str] = []
         with pdfplumber.open(str(path)) as pdf:
@@ -126,9 +134,10 @@ def _extract_pdfplumber(path: Path) -> PdfExtraction:
             for page in pdf.pages:
                 chunks.append(page.extract_text() or "")
         return _finalise("\n".join(chunks), pages, "pdfplumber", meta)
-    except Exception as exc:                            # noqa: BLE001
-        return PdfExtraction(status=ExtractionStatus.FAILED.value,
-                             error=f"pdfplumber: {exc}", engine="pdfplumber")
+    except Exception as exc:  # noqa: BLE001
+        return PdfExtraction(
+            status=ExtractionStatus.FAILED.value, error=f"pdfplumber: {exc}", engine="pdfplumber"
+        )
 
 
 def _extract_ocr(path: Path, language: str) -> PdfExtraction:
@@ -138,10 +147,14 @@ def _extract_ocr(path: Path, language: str) -> PdfExtraction:
         import pytesseract
         from PIL import Image
     except ImportError as exc:
-        return PdfExtraction(status=ExtractionStatus.FAILED.value,
-                             error=f"OCR dependencies missing: {exc}", engine="ocr")
+        return PdfExtraction(
+            status=ExtractionStatus.FAILED.value,
+            error=f"OCR dependencies missing: {exc}",
+            engine="ocr",
+        )
     try:
         import io
+
         chunks: list[str] = []
         with fitz.open(path) as doc:
             pages = doc.page_count
@@ -154,16 +167,18 @@ def _extract_ocr(path: Path, language: str) -> PdfExtraction:
         if result.text.strip():
             result.status = ExtractionStatus.OK.value
         return result
-    except Exception as exc:                            # noqa: BLE001
-        return PdfExtraction(status=ExtractionStatus.FAILED.value,
-                             error=f"ocr: {exc}", engine="ocr")
+    except Exception as exc:  # noqa: BLE001
+        return PdfExtraction(
+            status=ExtractionStatus.FAILED.value, error=f"ocr: {exc}", engine="ocr"
+        )
 
 
 def _tidy(text: str) -> str:
     import re
+
     text = (text or "").replace("\x00", "").replace("\ufeff", "")
     text = re.sub(r"[ \t\xa0]+", " ", text)
-    text = re.sub(r"-\n(?=[a-z])", "", text)      # de-hyphenate line breaks
+    text = re.sub(r"-\n(?=[a-z])", "", text)  # de-hyphenate line breaks
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 

@@ -1,6 +1,11 @@
 from extractors.metadata_extractor import (
-    extract_case_number, extract_cited_laws, extract_citations, extract_document_number,
-    extract_judges, guess_document_type, split_parties,
+    extract_case_number,
+    extract_citations,
+    extract_cited_laws,
+    extract_document_number,
+    extract_judges,
+    guess_document_type,
+    split_parties,
 )
 from utils.dates import extract_year, in_year_range, normalise_date
 
@@ -23,8 +28,7 @@ def test_citations_real_pakistani_formats():
 
 
 def test_judges_from_a_bench_line():
-    bench = ("Hon'ble Mr. Justice Muhammad Ali Mazhar(Author), "
-             "Hon'ble Mr. Justice Agha Faisal")
+    bench = "Hon'ble Mr. Justice Muhammad Ali Mazhar(Author), Hon'ble Mr. Justice Agha Faisal"
     judges = extract_judges(bench)
     assert "Muhammad Ali Mazhar" in judges
     assert "Agha Faisal" in judges
@@ -37,8 +41,7 @@ def test_judges_empty_input():
 
 
 def test_split_parties_sindh_format():
-    title = ("Mirza Shakir Baig (Plaintiff) V/S Miss. Iffat Chughtai "
-             "& Others (Defendant)")
+    title = "Mirza Shakir Baig (Plaintiff) V/S Miss. Iffat Chughtai & Others (Defendant)"
     parties = split_parties(title)
     assert parties[0]["name"] == "Mirza Shakir Baig"
     assert parties[0]["role"] == "plaintiff"
@@ -88,7 +91,7 @@ def test_extract_year():
 
 
 def test_year_range_keeps_undated_documents():
-    assert in_year_range(None, 2020, 2026) is True       # unknown -> keep
+    assert in_year_range(None, 2020, 2026) is True  # unknown -> keep
     assert in_year_range(2019, 2020, 2026) is False
     assert in_year_range(2021, 2020, 2026) is True
     assert in_year_range("2024-01-01", 2020, None) is True
@@ -109,9 +112,7 @@ def test_split_parties_handles_every_versus_spelling():
 
 
 def test_split_parties_survives_s_o_in_a_name():
-    parties = split_parties(
-        "AYUB MASIH S/O AINAYAT MASIH (Applicant) VS THE STATE (Respondent)"
-    )
+    parties = split_parties("AYUB MASIH S/O AINAYAT MASIH (Applicant) VS THE STATE (Respondent)")
     assert parties[0]["name"] == "AYUB MASIH S/O AINAYAT MASIH"
     assert parties[1]["name"] == "THE STATE"
 
@@ -119,9 +120,7 @@ def test_split_parties_survives_s_o_in_a_name():
 def test_all_caps_judgment_header_is_folded_to_title_case():
     """FSC/SCP headers are ALL CAPS; SHC publishes mixed case. Without folding,
     the same judge would become two rows in the judges table."""
-    header = ("PRESENT\n"
-              "MR. JUSTICE DR. SYED MUHAMMAD ANWER\n"
-              "MR. JUSTICE AMEER MUHAMMAD KHAN")
+    header = "PRESENT\nMR. JUSTICE DR. SYED MUHAMMAD ANWER\nMR. JUSTICE AMEER MUHAMMAD KHAN"
     assert extract_judges(header) == ["Syed Muhammad Anwer", "Ameer Muhammad Khan"]
 
 

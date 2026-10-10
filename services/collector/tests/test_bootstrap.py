@@ -12,7 +12,10 @@ document conversion directly.
 import pytest
 
 from storage.bootstrap_datasets import (
-    DATASETS, available, compare_coverage, to_document,
+    DATASETS,
+    available,
+    compare_coverage,
+    to_document,
 )
 
 
@@ -33,8 +36,9 @@ def test_available_lists_the_registered_datasets():
 
 # ---- the provenance boundary ----------------------------------------
 def test_source_key_is_prefixed_so_it_can_never_collide_with_a_scraper(laws):
-    doc = to_document({"file_name": "Constitution_of_Pakistan.pdf",
-                       "content": "Whereas sovereignty..."}, laws, 0)
+    doc = to_document(
+        {"file_name": "Constitution_of_Pakistan.pdf", "content": "Whereas sovereignty..."}, laws, 0
+    )
     assert doc.source == "hf_pakistan_laws"
     assert doc.source != "pakistan_code"
 
@@ -61,15 +65,17 @@ def test_records_are_flagged_as_unofficial(laws):
 
 # ---- field mapping ---------------------------------------------------
 def test_pdf_filename_becomes_a_readable_title(laws):
-    doc = to_document({"file_name": "National_Archives_Act_1993.pdf",
-                       "content": "An Act..."}, laws, 0)
+    doc = to_document(
+        {"file_name": "National_Archives_Act_1993.pdf", "content": "An Act..."}, laws, 0
+    )
     assert doc.title == "National Archives Act 1993"
     assert doc.raw["year"] == 1993
 
 
 def test_document_type_is_guessed_from_the_title(laws):
-    ordinance = to_document({"file_name": "National_Accountability_Ordinance_1999.pdf",
-                             "content": "x"}, laws, 0)
+    ordinance = to_document(
+        {"file_name": "National_Accountability_Ordinance_1999.pdf", "content": "x"}, laws, 0
+    )
     assert ordinance.document_type == "ordinance"
 
 
@@ -79,11 +85,15 @@ def test_unguessable_title_falls_back_to_the_dataset_default(laws):
 
 
 def test_judgment_dataset_maps_its_own_field_names(judgments):
-    doc = to_document({
-        "text": "IN THE SUPREME COURT OF PAKISTAN. Relied on 2019 SCMR 984.",
-        "citation_number": "2020 SCMR 1",
-        "case_details": {"bench": "three members"},
-    }, judgments, 7)
+    doc = to_document(
+        {
+            "text": "IN THE SUPREME COURT OF PAKISTAN. Relied on 2019 SCMR 984.",
+            "citation_number": "2020 SCMR 1",
+            "case_details": {"bench": "three members"},
+        },
+        judgments,
+        7,
+    )
     assert doc.court == "Supreme Court of Pakistan"
     assert doc.citation == "2020 SCMR 1"
     assert doc.raw["source_metadata"] == {"bench": "three members"}
@@ -97,25 +107,27 @@ def test_missing_text_is_recorded_not_faked(laws):
 
 
 def test_content_hash_enables_dedup_against_scraped_records(laws):
-    a = to_document({"file_name": "A.pdf", "content": "Same statute text here."},
-                    laws, 0)
-    b = to_document({"file_name": "B.pdf", "content": "same  STATUTE   text here."},
-                    laws, 1)
+    a = to_document({"file_name": "A.pdf", "content": "Same statute text here."}, laws, 0)
+    b = to_document({"file_name": "B.pdf", "content": "same  STATUTE   text here."}, laws, 1)
     assert a.content_hash == b.content_hash
 
 
 # ---- coverage comparison --------------------------------------------
 def test_coverage_warns_when_your_crawl_is_short(tmp_path):
-    from storage.jsonl_storage import JsonlStorage
     from models.legal_document import LegalDocument
+    from storage.jsonl_storage import JsonlStorage
 
     storage = JsonlStorage(tmp_path, "pakistan_code")
     for i in range(10):
-        storage.write(LegalDocument(
-            source="pakistan_code", source_website="https://pakistancode.gov.pk",
-            source_url=f"https://pakistancode.gov.pk/{i}", title=f"Act {i}",
-            full_text="x" * 60,
-        ))
+        storage.write(
+            LegalDocument(
+                source="pakistan_code",
+                source_website="https://pakistancode.gov.pk",
+                source_url=f"https://pakistancode.gov.pk/{i}",
+                title=f"Act {i}",
+                full_text="x" * 60,
+            )
+        )
     result = compare_coverage("pakistan_laws", storage.path)
     assert result["own_documents"] == 10
     assert result["dataset_expected_rows"] == 969
@@ -124,15 +136,19 @@ def test_coverage_warns_when_your_crawl_is_short(tmp_path):
 
 
 def test_coverage_is_quiet_when_the_crawl_looks_complete(tmp_path):
-    from storage.jsonl_storage import JsonlStorage
     from models.legal_document import LegalDocument
+    from storage.jsonl_storage import JsonlStorage
 
     storage = JsonlStorage(tmp_path, "pakistan_code")
     for i in range(950):
-        storage.write(LegalDocument(
-            source="pakistan_code", source_website="https://pakistancode.gov.pk",
-            source_url=f"https://pakistancode.gov.pk/{i}", title=f"Act {i}",
-            full_text="x" * 60,
-        ))
+        storage.write(
+            LegalDocument(
+                source="pakistan_code",
+                source_website="https://pakistancode.gov.pk",
+                source_url=f"https://pakistancode.gov.pk/{i}",
+                title=f"Act {i}",
+                full_text="x" * 60,
+            )
+        )
     result = compare_coverage("pakistan_laws", storage.path)
     assert "warning" not in result

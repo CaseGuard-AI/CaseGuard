@@ -1,3 +1,14 @@
+> **CaseGuard monorepo note.** This service was imported from `CaseGuard-AI/data_collector` with `git subtree`, and **this folder is now the source of truth**; the old repo should be archived. Inside CaseGuard:
+>
+> ```bash
+> cd services/collector
+> uv sync --all-extras --dev     # creates services/collector/.venv
+> uv run python main.py --help
+> uv run pytest
+> ```
+>
+> Settings are read from `.env` here, or from the repo-root `.env` (`PKLEGAL_*` variables; see the root `.env.example`). The collector writes only to the `corpus` schema, as role `caseguard_ai` (ADR-0002). Sources follow the PRD §15 source policy: LHC stays disabled without written permission.
+
 # pk-legal-ingest
 
 A provenance-tracked ingestion pipeline for Pakistani legal documents — federal

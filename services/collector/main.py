@@ -39,59 +39,73 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     what = parser.add_argument_group("what to scrape")
-    what.add_argument("--source", default=None,
-                      help="source key, comma-separated list, or 'all'")
+    what.add_argument("--source", default=None, help="source key, comma-separated list, or 'all'")
     what.add_argument("--start-year", type=int)
     what.add_argument("--end-year", type=int)
-    what.add_argument("--limit", type=int,
-                      help="stop after N stored documents (test mode)")
-    what.add_argument("--max-pages", type=int,
-                      help="cap listing pages per index")
+    what.add_argument("--limit", type=int, help="stop after N stored documents (test mode)")
+    what.add_argument("--max-pages", type=int, help="cap listing pages per index")
 
     how = parser.add_argument_group("how to behave")
-    how.add_argument("--delay", type=float, dest="request_delay",
-                     help="minimum seconds between requests to one host")
+    how.add_argument(
+        "--delay",
+        type=float,
+        dest="request_delay",
+        help="minimum seconds between requests to one host",
+    )
     how.add_argument("--timeout", type=float)
     how.add_argument("--retries", type=int, dest="retry_count")
     how.add_argument("--concurrency", type=int, dest="max_concurrency")
-    how.add_argument("--no-pdfs", action="store_true",
-                     help="skip PDF download and text extraction")
-    how.add_argument("--ocr", action="store_true",
-                     help="OCR scanned PDFs (needs tesseract installed)")
-    how.add_argument("--force", action="store_true",
-                     help="re-fetch documents already recorded as seen")
-    how.add_argument("--dry-run", action="store_true",
-                     help="discover and parse, write nothing")
-    how.add_argument("--ignore-robots", action="store_true",
-                     help=argparse.SUPPRESS)   # intentionally undocumented
-    how.add_argument("--i-have-permission", action="store_true",
-                     help="unlock a permission-gated source (see README)")
+    how.add_argument("--no-pdfs", action="store_true", help="skip PDF download and text extraction")
+    how.add_argument(
+        "--ocr", action="store_true", help="OCR scanned PDFs (needs tesseract installed)"
+    )
+    how.add_argument(
+        "--force", action="store_true", help="re-fetch documents already recorded as seen"
+    )
+    how.add_argument("--dry-run", action="store_true", help="discover and parse, write nothing")
+    how.add_argument(
+        "--ignore-robots", action="store_true", help=argparse.SUPPRESS
+    )  # intentionally undocumented
+    how.add_argument(
+        "--i-have-permission",
+        action="store_true",
+        help="unlock a permission-gated source (see README)",
+    )
     how.add_argument("--output-dir", type=Path)
-    how.add_argument("--log-level", default=None,
-                     choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    how.add_argument("--log-level", default=None, choices=["DEBUG", "INFO", "WARNING", "ERROR"])
 
     tools = parser.add_argument_group("tools")
     tools.add_argument("--list-sources", action="store_true")
-    tools.add_argument("--probe", action="store_true",
-                       help="save what a source's endpoints return, for inspection")
-    tools.add_argument("--ingest-dir", type=Path,
-                       help="ingest PDFs you downloaded by hand into a source")
-    tools.add_argument("--report", action="store_true",
-                       help="print the most recent run report")
-    tools.add_argument("--status", action="store_true",
-                       help="show crawl-state counts")
-    tools.add_argument("--load-db", action="store_true",
-                       help="load a source's JSONL into PKLEGAL_DATABASE_URL")
-    tools.add_argument("--sample", type=int, metavar="N",
-                       help="write a pretty-printed N-record sample JSON")
-    tools.add_argument("--retry-failed", action="store_true",
-                       help="re-attempt URLs that failed in earlier runs")
-    tools.add_argument("--bootstrap", metavar="DATASET",
-                       help="load a third-party HF dataset (see --list-bootstrap)")
-    tools.add_argument("--bootstrap-compare", metavar="DATASET",
-                       help="compare your crawl's coverage against a dataset")
-    tools.add_argument("--list-bootstrap", action="store_true",
-                       help="list available bootstrap datasets")
+    tools.add_argument(
+        "--probe", action="store_true", help="save what a source's endpoints return, for inspection"
+    )
+    tools.add_argument(
+        "--ingest-dir", type=Path, help="ingest PDFs you downloaded by hand into a source"
+    )
+    tools.add_argument("--report", action="store_true", help="print the most recent run report")
+    tools.add_argument("--status", action="store_true", help="show crawl-state counts")
+    tools.add_argument(
+        "--load-db", action="store_true", help="load a source's JSONL into PKLEGAL_DATABASE_URL"
+    )
+    tools.add_argument(
+        "--sample", type=int, metavar="N", help="write a pretty-printed N-record sample JSON"
+    )
+    tools.add_argument(
+        "--retry-failed", action="store_true", help="re-attempt URLs that failed in earlier runs"
+    )
+    tools.add_argument(
+        "--bootstrap",
+        metavar="DATASET",
+        help="load a third-party HF dataset (see --list-bootstrap)",
+    )
+    tools.add_argument(
+        "--bootstrap-compare",
+        metavar="DATASET",
+        help="compare your crawl's coverage against a dataset",
+    )
+    tools.add_argument(
+        "--list-bootstrap", action="store_true", help="list available bootstrap datasets"
+    )
     return parser
 
 
@@ -132,6 +146,7 @@ def print_sources() -> None:
 
 def _wrap(text: str, width: int) -> list[str]:
     import textwrap
+
     return textwrap.wrap(text or "", width)
 
 
@@ -161,16 +176,20 @@ def settings_from_args(args: argparse.Namespace) -> Settings:
     if args.i_have_permission:
         settings.i_have_permission = True
     if args.ignore_robots:
-        print("Refusing --ignore-robots. If a site disallows crawling, ask its "
-              "owner for permission instead.", file=sys.stderr)
+        print(
+            "Refusing --ignore-robots. If a site disallows crawling, ask its "
+            "owner for permission instead.",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
     return settings
 
 
 # ----------------------------------------------------------------------
 def cmd_report(settings: Settings) -> int:
-    reports = sorted(settings.report_dir.glob("report_*.txt"),
-                     key=lambda p: p.stat().st_mtime, reverse=True)
+    reports = sorted(
+        settings.report_dir.glob("report_*.txt"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
     if not reports:
         print("No reports yet. Run a scrape first.")
         return 1
@@ -180,6 +199,7 @@ def cmd_report(settings: Settings) -> int:
 
 def cmd_status(settings: Settings) -> int:
     from storage.state_store import StateStore
+
     if not settings.state_db.exists():
         print("No crawl state yet.")
         return 1
@@ -197,12 +217,15 @@ def cmd_status(settings: Settings) -> int:
 
 def cmd_load_db(settings: Settings, sources: list[str]) -> int:
     if not settings.database_url:
-        print("Set PKLEGAL_DATABASE_URL first, e.g.\n"
-              "  export PKLEGAL_DATABASE_URL="
-              "'postgresql+psycopg://user:pass@localhost:5432/pklegal'",
-              file=sys.stderr)
+        print(
+            "Set PKLEGAL_DATABASE_URL first, e.g.\n"
+            "  export PKLEGAL_DATABASE_URL="
+            "'postgresql+psycopg://user:pass@localhost:5432/pklegal'",
+            file=sys.stderr,
+        )
         return 2
     from storage.database import load_jsonl
+
     total = {"inserted": 0, "updated": 0}
     for key in sources:
         path = settings.jsonl_dir / f"{key}.jsonl"
@@ -219,6 +242,7 @@ def cmd_load_db(settings: Settings, sources: list[str]) -> int:
 
 def cmd_list_bootstrap() -> int:
     from storage.bootstrap_datasets import DATASETS
+
     print("\nThird-party bootstrap datasets")
     print("-" * 78)
     print("These are NOT official sources. Records load under an `hf_` source")
@@ -238,6 +262,7 @@ def cmd_bootstrap(settings: Settings, key: str) -> int:
     from storage.bootstrap_datasets import DATASETS, ingest
     from storage.jsonl_storage import JsonlStorage
     from storage.state_store import StateStore
+
     if key not in DATASETS:
         print(f"Unknown dataset {key!r}. Run --list-bootstrap.", file=sys.stderr)
         return 2
@@ -246,7 +271,9 @@ def cmd_bootstrap(settings: Settings, key: str) -> int:
         stats = ingest(
             key,
             lambda source: JsonlStorage(settings.jsonl_dir, source),
-            state, limit=settings.limit, dry_run=settings.dry_run,
+            state,
+            limit=settings.limit,
+            dry_run=settings.dry_run,
         )
     except RuntimeError as exc:
         print(exc, file=sys.stderr)
@@ -254,14 +281,18 @@ def cmd_bootstrap(settings: Settings, key: str) -> int:
     finally:
         state.close()
     print(f"\n{DATASETS[key].repo_id}: {stats}")
-    print("Loaded under source key "
-          f"{DATASETS[key].source_key!r} -- third-party provenance, not official.")
+    print(
+        "Loaded under source key "
+        f"{DATASETS[key].source_key!r} -- third-party provenance, not official."
+    )
     return 0
 
 
 def cmd_bootstrap_compare(settings: Settings, key: str, sources: list[str]) -> int:
     import json as _json
+
     from storage.bootstrap_datasets import DATASETS, compare_coverage
+
     if key not in DATASETS:
         print(f"Unknown dataset {key!r}. Run --list-bootstrap.", file=sys.stderr)
         return 2
@@ -293,7 +324,7 @@ def cmd_retry_failed(settings: Settings, sources: list[str]) -> int:
                 url = failure["url"]
                 try:
                     response = scraper.client.get(url)
-                except Exception as exc:                    # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
                     state.record_failure(url, key, str(exc))
                     print(f"     still failing: {url[:70]} ({exc})")
                     continue
@@ -307,6 +338,7 @@ def cmd_retry_failed(settings: Settings, sources: list[str]) -> int:
 
 def cmd_sample(settings: Settings, sources: list[str], n: int) -> int:
     from storage.jsonl_storage import JsonlStorage
+
     for key in sources:
         path = settings.jsonl_dir / f"{key}.jsonl"
         if not path.exists():
@@ -363,8 +395,7 @@ def main(argv: list[str] | None = None) -> int:
             scraper = runner.build(sources[0])
             ingest = getattr(scraper, "ingest_directory", None)
             if ingest is None:
-                print(f"{sources[0]} does not support manual ingestion",
-                      file=sys.stderr)
+                print(f"{sources[0]} does not support manual ingestion", file=sys.stderr)
                 return 2
             count = ingest(args.ingest_dir)
             print(f"Ingested {count} file(s) into {sources[0]}")

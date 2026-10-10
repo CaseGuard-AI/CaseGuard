@@ -39,7 +39,7 @@ def test_empty_fields_are_dropped_not_written_as_null(tmp_path):
     storage = JsonlStorage(tmp_path, "src")
     storage.write(make_doc())
     row = next(iter(JsonlStorage.read(storage.path)))
-    assert "case_number" not in row          # never provided -> absent
+    assert "case_number" not in row  # never provided -> absent
     assert "judges" not in row
 
 
@@ -54,7 +54,7 @@ def test_file_storage_paths_include_url_key(tmp_path):
     files = FileStorage(tmp_path / "raw", tmp_path / "text")
     a = files.raw_path("src", "Same Title", "https://x/a.pdf", 1999)
     b = files.raw_path("src", "Same Title", "https://x/b.pdf", 1999)
-    assert a != b                            # identical titles must not collide
+    assert a != b  # identical titles must not collide
     assert "1999" in str(a)
 
 
@@ -73,8 +73,7 @@ def test_undated_documents_go_to_an_undated_folder(tmp_path):
 
 
 def test_validation_flags_missing_pieces():
-    doc = LegalDocument(source="s", source_website="https://x",
-                        source_url="https://x/a")
+    doc = LegalDocument(source="s", source_website="https://x", source_url="https://x/a")
     problems = doc.validate()
     assert any("full_text" in p for p in problems)
     assert doc.is_valid is False

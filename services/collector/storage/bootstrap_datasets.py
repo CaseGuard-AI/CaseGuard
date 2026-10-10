@@ -35,11 +35,14 @@ Usage
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator
+from typing import Any
 
 from extractors.metadata_extractor import (
-    extract_citations, extract_document_number, guess_document_type,
+    extract_citations,
+    extract_document_number,
+    guess_document_type,
 )
 from models.legal_document import ExtractionStatus, LegalDocument
 from utils.dates import extract_year
@@ -71,9 +74,11 @@ DATASETS: dict[str, BootstrapDataset] = {
     "pakistan_laws": BootstrapDataset(
         key="pakistan_laws",
         repo_id="AyeshaJadoon/Pakistan_Laws_Dataset",
-        description=("~969 federal laws and acts, originally PDFs from the "
-                     "Ministry of Law & Justice (Pakistan Code), converted to "
-                     "JSON with file_name + content."),
+        description=(
+            "~969 federal laws and acts, originally PDFs from the "
+            "Ministry of Law & Justice (Pakistan Code), converted to "
+            "JSON with file_name + content."
+        ),
         document_type="act",
         expected_rows=969,
     ),
@@ -87,8 +92,10 @@ DATASETS: dict[str, BootstrapDataset] = {
     "scp_judgments": BootstrapDataset(
         key="scp_judgments",
         repo_id="Ibtehaj10/supreme-court-of-pak-judgments",
-        description=("1,414 Supreme Court of Pakistan judgments with text, "
-                     "case_details, citation_number and precomputed embeddings."),
+        description=(
+            "1,414 Supreme Court of Pakistan judgments with text, "
+            "case_details, citation_number and precomputed embeddings."
+        ),
         document_type="judgment",
         court="Supreme Court of Pakistan",
         expected_rows=1414,
@@ -123,10 +130,9 @@ def _first(row: dict, fields: tuple[str, ...]) -> Any:
 def load_rows(dataset: BootstrapDataset, limit: int | None = None) -> Iterator[dict]:
     try:
         from datasets import load_dataset
-    except ImportError as exc:                      # pragma: no cover
+    except ImportError as exc:  # pragma: no cover
         raise RuntimeError(
-            "The `datasets` package is required for bootstrap loading:\n"
-            "    pip install datasets"
+            "The `datasets` package is required for bootstrap loading:\n    pip install datasets"
         ) from exc
 
     log.info("Loading %s (%s split)", dataset.repo_id, dataset.split)
@@ -151,14 +157,12 @@ def to_document(row: dict, dataset: BootstrapDataset, index: int) -> LegalDocume
         source_url=dataset.url,
         document_url=None,
         title=str(title) if title else f"{dataset.repo_id} row {index}",
-        document_type=(guess_document_type(str(title) if title else None)
-                       or dataset.document_type),
+        document_type=(guess_document_type(str(title) if title else None) or dataset.document_type),
         court=dataset.court,
         jurisdiction="Pakistan",
         full_text=str(text) if text else None,
         language="en",
-        extraction_status=(ExtractionStatus.OK.value if text
-                           else ExtractionStatus.EMPTY.value),
+        extraction_status=(ExtractionStatus.OK.value if text else ExtractionStatus.EMPTY.value),
     )
     if document.document_type == "unknown":
         document.document_type = dataset.document_type
@@ -179,12 +183,14 @@ def to_document(row: dict, dataset: BootstrapDataset, index: int) -> LegalDocume
         document.cited_cases = extract_citations(document.full_text)
 
     # The provenance flags that must survive into the vector store.
-    document.raw.update({
-        "provenance": "third_party_dataset",
-        "is_official_source": False,
-        "dataset_repo": dataset.repo_id,
-        "dataset_row_index": index,
-    })
+    document.raw.update(
+        {
+            "provenance": "third_party_dataset",
+            "is_official_source": False,
+            "dataset_repo": dataset.repo_id,
+            "dataset_row_index": index,
+        }
+    )
     document.notes.append(
         "Third-party dataset record. NOT retrieved from the issuing authority "
         "and carries no original document URL. Verify against the official "
@@ -195,9 +201,13 @@ def to_document(row: dict, dataset: BootstrapDataset, index: int) -> LegalDocume
 
 
 # ----------------------------------------------------------------------
-def ingest(dataset_key: str, storage_factory: Callable[[str], Any],
-           state, limit: int | None = None,
-           dry_run: bool = False) -> dict[str, int]:
+def ingest(
+    dataset_key: str,
+    storage_factory: Callable[[str], Any],
+    state,
+    limit: int | None = None,
+    dry_run: bool = False,
+) -> dict[str, int]:
     """Load a dataset into its own JSONL file under an `hf_` source key."""
     dataset = DATASETS[dataset_key]
     storage = storage_factory(dataset.source_key)
@@ -215,11 +225,15 @@ def ingest(dataset_key: str, storage_factory: Callable[[str], Any],
         if dry_run:
             continue
         storage.write(document)
-        state.register_hash(document.content_hash, document.id,
-                            dataset.source_key, document.source_url)
-        state.mark_seen(f"{dataset.url}#row={index}", dataset.source_key,
-                        document_id=document.id,
-                        content_hash=document.content_hash)
+        state.register_hash(
+            document.content_hash, document.id, dataset.source_key, document.source_url
+        )
+        state.mark_seen(
+            f"{dataset.url}#row={index}",
+            dataset.source_key,
+            document_id=document.id,
+            content_hash=document.content_hash,
+        )
         stats["stored"] += 1
 
     log.info("%s: %s", dataset.repo_id, stats)
@@ -250,9 +264,7 @@ def compare_coverage(dataset_key: str, own_jsonl_path) -> dict[str, Any]:
         "own_unique_titles": len(own_titles),
     }
     if dataset.expected_rows:
-        result["coverage_vs_expected"] = round(
-            100.0 * own_count / dataset.expected_rows, 1
-        )
+        result["coverage_vs_expected"] = round(100.0 * own_count / dataset.expected_rows, 1)
         if own_count < dataset.expected_rows * 0.8:
             result["warning"] = (
                 f"Your crawl has {own_count} documents against roughly "
@@ -265,4 +277,5 @@ def compare_coverage(dataset_key: str, own_jsonl_path) -> dict[str, Any]:
 
 def _canonical(title: str) -> str:
     import re
+
     return re.sub(r"[^a-z0-9]+", "", title.lower())

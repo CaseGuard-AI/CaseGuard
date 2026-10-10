@@ -33,25 +33,28 @@ def scraper(tmp_path, fixture_html, monkeypatch):
     def handler(request):
         url = str(request.url)
         if "rpt-afr" in url:
-            return httpx.Response(200, text=index,
-                                  headers={"content-type": "text/html"})
+            return httpx.Response(200, text=index, headers={"content-type": "text/html"})
         if "reported-judgements-detail-all" in url:
-            return httpx.Response(200, text=table,
-                                  headers={"content-type": "text/html"})
+            return httpx.Response(200, text=table, headers={"content-type": "text/html"})
         if "top-trend-judgements" in url:
-            return httpx.Response(200, text=listing,
-                                  headers={"content-type": "text/html"})
+            return httpx.Response(200, text=listing, headers={"content-type": "text/html"})
         return httpx.Response(404)
 
     # backoff is capped here only so the suite stays fast; the retry logic
     # itself is exercised properly in tests/test_retry.py
-    client = HttpClient("test", respect_robots=False, retry_count=2,
-                        backoff_base=1.0, backoff_cap=0.01,
-                        rate_limiter=RateLimiter(0.0, 4))
-    client._client = httpx.Client(transport=httpx.MockTransport(handler),
-                                  follow_redirects=True)
+    client = HttpClient(
+        "test",
+        respect_robots=False,
+        retry_count=2,
+        backoff_base=1.0,
+        backoff_cap=0.01,
+        rate_limiter=RateLimiter(0.0, 4),
+    )
+    client._client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
     instance = SindhHighCourtScraper(
-        settings=settings, client=client, state=StateStore(settings.state_db),
+        settings=settings,
+        client=client,
+        state=StateStore(settings.state_db),
         files=FileStorage(settings.raw_dir, settings.text_dir),
         storage=JsonlStorage(settings.jsonl_dir, "shc_caselaw"),
         events=JsonlEventLogger(settings.log_dir / "e.jsonl"),
@@ -152,7 +155,7 @@ def test_row_only_text_is_flagged_honestly(scraper):
 def test_same_judgment_under_two_judges_is_stored_once(scraper):
     scraper.run()
     assert scraper.stats.stored == 3
-    assert scraper.stats.skipped_seen == 3       # second judge's copy of each
+    assert scraper.stats.skipped_seen == 3  # second judge's copy of each
 
 
 def test_falls_back_to_top_trend_when_judge_index_fails(scraper):
@@ -160,12 +163,12 @@ def test_falls_back_to_top_trend_when_judge_index_fails(scraper):
 
     def handler(request):
         if "top-trend-judgements" in str(request.url):
-            return httpx.Response(200, text=listing,
-                                  headers={"content-type": "text/html"})
+            return httpx.Response(200, text=listing, headers={"content-type": "text/html"})
         return httpx.Response(500)
 
     scraper.client._client = httpx.Client(
-        transport=httpx.MockTransport(handler), follow_redirects=True)
+        transport=httpx.MockTransport(handler), follow_redirects=True
+    )
     items = list(scraper.discover())
     assert len(items) == 3
     assert items[0].hint("case_number") == "208/2015"

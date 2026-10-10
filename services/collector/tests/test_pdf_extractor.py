@@ -44,7 +44,7 @@ def test_blank_pdf_is_flagged_as_scanned_not_ok(blank_pdf):
     result = extract_pdf(blank_pdf, ocr=False)
     assert result.is_scanned is True
     assert result.status == ExtractionStatus.SCANNED_NO_OCR.value
-    assert result.error                      # a reason is always recorded
+    assert result.error  # a reason is always recorded
     assert not result.ok
 
 

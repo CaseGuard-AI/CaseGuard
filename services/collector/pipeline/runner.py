@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 
 from config import SOURCES, Settings, SourceConfig
 from models.legal_document import new_run_id
@@ -25,7 +24,7 @@ class Runner:
         self.run_id = run_id or new_run_id()
         setup_logging(settings.log_dir, settings.log_level, self.run_id)
         self.log = get_logger("runner")
-        self.started_at = datetime.now(timezone.utc).isoformat()
+        self.started_at = datetime.now(UTC).isoformat()
 
         self.state = StateStore(settings.state_db)
         self.files = FileStorage(settings.raw_dir, settings.text_dir)
@@ -49,8 +48,12 @@ class Runner:
         storage = JsonlStorage(self.settings.jsonl_dir, source_key, self.run_id)
         scraper_class = get_scraper(source_key)
         return scraper_class(
-            settings=self.settings, client=self.client, state=self.state,
-            files=self.files, storage=storage, events=self.events,
+            settings=self.settings,
+            client=self.client,
+            state=self.state,
+            files=self.files,
+            storage=storage,
+            events=self.events,
             source_config=source_config,
         )
 
@@ -72,15 +75,13 @@ class Runner:
                 self.log.error("%s not run: %s", key, exc)
                 self.report.add_source(key, {"skipped": 1})
                 self.events.emit("source_skipped", source=key, reason=str(exc))
-            except Exception as exc:                        # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
                 self.log.exception("%s crashed: %s", key, exc)
                 self.report.add_source(key, {"crashed": 1})
                 self.events.emit("source_crashed", source=key, error=str(exc))
 
-        self.report.errors = RunReport.from_events(
-            self.run_id, self.started_at, self.events
-        ).errors
-        self.report.finished_at = datetime.now(timezone.utc).isoformat()
+        self.report.errors = RunReport.from_events(self.run_id, self.started_at, self.events).errors
+        self.report.finished_at = datetime.now(UTC).isoformat()
         text_path, json_path = self.report.save(self.settings.report_dir)
         self.state.finish_run(self.run_id, str(self.report.totals()))
         self.log.info("HTTP stats: %s", self.client.stats)
@@ -94,20 +95,20 @@ class Runner:
         out_dir = self.settings.output_dir / "probe"
         if probe_fn is None:
             from urllib.parse import urljoin
+
             url = urljoin(SOURCES[source_key].base_url, "/")
             response = self.client.get(url)
             out_dir.mkdir(parents=True, exist_ok=True)
             target = out_dir / f"{source_key}_root.html"
             target.write_text(response.text, encoding="utf-8")
-            return {"url": url, "status": response.status_code,
-                    "saved_to": str(target)}
+            return {"url": url, "status": response.status_code, "saved_to": str(target)}
         return probe_fn(out_dir)
 
     def close(self) -> None:
         self.client.close()
         self.state.close()
 
-    def __enter__(self) -> "Runner":
+    def __enter__(self) -> Runner:
         return self
 
     def __exit__(self, *exc) -> bool:

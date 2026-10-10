@@ -35,13 +35,15 @@ returns" and say so in your methodology.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 from urllib.parse import unquote, urljoin
 
 from extractors.html_extractor import clean_text, make_soup
 from extractors.metadata_extractor import (
-    extract_citations, extract_judges, split_parties,
+    extract_citations,
+    extract_judges,
+    split_parties,
 )
 from models.legal_document import DocumentType, LegalDocument
 from scrapers.base_scraper import BaseScraper, Discovered
@@ -65,7 +67,8 @@ FSC_CITATION = re.compile(r"\bPLD[-\s]*((?:19|20)\d{2})\s*FSC[-\s]*(\d+)\b", re.
 DECISION_DATE = re.compile(r"Date\s+of\s+Decision\s*[:\-]?\s*([\d.\-/]+)", re.I)
 
 COLUMN_MAP = {
-    "sno": "serial", "srno": "serial",
+    "sno": "serial",
+    "srno": "serial",
     "title": "title",
     "casetitle": "title",
     "caseno": "case_number",
@@ -74,10 +77,14 @@ COLUMN_MAP = {
     "judgmentdate": "judgment_date",
     "judgementdate": "judgment_date",
     "referencewithdateofdecision": "reference",
-    "sections": "sections", "section": "sections",
-    "citations": "citation", "citation": "citation",
-    "yearofjudgment": "year", "yearofjudgement": "year",
-    "downloadjudgment": "download", "downloadjudgement": "download",
+    "sections": "sections",
+    "section": "sections",
+    "citations": "citation",
+    "citation": "citation",
+    "yearofjudgment": "year",
+    "yearofjudgement": "year",
+    "downloadjudgment": "download",
+    "downloadjudgement": "download",
     "download": "download",
 }
 
@@ -105,19 +112,17 @@ class FederalShariatCourtScraper(BaseScraper):
             response = self._fetch(url)
             if response is None:
                 continue
-            items = list(self._parse_tables(response.text, response.url,
-                                            listing="leading"))
+            items = list(self._parse_tables(response.text, response.url, listing="leading"))
             if items:
                 self.log.info("%s -> %d judgments", path, len(items))
                 found += len(items)
                 yield from items
-                break                      # the two paths are the same page
+                break  # the two paths are the same page
 
         url = urljoin(self.config.base_url, JUDGEMENT_LIST)
         response = self._fetch(url, params=JUDGEMENT_LIST_PARAMS or None)
         if response is not None:
-            items = list(self._parse_tables(response.text, response.url,
-                                            listing="cfms"))
+            items = list(self._parse_tables(response.text, response.url, listing="cfms"))
             self.log.info("%s -> %d judgments", JUDGEMENT_LIST, len(items))
             found += len(items)
             yield from items
@@ -129,8 +134,7 @@ class FederalShariatCourtScraper(BaseScraper):
             )
 
     # ------------------------------------------------------------------
-    def _parse_tables(self, html: str, base_url: str,
-                      listing: str) -> Iterator[Discovered]:
+    def _parse_tables(self, html: str, base_url: str, listing: str) -> Iterator[Discovered]:
         soup = make_soup(html)
         seen: set[str] = set()
 
@@ -168,13 +172,16 @@ class FederalShariatCourtScraper(BaseScraper):
             seen.add(pdf_url)
             block = anchor.find_parent(["tr", "li", "div", "p"])
             context = clean_text(block.get_text("\n")) if block else ""
-            yield self._make_item(pdf_url, {
-                "title": anchor.get_text(" ", strip=True) or None,
-                "context": context[:1500],
-                "listing": listing,
-                "listing_url": base_url,
-                "filename": unquote(Path(pdf_url.split("?")[0]).name),
-            })
+            yield self._make_item(
+                pdf_url,
+                {
+                    "title": anchor.get_text(" ", strip=True) or None,
+                    "context": context[:1500],
+                    "listing": listing,
+                    "listing_url": base_url,
+                    "filename": unquote(Path(pdf_url.split("?")[0]).name),
+                },
+            )
 
     @staticmethod
     def _headers(table) -> dict[int, str]:
@@ -206,12 +213,14 @@ class FederalShariatCourtScraper(BaseScraper):
             url=pdf_url,
             hints={k: v for k, v in values.items() if v},
             document_type=DocumentType.JUDGMENT.value,
-            year=(extract_year(values.get("year", ""))
-                  or extract_year(values.get("judgment_date", ""))
-                  or extract_year(decision or "")
-                  or citation_year
-                  or extract_year(values.get("filename", ""))
-                  or extract_year(blob)),
+            year=(
+                extract_year(values.get("year", ""))
+                or extract_year(values.get("judgment_date", ""))
+                or extract_year(decision or "")
+                or citation_year
+                or extract_year(values.get("filename", ""))
+                or extract_year(blob)
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -224,9 +233,11 @@ class FederalShariatCourtScraper(BaseScraper):
             document_url=item.url,
             document_file_url=item.url,
             title=title,
-            case_number=(item.hint("case_number")
-                         or self._case_number(item.hint("filename") or "")
-                         or self._case_number(f"{title} {reference}")),
+            case_number=(
+                item.hint("case_number")
+                or self._case_number(item.hint("filename") or "")
+                or self._case_number(f"{title} {reference}")
+            ),
             document_type=DocumentType.JUDGMENT.value,
             court="Federal Shariat Court",
             bench=item.hint("bench"),
@@ -236,8 +247,7 @@ class FederalShariatCourtScraper(BaseScraper):
             raw={k: v for k, v in item.hints.items() if v},
         )
 
-        date = (normalise_date(item.hint("judgment_date"))
-                or self._decision_date(reference))
+        date = normalise_date(item.hint("judgment_date")) or self._decision_date(reference)
         document.date = date
         document.judgment_date = date
 

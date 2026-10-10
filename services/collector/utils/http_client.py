@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import random
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 import httpx
 
@@ -47,7 +48,7 @@ class FetchError(Exception):
 
 @dataclass
 class Response:
-    url: str            # final URL after redirects
+    url: str  # final URL after redirects
     requested_url: str
     status_code: int
     content: bytes
@@ -106,8 +107,13 @@ class HttpClient:
         self.backoff_cap = backoff_cap
         self.rate_limiter = rate_limiter or RateLimiter()
         self.robots = RobotsCache(user_agent, enabled=respect_robots)
-        self.stats = {"requests": 0, "retries": 0, "bytes": 0,
-                      "robots_blocked": 0, "not_modified": 0}
+        self.stats = {
+            "requests": 0,
+            "retries": 0,
+            "bytes": 0,
+            "robots_blocked": 0,
+            "not_modified": 0,
+        }
         self._client = httpx.Client(
             headers={
                 "User-Agent": user_agent,
@@ -126,7 +132,7 @@ class HttpClient:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "HttpClient":
+    def __enter__(self) -> HttpClient:
         return self
 
     def __exit__(self, *exc) -> bool:
@@ -144,9 +150,15 @@ class HttpClient:
         last_modified: str | None = None,
         allow_robots_check: bool = True,
     ) -> Response:
-        return self._request("GET", url, params=params, headers=headers,
-                             etag=etag, last_modified=last_modified,
-                             allow_robots_check=allow_robots_check)
+        return self._request(
+            "GET",
+            url,
+            params=params,
+            headers=headers,
+            etag=etag,
+            last_modified=last_modified,
+            allow_robots_check=allow_robots_check,
+        )
 
     def post(
         self,
@@ -156,8 +168,9 @@ class HttpClient:
         headers: Mapping[str, str] | None = None,
         allow_robots_check: bool = True,
     ) -> Response:
-        return self._request("POST", url, data=data, headers=headers,
-                             allow_robots_check=allow_robots_check)
+        return self._request(
+            "POST", url, data=data, headers=headers, allow_robots_check=allow_robots_check
+        )
 
     # -----------------------------------------------------------------
     def _request(
@@ -194,14 +207,22 @@ class HttpClient:
                 try:
                     self.stats["requests"] += 1
                     raw = self._client.request(
-                        method, url, params=params, data=data,
+                        method,
+                        url,
+                        params=params,
+                        data=data,
                         headers=request_headers or None,
                     )
-                except (httpx.TimeoutException, httpx.TransportError,
-                        httpx.ProtocolError) as exc:
+                except (httpx.TimeoutException, httpx.TransportError, httpx.ProtocolError) as exc:
                     last_error = exc
-                    log.warning("%s %s -> %s (attempt %d/%d)", method, url,
-                                type(exc).__name__, attempt + 1, self.retry_count + 1)
+                    log.warning(
+                        "%s %s -> %s (attempt %d/%d)",
+                        method,
+                        url,
+                        type(exc).__name__,
+                        attempt + 1,
+                        self.retry_count + 1,
+                    )
                     if attempt < self.retry_count:
                         self.stats["retries"] += 1
                         self._sleep_backoff(attempt)
@@ -212,19 +233,23 @@ class HttpClient:
 
             if raw.status_code == 304:
                 self.stats["not_modified"] += 1
-                return Response(str(raw.url), url, 304, b"", raw.headers,
-                                elapsed, not_modified=True)
+                return Response(
+                    str(raw.url), url, 304, b"", raw.headers, elapsed, not_modified=True
+                )
 
             if raw.status_code in FATAL_STATUS:
-                raise FetchError(url, f"HTTP {raw.status_code} (not retryable)",
-                                 raw.status_code)
+                raise FetchError(url, f"HTTP {raw.status_code} (not retryable)", raw.status_code)
 
             if raw.status_code in RETRYABLE_STATUS:
                 last_error = FetchError(url, f"HTTP {raw.status_code}", raw.status_code)
                 if raw.status_code in (429, 503):
                     new_delay = self.rate_limiter.penalise(url, cap=self.backoff_cap)
-                    log.warning("%s throttled us (HTTP %d); host delay now %.1fs",
-                                url, raw.status_code, new_delay)
+                    log.warning(
+                        "%s throttled us (HTTP %d); host delay now %.1fs",
+                        url,
+                        raw.status_code,
+                        new_delay,
+                    )
                 if attempt < self.retry_count:
                     self.stats["retries"] += 1
                     self._sleep_backoff(attempt, raw.headers.get("retry-after"))
@@ -235,8 +260,7 @@ class HttpClient:
                 raise FetchError(url, f"HTTP {raw.status_code}", raw.status_code)
 
             self.stats["bytes"] += len(raw.content)
-            return Response(str(raw.url), url, raw.status_code, raw.content,
-                            raw.headers, elapsed)
+            return Response(str(raw.url), url, raw.status_code, raw.content, raw.headers, elapsed)
 
         raise FetchError(url, f"exhausted retries: {last_error}")
 
@@ -248,7 +272,7 @@ class HttpClient:
                 return
             except (TypeError, ValueError):
                 pass
-        delay = min(self.backoff_cap, self.backoff_base ** attempt)
-        delay += random.uniform(0, delay * 0.3)     # jitter: avoid lockstep retries
+        delay = min(self.backoff_cap, self.backoff_base**attempt)
+        delay += random.uniform(0, delay * 0.3)  # jitter: avoid lockstep retries
         log.debug("backing off %.1fs", delay)
         time.sleep(delay)

@@ -13,10 +13,11 @@ import os
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
-try:                                    # optional convenience
+try:  # optional convenience
     from dotenv import load_dotenv
+
     load_dotenv()
-except ImportError:                     # pragma: no cover
+except ImportError:  # pragma: no cover
     pass
 
 
@@ -60,6 +61,7 @@ class SourceConfig:
         True  -> refuses to run unless --i-have-permission is passed AND
                  PKLEGAL_PERMISSION_<KEY>=1 is set in the environment.
     """
+
     key: str
     name: str
     base_url: str
@@ -192,8 +194,8 @@ class Settings:
     download_pdfs: bool = _env_bool("PKLEGAL_DOWNLOAD_PDFS", True)
     ocr_enabled: bool = _env_bool("PKLEGAL_OCR_ENABLED", False)
     ocr_language: str = os.getenv("PKLEGAL_OCR_LANG", "eng")
-    force: bool = False               # re-fetch even if already seen
-    dry_run: bool = False             # discover + log, write nothing
+    force: bool = False  # re-fetch even if already seen
+    dry_run: bool = False  # discover + log, write nothing
     i_have_permission: bool = False
 
     # storage
@@ -226,8 +228,14 @@ class Settings:
         return self.output_dir / "reports"
 
     def ensure_dirs(self) -> None:
-        for path in (self.raw_dir, self.text_dir, self.jsonl_dir,
-                     self.state_db.parent, self.log_dir, self.report_dir):
+        for path in (
+            self.raw_dir,
+            self.text_dir,
+            self.jsonl_dir,
+            self.state_db.parent,
+            self.log_dir,
+            self.report_dir,
+        ):
             path.mkdir(parents=True, exist_ok=True)
 
     def delay_for(self, source_key: str) -> float:
@@ -235,7 +243,7 @@ class Settings:
         src = SOURCES.get(source_key)
         return max(self.request_delay, src.min_delay_seconds if src else 0.0)
 
-    def with_overrides(self, **kwargs) -> "Settings":
+    def with_overrides(self, **kwargs) -> Settings:
         clean = {k: v for k, v in kwargs.items() if v is not None}
         return replace(self, **clean)
 

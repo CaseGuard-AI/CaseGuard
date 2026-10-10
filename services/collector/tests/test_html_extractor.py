@@ -1,5 +1,9 @@
 from extractors.html_extractor import (
-    clean_text, extract_links, extract_tables, extract_text, find_pdf_links,
+    clean_text,
+    extract_links,
+    extract_tables,
+    extract_text,
+    find_pdf_links,
 )
 
 HTML = """
@@ -37,7 +41,7 @@ def test_br_becomes_a_newline():
 
 def test_links_are_absolutised_and_filtered():
     links = extract_links(HTML, "https://pakistancode.gov.pk/english/index.php")
-    urls = [l.url for l in links]
+    urls = [link.url for link in links]
     assert "https://pakistancode.gov.pk/english/UY2Fqa-sg-jjjj" in urls
     assert not any("javascript" in u for u in urls)
 
@@ -48,9 +52,10 @@ def test_pattern_filter():
 
 
 def test_same_host_only():
-    links = extract_links(HTML, "https://pakistancode.gov.pk/",
-                          pattern=r"\.pdf$", same_host_only=True)
-    assert all("pakistancode.gov.pk" in l.url for l in links)
+    links = extract_links(
+        HTML, "https://pakistancode.gov.pk/", pattern=r"\.pdf$", same_host_only=True
+    )
+    assert all("pakistancode.gov.pk" in link.url for link in links)
 
 
 def test_find_pdf_links():

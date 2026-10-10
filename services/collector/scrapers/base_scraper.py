@@ -16,8 +16,9 @@ copy of the whole pipeline.
 from __future__ import annotations
 
 import abc
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any
 
 from config import Settings, SourceConfig
 from extractors.pdf_extractor import extract_pdf
@@ -34,6 +35,7 @@ from utils.logging_config import JsonlEventLogger, get_logger
 @dataclass
 class Discovered:
     """A candidate document found during crawling."""
+
     url: str
     hints: dict[str, Any] = field(default_factory=dict)
     document_type: str | None = None
@@ -125,7 +127,8 @@ class BaseScraper(abc.ABC):
         if self.config.status != "verified":
             self.log.warning(
                 "Source status is %r -- selectors are unverified. Review output "
-                "before using it as corpus data.", self.config.status,
+                "before using it as corpus data.",
+                self.config.status,
             )
 
         limit = self.settings.limit
@@ -134,23 +137,24 @@ class BaseScraper(abc.ABC):
             if limit is not None and self.stats.stored >= limit:
                 self.log.info("Reached --limit %d; stopping discovery.", limit)
                 break
-            if not in_year_range(item.year, self.settings.start_year,
-                                 self.settings.end_year):
+            if not in_year_range(item.year, self.settings.start_year, self.settings.end_year):
                 continue
             try:
                 self._process(item)
             except RobotsDisallowed as exc:
                 self.stats.failed += 1
                 self.log.error("robots.txt blocked %s", item.url)
-                self.events.emit("robots_blocked", source=self.source_key,
-                                 url=item.url, error=str(exc))
-            except Exception as exc:                        # noqa: BLE001
+                self.events.emit(
+                    "robots_blocked", source=self.source_key, url=item.url, error=str(exc)
+                )
+            except Exception as exc:  # noqa: BLE001
                 # One bad document must never kill the run.
                 self.stats.failed += 1
                 self.state.record_failure(item.url, self.source_key, str(exc))
                 self.log.exception("Failed on %s: %s", item.url, exc)
-                self.events.emit("document_failed", source=self.source_key,
-                                 url=item.url, error=str(exc))
+                self.events.emit(
+                    "document_failed", source=self.source_key, url=item.url, error=str(exc)
+                )
 
         self.log.info("Finished %s: %s", self.source_key, self.stats.as_dict())
         return self.stats
@@ -170,12 +174,17 @@ class BaseScraper(abc.ABC):
             self.stats.parsed += 1
             document.compute_content_hash()
             outcome = self._store(document, None, item)
-            self.events.emit("document", source=self.source_key, url=item.url,
-                             outcome=outcome, document_id=document.id,
-                             document_type=document.document_type,
-                             extraction_status=document.extraction_status,
-                             has_text=bool(document.full_text),
-                             validation=document.validate())
+            self.events.emit(
+                "document",
+                source=self.source_key,
+                url=item.url,
+                outcome=outcome,
+                document_id=document.id,
+                document_type=document.document_type,
+                extraction_status=document.extraction_status,
+                has_text=bool(document.full_text),
+                validation=document.validate(),
+            )
             return
 
         if not force and not self.state.should_process(item.url):
@@ -205,12 +214,17 @@ class BaseScraper(abc.ABC):
 
         document.compute_content_hash()
         outcome = self._store(document, response, item)
-        self.events.emit("document", source=self.source_key, url=item.url,
-                         outcome=outcome, document_id=document.id,
-                         document_type=document.document_type,
-                         extraction_status=document.extraction_status,
-                         has_text=bool(document.full_text),
-                         validation=document.validate())
+        self.events.emit(
+            "document",
+            source=self.source_key,
+            url=item.url,
+            outcome=outcome,
+            document_id=document.id,
+            document_type=document.document_type,
+            extraction_status=document.extraction_status,
+            has_text=bool(document.full_text),
+            validation=document.validate(),
+        )
 
     # ------------------------------------------------------------------
     def _fetch(self, url: str, **kwargs):
@@ -220,13 +234,13 @@ class BaseScraper(abc.ABC):
             self.stats.failed += 1
             self.state.record_failure(url, self.source_key, str(exc))
             self.log.warning("fetch failed: %s", exc)
-            self.events.emit("fetch_failed", source=self.source_key,
-                             url=url, error=str(exc), status=exc.status)
+            self.events.emit(
+                "fetch_failed", source=self.source_key, url=url, error=str(exc), status=exc.status
+            )
             return None
 
     # ------------------------------------------------------------------
-    def _store(self, document: LegalDocument, response,
-               item: Discovered) -> str:
+    def _store(self, document: LegalDocument, response, item: Discovered) -> str:
         # Crawl state is keyed on the URL we actually fetched (item.url), not
         # on document.source_url. Several documents can share one source_url
         # (a listing page), and collapsing them onto a single state row would
@@ -240,35 +254,39 @@ class BaseScraper(abc.ABC):
                 f"duplicate content of {duplicate['document_id']} ({duplicate['url']})"
             )
             self.log.info("duplicate content, not storing: %s", state_url)
-            self.state.mark_seen(state_url, self.source_key,
-                                 document_id=document.id,
-                                 content_hash=document.content_hash,
-                                 status="duplicate")
+            self.state.mark_seen(
+                state_url,
+                self.source_key,
+                document_id=document.id,
+                content_hash=document.content_hash,
+                status="duplicate",
+            )
             return "duplicate"
 
         problems = document.validate()
         if problems:
             self.stats.invalid += 1
             document.notes.append("validation: " + "; ".join(problems))
-            self.log.warning("validation issues on %s: %s",
-                             state_url, "; ".join(problems))
+            self.log.warning("validation issues on %s: %s", state_url, "; ".join(problems))
         if not document.title or not document.date:
             self.stats.missing_metadata += 1
 
         # Invalid documents are still written out, flagged. Losing them
         # silently would hide gaps in the corpus; the report counts them.
         if self.settings.dry_run:
-            self.log.info("[dry-run] would store %s (%s)",
-                          document.title or document.case_number, document.id)
+            self.log.info(
+                "[dry-run] would store %s (%s)", document.title or document.case_number, document.id
+            )
             return "dry_run"
 
         self.storage.write(document)
         self.stats.stored += 1
-        self.state.register_hash(document.content_hash, document.id,
-                                 self.source_key, state_url)
+        self.state.register_hash(document.content_hash, document.id, self.source_key, state_url)
         status_change = self.state.mark_seen(
-            state_url, self.source_key,
-            document_id=document.id, content_hash=document.content_hash,
+            state_url,
+            self.source_key,
+            document_id=document.id,
+            content_hash=document.content_hash,
             etag=getattr(response, "etag", None),
             last_modified=getattr(response, "last_modified", None),
             status="invalid" if problems else "ok",
@@ -282,8 +300,9 @@ class BaseScraper(abc.ABC):
     # ==================================================================
     # helpers available to subclasses
     # ==================================================================
-    def ingest_pdf(self, document: LegalDocument, pdf_url: str,
-                   name_hint: str | None = None) -> LegalDocument:
+    def ingest_pdf(
+        self, document: LegalDocument, pdf_url: str, name_hint: str | None = None
+    ) -> LegalDocument:
         """Download a PDF, save the original, extract text, record failures.
 
         A PDF that cannot be read is still attached to the document with
@@ -295,9 +314,7 @@ class BaseScraper(abc.ABC):
             document.notes.append("PDF download disabled (--no-pdfs)")
             return document
 
-        year = document.date and extract_year(document.date) or extract_year(
-            document.title or ""
-        )
+        year = document.date and extract_year(document.date) or extract_year(document.title or "")
         name = name_hint or document.title or document.case_number or "document"
         target = self.files.raw_path(self.source_key, name, pdf_url, year)
 
@@ -328,8 +345,9 @@ class BaseScraper(abc.ABC):
         document.mime_type = "application/pdf"
         document.raw.setdefault("pdf_sha256", sha256_bytes(data))
 
-        extraction = extract_pdf(target, ocr=self.settings.ocr_enabled,
-                                 ocr_language=self.settings.ocr_language)
+        extraction = extract_pdf(
+            target, ocr=self.settings.ocr_enabled, ocr_language=self.settings.ocr_language
+        )
         document.extraction_status = extraction.status
         document.extraction_error = extraction.error
         document.page_count = extraction.page_count
@@ -338,19 +356,32 @@ class BaseScraper(abc.ABC):
             self.files.save_text(extraction.text, self.source_key, name, pdf_url, year)
         if extraction.is_scanned:
             self.stats.scanned_pdfs += 1
-            self.events.emit("pdf_scanned", source=self.source_key, url=pdf_url,
-                             chars_per_page=extraction.chars_per_page)
+            self.events.emit(
+                "pdf_scanned",
+                source=self.source_key,
+                url=pdf_url,
+                chars_per_page=extraction.chars_per_page,
+            )
         if not extraction.ok:
             self.stats.pdf_extract_failed += 1
-            self.log.warning("PDF text extraction %s for %s (%s)",
-                             extraction.status, target.name, extraction.error)
-            self.events.emit("pdf_extract_failed", source=self.source_key,
-                             url=pdf_url, status=extraction.status,
-                             error=extraction.error)
+            self.log.warning(
+                "PDF text extraction %s for %s (%s)",
+                extraction.status,
+                target.name,
+                extraction.error,
+            )
+            self.events.emit(
+                "pdf_extract_failed",
+                source=self.source_key,
+                url=pdf_url,
+                status=extraction.status,
+                error=extraction.error,
+            )
         return document
 
-    def attach_html_text(self, document: LegalDocument, text: str,
-                         name_hint: str | None = None) -> LegalDocument:
+    def attach_html_text(
+        self, document: LegalDocument, text: str, name_hint: str | None = None
+    ) -> LegalDocument:
         document.full_text = text
         document.mime_type = "text/html"
         document.extraction_status = (
@@ -358,10 +389,13 @@ class BaseScraper(abc.ABC):
         )
         self.stats.html_docs += 1
         if text.strip():
-            self.files.save_text(text, self.source_key,
-                                 name_hint or document.title or document.id,
-                                 document.source_url,
-                                 extract_year(document.date or ""))
+            self.files.save_text(
+                text,
+                self.source_key,
+                name_hint or document.title or document.id,
+                document.source_url,
+                extract_year(document.date or ""),
+            )
         return document
 
     def new_document(self, **kwargs) -> LegalDocument:
@@ -372,6 +406,7 @@ class BaseScraper(abc.ABC):
     # ------------------------------------------------------------------
     def _check_permission(self) -> None:
         import os
+
         if not self.config.requires_permission:
             return
         env_flag = os.getenv(f"PKLEGAL_PERMISSION_{self.source_key.upper()}", "")
@@ -382,6 +417,8 @@ class BaseScraper(abc.ABC):
                 f"PKLEGAL_PERMISSION_{self.source_key.upper()}=1 and pass "
                 f"--i-have-permission."
             )
-        self.log.warning("Permission flag set for %s -- proceeding. Keep the "
-                         "written authorisation on file for your FYP report.",
-                         self.config.name)
+        self.log.warning(
+            "Permission flag set for %s -- proceeding. Keep the "
+            "written authorisation on file for your FYP report.",
+            self.config.name,
+        )

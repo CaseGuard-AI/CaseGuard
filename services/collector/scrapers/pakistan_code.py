@@ -32,12 +32,13 @@ from __future__ import annotations
 
 import re
 import string
-from typing import Iterator
+from collections.abc import Iterator
 from urllib.parse import urljoin
 
 from extractors.html_extractor import make_soup
 from extractors.metadata_extractor import (
-    extract_document_number, guess_document_type,
+    extract_document_number,
+    guess_document_type,
 )
 from models.legal_document import DocumentType, LegalDocument
 from scrapers.base_scraper import BaseScraper, Discovered
@@ -69,8 +70,9 @@ class PakistanCodeScraper(BaseScraper):
         for letter in string.ascii_uppercase:
             empty_streak = 0
             for page in range(1, max_pages + 1):
-                url = (f"{urljoin(base, INDEX_ALPHABETICAL)}"
-                       f"?alp={letter}&page={page}&action=inactive")
+                url = (
+                    f"{urljoin(base, INDEX_ALPHABETICAL)}?alp={letter}&page={page}&action=inactive"
+                )
                 response = self._fetch(url)
                 if response is None:
                     break
@@ -79,13 +81,11 @@ class PakistanCodeScraper(BaseScraper):
                 if not entries:
                     empty_streak += 1
                     if empty_streak >= 1 or _NO_RECORDS.search(response.text):
-                        self.log.debug("letter %s: no more entries after page %d",
-                                       letter, page)
+                        self.log.debug("letter %s: no more entries after page %d", letter, page)
                         break
                     continue
 
-                self.log.info("index %s page %d -> %d entries",
-                              letter, page, len(entries))
+                self.log.info("index %s page %d -> %d entries", letter, page, len(entries))
                 yield from entries
 
                 if self.settings.limit and self.stats.stored >= self.settings.limit:
@@ -114,9 +114,11 @@ class PakistanCodeScraper(BaseScraper):
             hints["title"] = title
             hints["meta_line"] = meta_line
 
-            year = extract_year(hints.get("document_number") or "") or \
-                extract_year(hints.get("promulgation_date") or "") or \
-                extract_year(title)
+            year = (
+                extract_year(hints.get("document_number") or "")
+                or extract_year(hints.get("promulgation_date") or "")
+                or extract_year(title)
+            )
 
             yield Discovered(
                 url=url,
@@ -142,7 +144,7 @@ class PakistanCodeScraper(BaseScraper):
                     return " ".join(tail.split())
         parts: list[str] = []
         for sibling in anchor.next_siblings:
-            chunk = getattr(sibling, "get_text", lambda *a, **k: str(sibling))(" ", strip=True)
+            chunk = getattr(sibling, "get_text", lambda *a, **k: str(sibling))(" ", strip=True)  # noqa: B023 (lambda is called immediately)
             if chunk:
                 parts.append(chunk)
             if len(" ".join(parts)) > 250:
@@ -151,7 +153,7 @@ class PakistanCodeScraper(BaseScraper):
 
     @staticmethod
     def _parse_meta_line(line: str) -> dict:
-        """"General Laws | XVIII of 1999 | Promulgation Date: September 24 1999.
+        """ "General Laws | XVIII of 1999 | Promulgation Date: September 24 1999.
         | Archive 0 | Under Review"  ->  structured fields."""
         hints: dict[str, str] = {}
         if not line:
@@ -192,15 +194,13 @@ class PakistanCodeScraper(BaseScraper):
             title=title,
             document_type=item.document_type or DocumentType.ACT.value,
             jurisdiction="Pakistan",
-            province=None,                       # federal statutes
+            province=None,  # federal statutes
             category=item.hint("category"),
             language="en",
             raw={k: v for k, v in item.hints.items() if v},
         )
 
-        document.document_number = (
-            item.hint("document_number") or extract_document_number(title)
-        )
+        document.document_number = item.hint("document_number") or extract_document_number(title)
         promulgation = normalise_date(item.hint("promulgation_date"))
         document.promulgation_date = promulgation
         document.date = promulgation
@@ -213,8 +213,7 @@ class PakistanCodeScraper(BaseScraper):
             if year:
                 document.raw["year"] = year
                 document.notes.append(
-                    "no full promulgation date published; year taken from the "
-                    "statute number/title"
+                    "no full promulgation date published; year taken from the statute number/title"
                 )
 
         pdf_url = self._find_pdf(soup, response.url)
@@ -262,6 +261,7 @@ class PakistanCodeScraper(BaseScraper):
     @staticmethod
     def _page_body_text(soup) -> str:
         from extractors.html_extractor import clean_text
+
         node = soup.find(id="pdf") or soup.find("main") or soup.find("article")
         if node is None:
             return ""

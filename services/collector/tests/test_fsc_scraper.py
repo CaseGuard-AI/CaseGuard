@@ -15,6 +15,7 @@ from utils.rate_limiter import RateLimiter
 
 def _pdf_bytes(body: str) -> bytes:
     import fitz
+
     doc = fitz.open()
     page = doc.new_page()
     page.insert_text((72, 90), "IN THE FEDERAL SHARIAT COURT")
@@ -39,30 +40,40 @@ def scraper(tmp_path, fixture_html):
     def handler(request):
         url = str(request.url)
         if "leading-judgements" in url or "p=209" in url:
-            return httpx.Response(200, text=leading,
-                                  headers={"content-type": "text/html"})
+            return httpx.Response(200, text=leading, headers={"content-type": "text/html"})
         if url.endswith(".pdf") or ".pdf" in url:
-            return httpx.Response(200, content=_pdf_bytes(f"Body for {url[-20:]}"),
-                                  headers={"content-type": "application/pdf"})
+            return httpx.Response(
+                200,
+                content=_pdf_bytes(f"Body for {url[-20:]}"),
+                headers={"content-type": "application/pdf"},
+            )
         if "judgement.php" in url:
-            return httpx.Response(200, text="<html><body>no table</body></html>",
-                                  headers={"content-type": "text/html"})
+            return httpx.Response(
+                200,
+                text="<html><body>no table</body></html>",
+                headers={"content-type": "text/html"},
+            )
         return httpx.Response(404)
 
-    client = HttpClient("test", respect_robots=False, retry_count=1,
-                        backoff_base=1.0, backoff_cap=0.01,
-                        rate_limiter=RateLimiter(0.0, 4))
-    client._client = httpx.Client(transport=httpx.MockTransport(handler),
-                                  follow_redirects=True)
+    client = HttpClient(
+        "test",
+        respect_robots=False,
+        retry_count=1,
+        backoff_base=1.0,
+        backoff_cap=0.01,
+        rate_limiter=RateLimiter(0.0, 4),
+    )
+    client._client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
     instance = FederalShariatCourtScraper(
-        settings=settings, client=client, state=StateStore(settings.state_db),
+        settings=settings,
+        client=client,
+        state=StateStore(settings.state_db),
         files=FileStorage(settings.raw_dir, settings.text_dir),
         storage=JsonlStorage(settings.jsonl_dir, "federal_shariat_court"),
         events=JsonlEventLogger(settings.log_dir / "e.jsonl"),
         source_config=SOURCES["federal_shariat_court"],
     )
-    client.rate_limiter.set_host_delay(
-        SOURCES["federal_shariat_court"].base_url, 0.0)
+    client.rate_limiter.set_host_delay(SOURCES["federal_shariat_court"].base_url, 0.0)
     client.rate_limiter.default_delay = 0.0
     yield instance
     client.close()
@@ -83,8 +94,7 @@ def test_reference_column_is_captured(scraper):
 
 
 def test_pld_fsc_citation_is_parsed(scraper):
-    item = next(i for i in scraper.discover()
-                if "Transgender" in (i.hint("title") or ""))
+    item = next(i for i in scraper.discover() if "Transgender" in (i.hint("title") or ""))
     doc = scraper.parse_document(item, None)
     assert doc.citation == "PLD 2023 FSC 301"
     assert doc.court == "Federal Shariat Court"
@@ -92,8 +102,7 @@ def test_pld_fsc_citation_is_parsed(scraper):
 
 
 def test_missing_citation_stays_none(scraper):
-    item = next(i for i in scraper.discover()
-                if "Chaddar" in (i.hint("title") or ""))
+    item = next(i for i in scraper.discover() if "Chaddar" in (i.hint("title") or ""))
     doc = scraper.parse_document(item, None)
     assert doc.citation is None
     assert doc.date == "2025-03-19"
@@ -101,10 +110,11 @@ def test_missing_citation_stays_none(scraper):
 
 def test_case_number_parsed_from_inconsistent_filenames(scraper):
     # the site uses spaces, dots and dashes interchangeably
-    assert scraper._case_number("S.P.NO.30-L-1991.pdf") == \
-        "Shariat Petition No. 30-L/1991"
-    assert scraper._case_number("Shariat Petition No. 10 - I - of 2023.pdf") == \
-        "Shariat Petition No. 10-I/2023"
+    assert scraper._case_number("S.P.NO.30-L-1991.pdf") == "Shariat Petition No. 30-L/1991"
+    assert (
+        scraper._case_number("Shariat Petition No. 10 - I - of 2023.pdf")
+        == "Shariat Petition No. 10-I/2023"
+    )
     assert scraper._case_number("not a case") is None
 
 
@@ -112,14 +122,13 @@ def test_petition_year_and_decision_year_are_both_kept(scraper):
     """The Riba judgment is a 1991 petition decided in 2022 -- both matter."""
     item = next(i for i in scraper.discover() if "Riba" in (i.hint("title") or ""))
     doc = scraper.parse_document(item, None)
-    assert item.year == 2022                 # decision year, for filtering
+    assert item.year == 2022  # decision year, for filtering
     assert doc.raw["petition_year"] == 1991  # filing year, kept separately
     assert doc.case_number == "Shariat Petition No. 30-L/1991"
 
 
 def test_pdf_is_downloaded_and_judges_parsed_from_the_header(scraper):
-    item = next(i for i in scraper.discover()
-                if "Transgender" in (i.hint("title") or ""))
+    item = next(i for i in scraper.discover() if "Transgender" in (i.hint("title") or ""))
     doc = scraper.parse_document(item, None)
     assert doc.extraction_status == "ok"
     assert "FEDERAL SHARIAT COURT" in doc.full_text

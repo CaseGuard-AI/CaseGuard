@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from urllib.parse import urljoin, urldefrag
+from urllib.parse import urldefrag, urljoin
 
 from bs4 import BeautifulSoup
 
-_BOILERPLATE = ("script", "style", "noscript", "nav", "header", "footer",
-                "form", "iframe", "svg", "button")
+_BOILERPLATE = (
+    "script",
+    "style",
+    "noscript",
+    "nav",
+    "header",
+    "footer",
+    "form",
+    "iframe",
+    "svg",
+    "button",
+)
 _BLANK_LINES = re.compile(r"\n{3,}")
 _SPACES = re.compile(r"[ \t\xa0]+")
 
@@ -24,12 +34,11 @@ def make_soup(html: str) -> BeautifulSoup:
     """lxml when available (much faster), stdlib parser as fallback."""
     try:
         return BeautifulSoup(html, "lxml")
-    except Exception:                                  # pragma: no cover
+    except Exception:  # pragma: no cover
         return BeautifulSoup(html, "html.parser")
 
 
-def extract_text(html: str, *, selector: str | None = None,
-                 strip_boilerplate: bool = True) -> str:
+def extract_text(html: str, *, selector: str | None = None, strip_boilerplate: bool = True) -> str:
     soup = make_soup(html)
     if strip_boilerplate:
         for tag in soup(list(_BOILERPLATE)):
@@ -53,16 +62,21 @@ def clean_text(text: str) -> str:
     return _BLANK_LINES.sub("\n\n", joined).strip()
 
 
-def extract_links(html: str, base_url: str, *,
-                  selector: str | None = None,
-                  pattern: str | None = None,
-                  same_host_only: bool = False) -> list[Link]:
+def extract_links(
+    html: str,
+    base_url: str,
+    *,
+    selector: str | None = None,
+    pattern: str | None = None,
+    same_host_only: bool = False,
+) -> list[Link]:
     soup = make_soup(html)
     scope = soup.select_one(selector) if selector else soup
     if scope is None:
         return []
     regex = re.compile(pattern) if pattern else None
     from urllib.parse import urlparse
+
     base_host = urlparse(base_url).netloc.lower()
 
     seen: set[str] = set()

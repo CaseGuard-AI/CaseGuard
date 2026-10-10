@@ -68,8 +68,17 @@ SECTION_REF = re.compile(
 )
 
 DISPOSAL_WORDS = {
-    "allowed", "dismissed", "disposed", "disposed of", "withdrawn",
-    "pending", "decided", "accepted", "rejected", "remanded", "converted",
+    "allowed",
+    "dismissed",
+    "disposed",
+    "disposed of",
+    "withdrawn",
+    "pending",
+    "decided",
+    "accepted",
+    "rejected",
+    "remanded",
+    "converted",
 }
 
 
@@ -107,8 +116,9 @@ def extract_judges(text: str | None, limit: int = 12) -> list[str]:
         name = " ".join(match.group(1).split()).strip(" .,")
         name = re.sub(r"\s*\((?:Author|Autho[r]?)\)\s*$", "", name, flags=re.I)
         # an all-caps header can trail into the next judge's honorific
-        name = re.sub(r"[\s,]*\b(?:MR|MRS|MS|DR|HON|HON'BLE|JUSTICE|CHIEF)\.?$",
-                      "", name, flags=re.I).strip(" .,")
+        name = re.sub(
+            r"[\s,]*\b(?:MR|MRS|MS|DR|HON|HON'BLE|JUSTICE|CHIEF)\.?$", "", name, flags=re.I
+        ).strip(" .,")
         if len(name) < 4 or name.lower() in {"of pakistan", "the state"}:
             continue
         name = _normalise_case(name)
@@ -124,13 +134,15 @@ def _normalise_case(name: str) -> str:
     name. Fold it to title case so the same judge from two portals is one
     person downstream; leave mixed-case names exactly as published."""
     if name.isupper():
-        return " ".join(part.capitalize() if part.isalpha() or part.endswith(".")
-                        else part for part in name.split())
+        return " ".join(
+            part.capitalize() if part.isalpha() or part.endswith(".") else part
+            for part in name.split()
+        )
     return name
 
 
 def split_parties(title: str | None) -> list[dict[str, str | None]]:
-    """"A (Petitioner) V/S B (Respondent)" -> two party dicts."""
+    """ "A (Petitioner) V/S B (Respondent)" -> two party dicts."""
     if not title:
         return []
     match = PARTIES_VS.match(title.strip())

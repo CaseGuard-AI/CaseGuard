@@ -38,9 +38,7 @@ class RobotsCache:
         robots_url = urljoin(root, "/robots.txt")
         parser.set_url(robots_url)
         try:
-            request = urllib.request.Request(
-                robots_url, headers={"User-Agent": self.user_agent}
-            )
+            request = urllib.request.Request(robots_url, headers={"User-Agent": self.user_agent})
             with urllib.request.urlopen(request, timeout=self.timeout) as resp:
                 body = resp.read().decode("utf-8", errors="replace")
             parser.parse(body.splitlines())

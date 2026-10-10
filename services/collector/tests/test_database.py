@@ -5,7 +5,7 @@ import pytest
 
 pytest.importorskip("sqlalchemy")
 
-from storage.database import create_schema, upsert_documents   # noqa: E402
+from storage.database import create_schema, upsert_documents  # noqa: E402
 
 
 def doc(**overrides):
@@ -32,7 +32,7 @@ def doc(**overrides):
 
 @pytest.fixture
 def url(tmp_path):
-    return f"sqlite:///{tmp_path/'test.db'}"
+    return f"sqlite:///{tmp_path / 'test.db'}"
 
 
 def test_schema_creation(url):
@@ -46,7 +46,9 @@ def test_insert_then_update_is_idempotent(url):
     assert second == {"inserted": 0, "updated": 1}
 
     from sqlalchemy.orm import Session
+
     from storage.database import LegalDocumentRow, make_engine
+
     with Session(make_engine(url)) as session:
         row = session.get(LegalDocumentRow, "pakistan_code-abc123")
         assert row.title == "Amended title"
@@ -55,15 +57,28 @@ def test_insert_then_update_is_idempotent(url):
 
 
 def test_judges_are_deduplicated_across_documents(url):
-    upsert_documents(url, [
-        doc(id="a", source_url="https://x/a", document_url="https://x/a",
-            judges=["Muhammad Ali Mazhar", "Agha Faisal"]),
-        doc(id="b", source_url="https://x/b", document_url="https://x/b",
-            judges=["Muhammad Ali Mazhar"]),
-    ])
+    upsert_documents(
+        url,
+        [
+            doc(
+                id="a",
+                source_url="https://x/a",
+                document_url="https://x/a",
+                judges=["Muhammad Ali Mazhar", "Agha Faisal"],
+            ),
+            doc(
+                id="b",
+                source_url="https://x/b",
+                document_url="https://x/b",
+                judges=["Muhammad Ali Mazhar"],
+            ),
+        ],
+    )
     from sqlalchemy import func, select
     from sqlalchemy.orm import Session
+
     from storage.database import Judge, make_engine
+
     with Session(make_engine(url)) as session:
         assert session.scalar(select(func.count()).select_from(Judge)) == 2
 
@@ -71,7 +86,9 @@ def test_judges_are_deduplicated_across_documents(url):
 def test_bad_date_does_not_crash_the_load(url):
     upsert_documents(url, [doc(date="December .")])
     from sqlalchemy.orm import Session
+
     from storage.database import LegalDocumentRow, make_engine
+
     with Session(make_engine(url)) as session:
         assert session.get(LegalDocumentRow, "pakistan_code-abc123").date is None
 

@@ -37,13 +37,16 @@ download by hand via `python main.py --source supreme_court --ingest-dir ...`.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 from urllib.parse import urljoin
 
 from extractors.html_extractor import clean_text, make_soup
 from extractors.metadata_extractor import (
-    extract_case_number, extract_citations, extract_judges, split_parties,
+    extract_case_number,
+    extract_citations,
+    extract_judges,
+    split_parties,
 )
 from models.legal_document import DocumentType, LegalDocument
 from scrapers.base_scraper import BaseScraper, Discovered, ScraperError
@@ -64,8 +67,14 @@ ANY_PDF = re.compile(r"[^\s\"'<>]+\.pdf", re.I)
 FILENAME_CASE = re.compile(
     r"([A-Za-z][A-Za-z.]*\.?)[._\s-]+(\d+)[._\s-]+(?:of[._\s-]+)?((?:19|20)\d{2})"
 )
-BOT_MARKERS = ("cf-browser-verification", "challenge-platform", "captcha",
-               "just a moment", "attention required", "ddos-guard")
+BOT_MARKERS = (
+    "cf-browser-verification",
+    "challenge-platform",
+    "captcha",
+    "just a moment",
+    "attention required",
+    "ddos-guard",
+)
 
 
 class SupremeCourtScraper(BaseScraper):
@@ -93,8 +102,12 @@ class SupremeCourtScraper(BaseScraper):
                 "from the SCP Registrar/IT section, or use --ingest-dir for "
                 "manually downloaded PDFs."
             )
-        self.log.info("Reached %s (HTTP %d, %d bytes).", self.config.base_url,
-                      response.status_code, len(response.content))
+        self.log.info(
+            "Reached %s (HTTP %d, %d bytes).",
+            self.config.base_url,
+            response.status_code,
+            len(response.content),
+        )
 
     # ------------------------------------------------------------------
     def discover(self) -> Iterator[Discovered]:
@@ -130,8 +143,9 @@ class SupremeCourtScraper(BaseScraper):
             href = urljoin(base_url, anchor["href"].strip())
             if ANY_PDF.search(href):
                 block = anchor.find_parent(["tr", "li", "div", "p"])
-                context = (block.get_text(" ", strip=True) if block
-                           else anchor.get_text(" ", strip=True))
+                context = (
+                    block.get_text(" ", strip=True) if block else anchor.get_text(" ", strip=True)
+                )
                 candidates.append((href, context))
 
         # Fallback: PDFs referenced in scripts/attributes rather than <a>.
@@ -143,14 +157,15 @@ class SupremeCourtScraper(BaseScraper):
                 continue
             seen.add(href)
             filename = Path(href.split("?")[0]).name
-            case_number = self._case_from_filename(filename) or \
-                extract_case_number(context)
+            case_number = self._case_from_filename(filename) or extract_case_number(context)
             yield Discovered(
                 url=href,
-                hints={"context": clean_text(context)[:2000],
-                       "filename": filename,
-                       "case_number": case_number,
-                       "listing_url": base_url},
+                hints={
+                    "context": clean_text(context)[:2000],
+                    "filename": filename,
+                    "case_number": case_number,
+                    "listing_url": base_url,
+                },
                 document_type=DocumentType.JUDGMENT.value,
                 year=extract_year(filename) or extract_year(context),
             )
@@ -203,8 +218,7 @@ class SupremeCourtScraper(BaseScraper):
 
     # ------------------------------------------------------------------
     @staticmethod
-    def _title_from(context: str, filename: str | None,
-                    case_number: str | None) -> str | None:
+    def _title_from(context: str, filename: str | None, case_number: str | None) -> str | None:
         if context:
             first = context.split("\n")[0].strip()
             if 10 < len(first) < 300:
@@ -216,9 +230,11 @@ class SupremeCourtScraper(BaseScraper):
 
     @staticmethod
     def _date_from(context: str) -> str | None:
-        for pattern in (r"\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b",
-                        r"\b\d{1,2}\s+[A-Za-z]{3,9},?\s+\d{4}\b",
-                        r"\b[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}\b"):
+        for pattern in (
+            r"\b\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}\b",
+            r"\b\d{1,2}\s+[A-Za-z]{3,9},?\s+\d{4}\b",
+            r"\b[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}\b",
+        ):
             match = re.search(pattern, context)
             if match:
                 normalised = normalise_date(match.group(0))
@@ -238,9 +254,11 @@ class SupremeCourtScraper(BaseScraper):
             entry: dict = {"url": url}
             try:
                 response = self.client.get(url)
-                entry.update(status=response.status_code,
-                             bytes=len(response.content),
-                             content_type=response.content_type)
+                entry.update(
+                    status=response.status_code,
+                    bytes=len(response.content),
+                    content_type=response.content_type,
+                )
                 lowered = response.text[:6000].lower()
                 entry["bot_challenge"] = any(m in lowered for m in BOT_MARKERS)
                 entry["pdf_links_found"] = len(set(ANY_PDF.findall(response.text)))
@@ -248,7 +266,7 @@ class SupremeCourtScraper(BaseScraper):
                 target = out_dir / f"supreme_court_{name}.html"
                 target.write_text(response.text, encoding="utf-8")
                 entry["saved_to"] = str(target)
-            except Exception as exc:                        # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
                 entry["error"] = str(exc)
             report[path] = entry
             self.log.info("probe %s -> %s", path, entry)
@@ -281,8 +299,10 @@ class SupremeCourtScraper(BaseScraper):
                 "Record the original URL yourself before citing it."
             )
             from extractors.pdf_extractor import extract_pdf
-            extraction = extract_pdf(pdf, ocr=self.settings.ocr_enabled,
-                                     ocr_language=self.settings.ocr_language)
+
+            extraction = extract_pdf(
+                pdf, ocr=self.settings.ocr_enabled, ocr_language=self.settings.ocr_language
+            )
             document.full_text = extraction.text
             document.file_path = str(pdf)
             document.page_count = extraction.page_count
@@ -295,11 +315,15 @@ class SupremeCourtScraper(BaseScraper):
             document.compute_content_hash()
             if not self.settings.dry_run:
                 self.storage.write(document)
-                self.state.register_hash(document.content_hash, document.id,
-                                         self.source_key, document.source_url)
-                self.state.mark_seen(document.source_url, self.source_key,
-                                     document_id=document.id,
-                                     content_hash=document.content_hash)
+                self.state.register_hash(
+                    document.content_hash, document.id, self.source_key, document.source_url
+                )
+                self.state.mark_seen(
+                    document.source_url,
+                    self.source_key,
+                    document_id=document.id,
+                    content_hash=document.content_hash,
+                )
             stored += 1
             self.stats.stored += 1
             self.stats.pdfs += 1

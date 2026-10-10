@@ -14,10 +14,10 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS seen (
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS runs (
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class StateStore:
@@ -117,9 +117,17 @@ class StateStore:
             return None, None
         return row.get("etag"), row.get("last_modified")
 
-    def mark_seen(self, url: str, source: str, *, document_id: str | None = None,
-                  content_hash: str | None = None, etag: str | None = None,
-                  last_modified: str | None = None, status: str = "ok") -> str:
+    def mark_seen(
+        self,
+        url: str,
+        source: str,
+        *,
+        document_id: str | None = None,
+        content_hash: str | None = None,
+        etag: str | None = None,
+        last_modified: str | None = None,
+        status: str = "ok",
+    ) -> str:
         """Record a processed URL. Returns 'new', 'unchanged' or 'changed'."""
         existing = self.get_seen(url)
         now = _now()
@@ -129,8 +137,7 @@ class StateStore:
                     "INSERT INTO seen (url, source, document_id, content_hash, etag,"
                     " last_modified, first_seen, last_seen, revision, status)"
                     " VALUES (?,?,?,?,?,?,?,?,1,?)",
-                    (url, source, document_id, content_hash, etag,
-                     last_modified, now, now, status),
+                    (url, source, document_id, content_hash, etag, last_modified, now, now, status),
                 )
             return "new"
 
@@ -145,8 +152,16 @@ class StateStore:
                 " content_hash=COALESCE(?, content_hash), etag=COALESCE(?, etag),"
                 " last_modified=COALESCE(?, last_modified), last_seen=?,"
                 " revision=revision + ?, status=? WHERE url=?",
-                (document_id, content_hash, etag, last_modified, now,
-                 1 if changed else 0, status, url),
+                (
+                    document_id,
+                    content_hash,
+                    etag,
+                    last_modified,
+                    now,
+                    1 if changed else 0,
+                    status,
+                    url,
+                ),
             )
         return "changed" if changed else "unchanged"
 
@@ -161,13 +176,16 @@ class StateStore:
         """Has this exact text already been stored under a different URL?"""
         if not content_hash:
             return None
-        row = self._conn().execute(
-            "SELECT * FROM hashes WHERE content_hash = ?", (content_hash,)
-        ).fetchone()
+        row = (
+            self._conn()
+            .execute("SELECT * FROM hashes WHERE content_hash = ?", (content_hash,))
+            .fetchone()
+        )
         return dict(row) if row else None
 
-    def register_hash(self, content_hash: str | None, document_id: str,
-                      source: str, url: str) -> bool:
+    def register_hash(
+        self, content_hash: str | None, document_id: str, source: str, url: str
+    ) -> bool:
         """True if newly registered, False if it was already known."""
         if not content_hash:
             return False
@@ -199,8 +217,7 @@ class StateStore:
         with self._connect() as conn:
             conn.execute("UPDATE failures SET resolved=1 WHERE url=?", (url,))
 
-    def open_failures(self, source: str | None = None,
-                      max_attempts: int = 5) -> list[dict]:
+    def open_failures(self, source: str | None = None, max_attempts: int = 5) -> list[dict]:
         sql = "SELECT * FROM failures WHERE resolved=0 AND attempts < ?"
         params: list = [max_attempts]
         if source:
@@ -212,14 +229,15 @@ class StateStore:
     def start_run(self, run_id: str, sources: str) -> None:
         with self._connect() as conn:
             conn.execute(
-                "INSERT OR REPLACE INTO runs (run_id, started_at, sources)"
-                " VALUES (?,?,?)", (run_id, _now(), sources),
+                "INSERT OR REPLACE INTO runs (run_id, started_at, sources) VALUES (?,?,?)",
+                (run_id, _now(), sources),
             )
 
     def finish_run(self, run_id: str, summary: str) -> None:
         with self._connect() as conn:
-            conn.execute("UPDATE runs SET ended_at=?, summary=? WHERE run_id=?",
-                         (_now(), summary, run_id))
+            conn.execute(
+                "UPDATE runs SET ended_at=?, summary=? WHERE run_id=?", (_now(), summary, run_id)
+            )
 
     # --- introspection -------------------------------------------------
     def counts(self, source: str | None = None) -> dict[str, int]:

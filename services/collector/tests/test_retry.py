@@ -17,8 +17,7 @@ def make_client(handler, **kwargs) -> HttpClient:
         rate_limiter=RateLimiter(default_delay=0.0, max_concurrency=4),
         **kwargs,
     )
-    client._client = httpx.Client(transport=httpx.MockTransport(handler),
-                                  follow_redirects=True)
+    client._client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
     return client
 
 
@@ -27,8 +26,7 @@ def test_success_first_try():
 
     def handler(request):
         calls.append(request.url)
-        return httpx.Response(200, text="<html>ok</html>",
-                              headers={"content-type": "text/html"})
+        return httpx.Response(200, text="<html>ok</html>", headers={"content-type": "text/html"})
 
     with make_client(handler) as client:
         response = client.get("https://example.gov.pk/a")
@@ -63,7 +61,7 @@ def test_gives_up_after_retry_count():
     with make_client(handler, retry_count=2) as client:
         with pytest.raises(FetchError):
             client.get("https://example.gov.pk/down")
-    assert attempts["n"] == 3               # first try + 2 retries
+    assert attempts["n"] == 3  # first try + 2 retries
 
 
 def test_404_is_not_retried():
@@ -138,8 +136,9 @@ def test_robots_disallow_blocks_the_request(monkeypatch):
 
 def test_pdf_detection_by_magic_bytes():
     def handler(request):
-        return httpx.Response(200, content=b"%PDF-1.7 body",
-                              headers={"content-type": "application/octet-stream"})
+        return httpx.Response(
+            200, content=b"%PDF-1.7 body", headers={"content-type": "application/octet-stream"}
+        )
 
     with make_client(handler) as client:
         assert client.get("https://example.gov.pk/a.pdf").is_pdf is True

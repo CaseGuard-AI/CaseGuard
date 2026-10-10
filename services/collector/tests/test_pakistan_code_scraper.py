@@ -18,6 +18,7 @@ def _pdf_bytes(body: str = "") -> bytes:
     """A small real PDF so the full ingest path (download -> extract -> hash)
     is exercised rather than mocked away."""
     import fitz
+
     doc = fitz.open()
     page = doc.new_page()
     page.insert_text((72, 100), "AN ACT to provide for the preservation of")
@@ -47,30 +48,35 @@ def scraper(tmp_path, fixture_html):
         url = str(request.url)
         if "LGu0xAD" in url:
             body = index if "alp=A" in url else empty
-            return httpx.Response(200, text=body,
-                                  headers={"content-type": "text/html"})
+            return httpx.Response(200, text=body, headers={"content-type": "text/html"})
         if "-sg-j" in url:
             # give each statute its own PDF filename, as the real site does
             unique = str(abs(hash(url)) % 10**8)
             body = detail.replace("dfd455a3106327ca3f1c51b7d86c4840", unique)
-            return httpx.Response(200, text=body,
-                                  headers={"content-type": "text/html"})
+            return httpx.Response(200, text=body, headers={"content-type": "text/html"})
         if url.endswith(".pdf"):
             # vary the body per PDF so these are three distinct documents
             body = f"Distinct clause for {url[-12:]}"
-            return httpx.Response(200, content=_pdf_bytes(body),
-                                  headers={"content-type": "application/pdf"})
+            return httpx.Response(
+                200, content=_pdf_bytes(body), headers={"content-type": "application/pdf"}
+            )
         return httpx.Response(404)
 
     # backoff is capped here only so the suite stays fast; the retry logic
     # itself is exercised properly in tests/test_retry.py
-    client = HttpClient("test", respect_robots=False, retry_count=2,
-                        backoff_base=1.0, backoff_cap=0.01,
-                        rate_limiter=RateLimiter(0.0, 4))
-    client._client = httpx.Client(transport=httpx.MockTransport(handler),
-                                  follow_redirects=True)
+    client = HttpClient(
+        "test",
+        respect_robots=False,
+        retry_count=2,
+        backoff_base=1.0,
+        backoff_cap=0.01,
+        rate_limiter=RateLimiter(0.0, 4),
+    )
+    client._client = httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True)
     instance = PakistanCodeScraper(
-        settings=settings, client=client, state=StateStore(settings.state_db),
+        settings=settings,
+        client=client,
+        state=StateStore(settings.state_db),
         files=FileStorage(settings.raw_dir, settings.text_dir),
         storage=JsonlStorage(settings.jsonl_dir, "pakistan_code"),
         events=JsonlEventLogger(settings.log_dir / "e.jsonl"),
@@ -117,8 +123,7 @@ def test_junk_promulgation_date_is_not_captured(scraper):
 
 
 def test_pdf_is_downloaded_extracted_and_hashed(scraper):
-    item = next(i for i in scraper.discover()
-                if i.hint("title") == "National Archives Act, 1993")
+    item = next(i for i in scraper.discover() if i.hint("title") == "National Archives Act, 1993")
     doc = scraper.parse_document(item, scraper.client.get(item.url))
     assert doc.extraction_status == "ok"
     assert "archival material" in doc.full_text
@@ -165,16 +170,16 @@ def test_identical_text_under_two_urls_is_stored_once(scraper, monkeypatch):
         url = str(request.url)
         if "LGu0xAD" in url:
             body = scraper._fixture_index if "alp=A" in url else scraper._fixture_empty
-            return httpx.Response(200, text=body,
-                                  headers={"content-type": "text/html"})
+            return httpx.Response(200, text=body, headers={"content-type": "text/html"})
         if "-sg-j" in url:
-            return httpx.Response(200, text=scraper._fixture_detail,
-                                  headers={"content-type": "text/html"})
-        return httpx.Response(200, content=same,
-                              headers={"content-type": "application/pdf"})
+            return httpx.Response(
+                200, text=scraper._fixture_detail, headers={"content-type": "text/html"}
+            )
+        return httpx.Response(200, content=same, headers={"content-type": "application/pdf"})
 
-    scraper.client._client = httpx.Client(transport=httpx.MockTransport(handler),
-                                          follow_redirects=True)
+    scraper.client._client = httpx.Client(
+        transport=httpx.MockTransport(handler), follow_redirects=True
+    )
     scraper.run()
     assert scraper.stats.stored == 1
     assert scraper.stats.duplicates == 2
