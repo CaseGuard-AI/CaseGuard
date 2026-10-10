@@ -111,4 +111,23 @@ CI runs the same checks on every PR into `staging` (see `branching-and-release.m
 
 ## 7. Full Docker stack (production-like)
 
-Once each service's Dockerfile exists, `docker compose up --build` runs everything in containers on an internal network. FastAPI is exposed only to the API, never to the host (ADR-0002, SEC-14).
+Runs db, ai, api and web in containers, the same images CI builds.
+
+```bash
+cp .env.example .env     # if you haven't already
+pnpm stack:up            # docker compose up --build -d --wait (returns once every service is healthy)
+pnpm stack:down          # stop everything (add -v to the docker command to wipe the database)
+```
+
+| Service | URL on your machine | Notes |
+|---|---|---|
+| web | http://localhost:3000 | Next.js standalone build |
+| api | http://localhost:4000/api/v1 | `/health` (liveness), `/ready` (db + ai) |
+| db | localhost:`POSTGRES_PORT` | same data volume as Option A |
+| ai | *not published* | only api can reach it (ADR-0002, SEC-14) |
+
+**Networks.** `edge` (web, api, db) carries the published ports. `internal` (api, ai, db) has no outside access. `ai-egress` has only ai on it, which lets the AI service call model providers (Gemini, OpenAI, OpenRouter, Anthropic, user-supplied keys) and download models, while nothing can connect *in* to it. Web never shares a network with ai.
+
+**Hostnames.** The URLs in `.env` point at `localhost` for native runs. `docker-compose.yml` overrides them with container hostnames (`db:5432`, `ai:8000`), so the same `.env` works for both, whatever `POSTGRES_PORT` is.
+
+**Changing `NEXT_PUBLIC_API_URL`** needs a rebuild (`pnpm stack:up` rebuilds), because Next.js bakes it into the browser bundle.

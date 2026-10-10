@@ -32,6 +32,7 @@ jobs:
       ai: ${{ steps.filter.outputs.ai == 'true' && steps.ready.outputs.ai == 'true' }}
       collector: ${{ steps.filter.outputs.collector == 'true' && steps.ready.outputs.collector == 'true' }}
       contracts: ${{ steps.filter.outputs.contracts == 'true' && steps.ready.outputs.contracts == 'true' }}
+      stack: ${{ steps.filter.outputs.stack }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -56,6 +57,12 @@ jobs:
               - 'services/collector/**'
             contracts:
               - 'packages/contracts/**'
+            stack:
+              - 'docker-compose.yml'
+              - '**/Dockerfile'
+              - '**/.dockerignore'
+              - 'infra/**'
+              - '.env.example'
       - name: Check which areas are scaffolded
         id: ready
         run: |
@@ -180,10 +187,40 @@ jobs:
       - uses: actions/checkout@v7
       - run: cp .env.example .env && docker compose config --quiet
 
+  compose-smoke:
+    name: docker compose · full stack boots healthy
+    needs: changes
+    if: needs.changes.outputs.stack == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - run: cp .env.example .env
+      - name: Build and start the stack
+        run: docker compose up --build --detach --wait --wait-timeout 300
+      - name: api is ready (database + ai reachable with the service token)
+        run: curl -fsS http://localhost:4000/api/v1/ready
+      - name: web serves pages
+        run: curl -fsSL -o /dev/null http://localhost:3000/
+      - name: ai is not reachable from the host (SEC-14)
+        run: |
+          if curl -fsS -m 5 http://localhost:8000/health; then
+            echo "::error::ai service is reachable from the host"; exit 1
+          fi
+      - name: ai is not reachable from web (SEC-14)
+        run: |
+          docker compose exec -T web node -e "fetch('http://ai:8000/health',{signal:AbortSignal.timeout(5000)}).then(()=>{console.error('ai reachable from web');process.exit(1)}).catch(()=>process.exit(0))"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose ps && docker compose logs --no-color
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [changes, web, api, python, contracts, compose]
+    needs: [changes, web, api, python, contracts, compose, compose-smoke]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any required job failed or was cancelled
