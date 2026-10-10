@@ -19,6 +19,8 @@ This is the source-control model for the CaseGuard monorepo. It is a simplified 
 
 No one commits directly to `main` or `staging`, including admins. Protection is applied by [`scripts/setup-branch-protection.sh`](../../scripts/setup-branch-protection.sh).
 
+> **Current state: enforced by convention, not by GitHub.** The repository is private on the CaseGuard-AI org's free plan, where GitHub does not enforce branch protection. Until the repo is made public (planned when the project is complete) or the org is upgraded, these rules hold by team agreement. The CI and PR-policy checks still run on every PR and must be green before merging. Re-run the setup script at that point to turn enforcement on.
+
 ## 2. Short-lived branches
 
 Create these from `staging` (except `hotfix/*`), and keep them short: aim to merge within 2–4 days. Split big features behind a flag or into stacked PRs rather than keeping a long-running branch.

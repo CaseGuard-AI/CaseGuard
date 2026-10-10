@@ -62,8 +62,20 @@ protect() {
 JSON
 }
 
-# staging: must be up to date before merge (strict); main: release PRs from staging.
-protect staging true
-protect main false
+# GitHub enforces branch protection on private repos only on paid plans. On a
+# free org with a private repo we skip it; re-run this script after the repo is
+# made public (or the org is upgraded) to switch enforcement on.
+VISIBILITY=$(gh api "repos/$REPO" --jq .visibility)
+PLAN=$(gh api "orgs/${REPO%%/*}" --jq '.plan.name // "unknown"' 2>/dev/null || echo unknown)
 
-echo "✓ Done. Verify at https://github.com/$REPO/settings/branches"
+if [ "$VISIBILITY" = "private" ] && [ "$PLAN" = "free" ]; then
+  echo "⚠ $REPO is private on the free plan: GitHub does not enforce branch protection here."
+  echo "  Skipping protection. The process is kept by convention + CI (see docs/engineering/branching-and-release.md)."
+  echo "  Re-run this script once the repo is public or the org is upgraded."
+else
+  # staging: must be up to date before merge (strict); main: release PRs from staging.
+  protect staging true
+  protect main false
+fi
+
+echo "✓ Done. Verify at https://github.com/$REPO/settings"
