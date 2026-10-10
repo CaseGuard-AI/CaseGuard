@@ -1,5 +1,6 @@
 # Local development stack.
 #   cp .env.example .env && docker compose up -d db
+# No Docker? See docs/engineering/local-setup.md (native Postgres + pnpm db:bootstrap).
 # App services are added here as each one is scaffolded (see the commented blocks).
 
 name: caseguard
@@ -19,6 +20,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+      - ./infra/db/sql:/caseguard-sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s

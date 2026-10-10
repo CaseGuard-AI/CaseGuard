@@ -1,0 +1,27 @@
+{
+  "name": "caseguard",
+  "private": true,
+  "description": "CaseGuard AI monorepo: see README.md and docs/engineering/local-setup.md",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:bootstrap": "node scripts/db-bootstrap.mjs",
+    "dev": "concurrently -k -n web,api,ai -c blue,green,magenta \"pnpm dev:web\" \"pnpm dev:api\" \"pnpm dev:ai\"",
+    "dev:web": "pnpm --filter ./apps/web run dev",
+    "dev:api": "pnpm --filter ./apps/api run dev",
+    "dev:ai": "uv run --directory services/ai uvicorn caseguard_ai.main:app --reload --port 8000",
+    "lint": "pnpm -r --if-present run lint",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test",
+    "test:py": "uv run --directory services/ai pytest -q && uv run --directory services/collector pytest -q",
+    "format": "pnpm -r --if-present run format"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}
