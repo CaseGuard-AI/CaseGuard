@@ -30,6 +30,27 @@ Settings come from environment variables, then `services/ai/.env`, then the repo
 | `GET /ai/v1/info` | `Authorization: Bearer $AI_SERVICE_TOKEN` | Smoke test for the API → AI wiring |
 | `GET /docs` | none | OpenAPI UI (dev) |
 
+## Testing a model provider
+
+Providers are configuration, not code (ADR-0005). Set a role in `.env` using a preset from `.env.example` (NVIDIA NIM, Gemini, Groq, OpenRouter, OpenAI, Anthropic, Ollama). For example:
+
+```env
+LLM_GENERATION_BASE_URL=https://integrate.api.nvidia.com/v1
+LLM_GENERATION_MODEL=nvidia/nemotron-3-super-120b-a12b
+LLM_GENERATION_API_KEY=nvapi-...
+```
+
+Then send one test prompt (the key is never printed):
+
+```bash
+pnpm llm:check                        # from the repo root; LLM_GENERATION_* role
+pnpm llm:check --list-models          # models this key can use
+pnpm llm:check --role judge           # LLM_JUDGE_* role
+docker compose exec ai python -m caseguard_ai.gateway.check   # same check from inside the stack
+```
+
+This is only a connectivity check. The real gateway (per-user keys, fallbacks, Admin allow-list) is #21.
+
 ## Checks
 
 ```bash
@@ -44,6 +65,7 @@ src/caseguard_ai/
   config.py      pydantic-settings (env → .env files)
   security.py    service-token guard for /ai/v1
   api/v1.py      /ai/v1 router: add feature routers here
+  gateway/       model gateway (ADR-0005); check.py = provider connectivity check
 tests/
 Dockerfile       production image (uv, non-root, healthcheck)
 ```

@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     ai_database_url: str = "postgresql://caseguard_ai@localhost:5432/caseguard"
     log_level: str = "INFO"
 
+    # Model gateway (ADR-0005): any OpenAI-compatible endpoint, one per role.
+    # Presets for each provider are listed in .env.example.
+    llm_generation_base_url: str = ""
+    llm_generation_model: str = ""
+    llm_generation_api_key: SecretStr = SecretStr("")
+    llm_judge_base_url: str = ""
+    llm_judge_model: str = ""
+    llm_judge_api_key: SecretStr = SecretStr("")
+
     @property
     def psycopg_dsn(self) -> str:
         """AI_DATABASE_URL may use the SQLAlchemy form (postgresql+psycopg://); psycopg wants plain."""
