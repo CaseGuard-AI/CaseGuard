@@ -2,8 +2,6 @@
 
 **Stream C · Python 3.12, FastAPI, LangGraph, uv** ([ADR-0002](../../docs/adr/0002-two-backends-with-strict-boundary.md), [ADR-0005](../../docs/adr/0005-model-abstraction-and-desktop-readiness.md))
 
-> Not scaffolded yet. CI skips this service until `pyproject.toml` exists.
-
 ## Owns
 
 Hybrid retrieval, GraphRAG, temporal queries, the **trust layer** (the single writer of verification results), the model gateway, the Urdu query flow, drafting and linter AI, ingestion workers and the evaluation harness. It implements `/ai/v1` from `packages/contracts`.
@@ -15,8 +13,39 @@ Hybrid retrieval, GraphRAG, temporal queries, the **trust layer** (the single wr
 - Writes only the `corpus` and `ai` schemas (DB role `caseguard_ai`), with Alembic migrations.
 - Every LLM call goes through the OpenAI-compatible gateway. No provider SDK is called directly from pipelines.
 
-## Scaffold (first PR: `feature/ai-scaffold`)
+## Run locally
 
 ```bash
-cd services/ai && uv init --app --python 3.12 && uv add fastapi uvicorn[standard] && uv add --dev ruff mypy pytest
+cd services/ai
+uv sync --all-extras --dev                                   # creates services/ai/.venv (Python 3.12)
+uv run uvicorn caseguard_ai.main:app --reload --port 8000    # or from the repo root: pnpm dev:ai
 ```
+
+Settings come from environment variables, then `services/ai/.env`, then the repo-root `.env`. `AI_SERVICE_TOKEN` is required.
+
+| Endpoint | Auth | Purpose |
+|---|---|---|
+| `GET /health` | none | Liveness |
+| `GET /ready` | none | Readiness: can it connect to Postgres as `caseguard_ai`? |
+| `GET /ai/v1/info` | `Authorization: Bearer $AI_SERVICE_TOKEN` | Smoke test for the API → AI wiring |
+| `GET /docs` | none | OpenAPI UI (dev) |
+
+## Checks
+
+```bash
+uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run pytest
+```
+
+## Layout
+
+```
+src/caseguard_ai/
+  main.py        app factory, /health, /ready
+  config.py      pydantic-settings (env → .env files)
+  security.py    service-token guard for /ai/v1
+  api/v1.py      /ai/v1 router: add feature routers here
+tests/
+Dockerfile       production image (uv, non-root, healthcheck)
+```
+
+Add new capabilities as modules beside `api/` (for example `retrieval/`, `trust/`, `graph/`, `temporal/`, `gateway/`), each with its own tests. Dependencies such as LangGraph, embeddings or Alembic are added with `uv add` in the PR that first needs them.
