@@ -1,0 +1,14 @@
+2026-09-28 22:16:54,515 INFO    pklegal: run_id=30fae45b0c08
+2026-09-28 22:16:55,600 INFO    pklegal.runner: Run 30fae45b0c08 over: pakistan_code
+2026-09-28 22:16:55,602 INFO    pklegal.pakistan_code: Starting The Pakistan Code (Ministry of Law & Justice) (http://127.0.0.1:8731)
+2026-09-28 22:16:55,688 INFO    pklegal.pakistan_code: index A page 1 -> 3 entries
+2026-09-28 22:16:58,066 INFO    pklegal.pakistan_code: Finished pakistan_code: {'discovered': 3, 'fetched': 3, 'skipped_seen': 0, 'skipped_unchanged': 0, 'changed': 0, 'parsed': 3, 'stored': 3, 'duplicates': 0, 'invalid': 0, 'failed': 0, 'pdfs': 3, 'html_docs': 0, 'pdf_extract_failed': 0, 'scanned_pdfs': 0, 'missing_metadata': 1}
+2026-09-28 22:16:58,106 INFO    pklegal.runner: HTTP stats: {'requests': 32, 'retries': 0, 'bytes': 9679, 'robots_blocked': 0, 'not_modified': 0}
+2026-09-28 22:16:58,110 INFO    pklegal.runner: Report written to D:\FYP\legal_ingest\data_demo\reports\report_30fae45b0c08.txt
+2026-09-28 22:17:45,640 INFO    pklegal: run_id=07cce30258bf
+2026-09-28 22:17:46,481 INFO    pklegal.runner: Run 07cce30258bf over: pakistan_code
+2026-09-28 22:17:46,483 INFO    pklegal.pakistan_code: Starting The Pakistan Code (Ministry of Law & Justice) (http://127.0.0.1:8731)
+2026-09-28 22:17:46,530 INFO    pklegal.pakistan_code: index A page 1 -> 3 entries
+2026-09-28 22:17:46,916 INFO    pklegal.pakistan_code: Finished pakistan_code: {'discovered': 3, 'fetched': 0, 'skipped_seen': 3, 'skipped_unchanged': 0, 'changed': 0, 'parsed': 0, 'stored': 0, 'duplicates': 0, 'invalid': 0, 'failed': 0, 'pdfs': 0, 'html_docs': 0, 'pdf_extract_failed': 0, 'scanned_pdfs': 0, 'missing_metadata': 0}
+2026-09-28 22:17:46,928 INFO    pklegal.runner: HTTP stats: {'requests': 26, 'retries': 0, 'bytes': 2747, 'robots_blocked': 0, 'not_modified': 0}
+2026-09-28 22:17:46,929 INFO    pklegal.runner: Report written to D:\FYP\legal_ingest\data_demo\reports\report_07cce30258bf.txt

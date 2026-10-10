@@ -1,0 +1,29 @@
+==================================================================
+ INGESTION REPORT   run 30fae45b0c08
+ started 2026-09-28T17:16:54.516645+00:00
+ finished 2026-09-28T17:16:58.099911+00:00
+==================================================================
+
+  Total discovered        : 3
+  Total fetched           : 3
+  Total parsed            : 3
+  Total stored            : 3
+  Total duplicates        : 0
+  Total failed            : 0
+  Skipped (already seen)  : 0
+  Skipped (304 unchanged) : 0
+  Changed since last run  : 0
+
+  PDF documents           : 3
+  HTML documents          : 0
+  PDF extraction failures : 0
+  Scanned PDFs (need OCR) : 0
+
+  Failed validation       : 0
+  Missing title or date   : 1
+
+------------------------------------------------------------------
+ Per source
+------------------------------------------------------------------
+  pakistan_code
+     discovered=3  stored=3  duplicates=0  failed=0  invalid=0
