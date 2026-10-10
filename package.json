@@ -23,5 +23,11 @@
   },
   "devDependencies": {
     "concurrently": "^9.2.0"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }
