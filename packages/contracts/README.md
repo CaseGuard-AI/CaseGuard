@@ -14,6 +14,20 @@ The **source of truth** for every interface between services ([ADR-0002](../../d
 - Clients and types are **generated** into `generated/` (TypeScript via `openapi-typescript`, Python via `datamodel-code-generator`). Never edit them by hand.
 - CI lints every spec with Redocly once `openapi/*.yaml` exists.
 
-## Week-1 deliverable (M0)
+## Conventions
 
-Both specs drafted covering the M1 vertical slice: auth, ask question, get answer with citations + statuses, and get the citation source.
+- **JSON field names are camelCase** in both specs. In Python, map them with a Pydantic `alias_generator`.
+- **Errors** use RFC 9457 `application/problem+json`. Validation errors add an `errors[]` list of `{path, message}`.
+- **Trust shapes are defined once.** `Citation`, `Verification`, `Source`, `Language` and `Problem` live in `ai.v1.yaml`, and `api.v1.yaml` references them with `$ref`, so a status can't mean different things on each side (FR-TRUST-10).
+- **Citation markers** in answer text: `[[c:<citationId>]]` at the claim the citation supports.
+- **Scope** (`userId`, `accountId`, `allowedCaseIds`) is resolved by `apps/api` and applied by `services/ai` inside SQL (FR-CASE-6).
+
+## Lint
+
+```bash
+npx @redocly/cli lint packages/contracts/openapi/*.yaml     # config: /redocly.yaml, /.redocly.lint-ignore.yaml
+```
+
+## Status
+
+`1.0.0-draft` covers the M1 vertical slice: auth, conversations, asking a question, an answer with verified citations, and fetching a citation or source. Generated clients (`generated/`) come with the first consumer PR.
