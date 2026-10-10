@@ -11,6 +11,8 @@
     "db:up": "docker compose up -d db",
     "db:down": "docker compose down",
     "db:bootstrap": "node scripts/db-bootstrap.mjs",
+    "stack:up": "docker compose up --build -d --wait",
+    "stack:down": "docker compose down",
     "dev": "concurrently -k -n web,api,ai -c blue,green,magenta \"pnpm dev:web\" \"pnpm dev:api\" \"pnpm dev:ai\"",
     "dev:web": "pnpm --filter ./apps/web run dev",
     "dev:api": "pnpm --filter ./apps/api run dev",
