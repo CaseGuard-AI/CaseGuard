@@ -49,6 +49,12 @@ pnpm llm:check --role judge           # LLM_JUDGE_* role
 docker compose exec ai python -m caseguard_ai.gateway.check   # same check from inside the stack
 ```
 
+Things we hit with NVIDIA NIM (October 2026):
+
+- **Reasoning models** (Nemotron 3, gpt-oss, DeepSeek) think before answering and return the thinking in a separate `reasoning_content` field. With a small `max_tokens` they finish with `finish=length` and an **empty answer**. The check uses 512 tokens and reports an empty answer as a failure.
+- **`--list-models` is not a guarantee.** It lists the whole catalog, and some listed models return 404 for a free key or never respond. `nvidia/nemotron-3-super-120b-a12b` and `openai/gpt-oss-20b` answered in about 1 s.
+- Slow models: raise the wait with `--timeout 90`.
+
 This is only a connectivity check. The real gateway (per-user keys, fallbacks, Admin allow-list) is #21.
 
 ## Checks

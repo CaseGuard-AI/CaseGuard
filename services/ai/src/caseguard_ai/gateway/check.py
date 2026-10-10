@@ -22,6 +22,9 @@ from urllib.parse import urlparse
 from caseguard_ai.config import Settings, get_settings
 
 PROMPT = "Reply with the single word OK."
+# Reasoning models (Nemotron, gpt-oss, DeepSeek R-series...) spend tokens thinking before
+# they answer. With a tiny budget they hit the limit with empty content, so leave room.
+MAX_TOKENS = 512
 
 
 @dataclass(frozen=True)
@@ -93,20 +96,45 @@ def run(provider: Provider, *, list_models: bool, timeout: float = 30.0) -> int:
         body = {
             "model": provider.model,
             "messages": [{"role": "user", "content": PROMPT}],
-            "max_tokens": 16,
+            "max_tokens": MAX_TOKENS,
             "temperature": 0,
         }
         started = time.perf_counter()
         data = _send(build_request(provider, "chat/completions", body), timeout)
         elapsed_ms = (time.perf_counter() - started) * 1000
-        reply = (data["choices"][0]["message"].get("content") or "").strip()
-        print(f"OK  {host}  model={provider.model}  {elapsed_ms:.0f} ms  reply={reply!r}")
+        choice = data["choices"][0]
+        message = choice["message"]
+        reply = (message.get("content") or "").strip()
+        finish = choice.get("finish_reason")
+        usage = data.get("usage") or {}
+        reasoning_tokens = (usage.get("completion_tokens_details") or {}).get("reasoning_tokens")
+        thought = bool(message.get("reasoning_content") or message.get("reasoning"))
+        stats = (
+            f"{elapsed_ms:.0f} ms  finish={finish}  tokens={usage.get('completion_tokens', '?')}"
+        )
+        if reasoning_tokens or thought:
+            stats += f" (reasoning={reasoning_tokens if reasoning_tokens is not None else 'yes'})"
+        if not reply:
+            hint = " The model used its whole budget reasoning." if finish == "length" else ""
+            print(
+                f"FAIL  {host}  model={provider.model}  {stats}  empty answer.{hint}",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"OK  {host}  model={provider.model}  {stats}  reply={reply!r}")
         return 0
     except urllib.error.HTTPError as e:
         detail = e.read().decode(errors="replace")[:500]
         print(f"FAIL  {host}  HTTP {e.code}: {detail}", file=sys.stderr)
-    except (urllib.error.URLError, TimeoutError) as e:
-        print(f"FAIL  {host}  cannot connect: {getattr(e, 'reason', e)}", file=sys.stderr)
+    except TimeoutError:
+        print(f"FAIL  {host}  no response within {timeout:.0f} s (try --timeout)", file=sys.stderr)
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, TimeoutError):
+            print(
+                f"FAIL  {host}  no response within {timeout:.0f} s (try --timeout)", file=sys.stderr
+            )
+        else:
+            print(f"FAIL  {host}  cannot connect: {e.reason}", file=sys.stderr)
     except (KeyError, IndexError, ValueError) as e:
         print(f"FAIL  {host}  unexpected response: {e}", file=sys.stderr)
     return 1
@@ -118,11 +146,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--list-models", action="store_true", help="list models instead of chatting"
     )
+    parser.add_argument("--timeout", type=float, default=30.0, help="seconds to wait (default 30)")
     args_in = sys.argv[1:] if argv is None else argv
     # `pnpm llm:check -- --flag` forwards the `--` literally; drop it.
     args = parser.parse_args([a for a in args_in if a != "--"])
     provider = Provider.from_settings(get_settings(), args.role)
-    return run(provider, list_models=args.list_models)
+    return run(provider, list_models=args.list_models, timeout=args.timeout)
 
 
 if __name__ == "__main__":

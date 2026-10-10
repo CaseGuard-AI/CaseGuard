@@ -18,6 +18,10 @@ The user wants to test with an NVIDIA NIM key now. Users will also bring OpenAI 
 - NIM's `/v1/models` answers without a key. Chat needs one (401 without).
 - pnpm 10 forwards `--` literally, so the CLI drops it.
 
+- Live test with the team's NIM key: `nemotron-3-super-120b-a12b` and `gpt-oss-20b` answer OK in ~1.1 s. Both are **reasoning models**: with `max_tokens=16` they returned `finish=length` and empty content (all tokens in `reasoning_content`). The first version of the check wrongly printed OK, so it now uses 512 tokens, treats an empty answer as FAIL, and prints finish reason and reasoning tokens.
+- Some listed models return 404 for this key (not deployed for the account) and some never answer (lightning-30b, deepseek-v4.1-flash). `--list-models` is not a guarantee.
+- **For #21:** budget for reasoning tokens. Never treat `reasoning_content` as the answer: only `content` should reach the trust layer and citations. Keep a tested fallback model per role.
+
 ## Verification
 - `ruff`, `mypy --strict`, `pytest` (13 passed).
 - Against the live NIM API with no key: `--list-models` → 80 models. Chat → `HTTP 401 … authorization missing`, the expected result without a key.
