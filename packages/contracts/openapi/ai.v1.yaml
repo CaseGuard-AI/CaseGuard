@@ -1,0 +1,301 @@
+openapi: 3.1.0
+info:
+  title: CaseGuard AI service (internal)
+  version: 1.0.0-draft
+  summary: Internal API between apps/api (caller) and services/ai (producer).
+  description: |
+    Internal only (ADR-0002, SEC-14). Never exposed to browsers. Every request carries
+    `Authorization: Bearer <AI_SERVICE_TOKEN>`.
+
+    services/ai has **no user authentication**. Express resolves the access decision and
+    passes the resulting `scope`, which services/ai applies **inside SQL** (FR-CASE-6).
+
+    Status values come from the single trust store (FR-TRUST-10). This API returns them;
+    callers never recompute them.
+  license:
+    name: Proprietary (FYP)
+    identifier: LicenseRef-CaseGuard-FYP
+servers:
+  - url: http://ai:8000
+    description: Compose internal network
+  - url: http://localhost:8000
+    description: Local development
+security:
+  - serviceToken: []
+tags:
+  - name: ops
+    description: Liveness and smoke tests
+  - name: research
+    description: Question answering with verified citations (FR-RES, FR-TRUST)
+  - name: sources
+    description: Corpus records and stored verification results
+
+paths:
+  /ai/v1/info:
+    get:
+      tags: [ops]
+      operationId: getInfo
+      summary: Authenticated smoke test
+      responses:
+        "200":
+          description: Service identity
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [service, version]
+                properties:
+                  service: { type: string, example: caseguard-ai }
+                  version: { type: string, example: 0.1.0 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /ai/v1/research/answer:
+    post:
+      tags: [research]
+      operationId: answerQuestion
+      summary: Answer a legal question within a resolved scope
+      description: |
+        Runs retrieval → graph step → rerank → generation → trust layer. Returns only when every
+        citation has a stored verification (FR-RES-6). If the corpus doesn't support an answer,
+        `answerable` is false and `citations` is empty (FR-RES-9).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnswerRequest" }
+      responses:
+        "200":
+          description: Answer with verified citations
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Answer" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /ai/v1/citations/{citationId}:
+    get:
+      tags: [sources]
+      operationId: getCitation
+      summary: A citation with its current stored verification
+      parameters:
+        - $ref: "#/components/parameters/CitationId"
+      responses:
+        "200":
+          description: Citation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Citation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /ai/v1/sources/{sourceId}:
+    get:
+      tags: [sources]
+      operationId: getSource
+      summary: A corpus source record (FR-RES-7)
+      parameters:
+        - $ref: "#/components/parameters/SourceId"
+      responses:
+        "200":
+          description: Source record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Source" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      description: Shared AI_SERVICE_TOKEN; only apps/api holds it.
+
+  parameters:
+    CitationId:
+      name: citationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SourceId:
+      name: sourceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Missing or invalid service token
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Not found
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unavailable:
+      description: A dependency (database or model provider) is unavailable
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    Problem:
+      description: RFC 9457 problem details
+      type: object
+      required: [title, status]
+      properties:
+        type: { type: string, format: uri-reference, default: about:blank }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+
+    Scope:
+      description: Access scope resolved by apps/api. Applied inside SQL; never widened (FR-CASE-6).
+      type: object
+      required: [userId, accountId, allowedCaseIds]
+      properties:
+        userId: { type: string, format: uuid }
+        accountId: { type: string, format: uuid }
+        allowedCaseIds:
+          description: Cases whose private documents may be retrieved. Empty = public corpus only.
+          type: array
+          items: { type: string, format: uuid }
+
+    Language:
+      type: string
+      enum: [en, ur, roman_ur]
+
+    Turn:
+      type: object
+      required: [role, content]
+      properties:
+        role: { type: string, enum: [user, assistant] }
+        content: { type: string }
+
+    AnswerRequest:
+      type: object
+      required: [requestId, question, scope]
+      properties:
+        requestId:
+          description: Correlation ID from apps/api; also the audit record key (FR-TRUST-12).
+          type: string
+          format: uuid
+        question: { type: string, minLength: 1, maxLength: 4000 }
+        language:
+          description: Omit to auto-detect (§8.3).
+          allOf: [{ $ref: "#/components/schemas/Language" }]
+        lawAsOf:
+          description: Answer "law as of date D" for curated sections (FR-RES-11, FR-TEMP-5).
+          type: string
+          format: date
+        history:
+          description: Earlier turns of the conversation, oldest first (FR-RES-8).
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/Turn" }
+        scope: { $ref: "#/components/schemas/Scope" }
+
+    Answer:
+      type: object
+      required: [requestId, answerable, language, text, citations]
+      properties:
+        requestId: { type: string, format: uuid }
+        answerable:
+          description: False when the corpus doesn't support an answer (FR-RES-9).
+          type: boolean
+        language: { $ref: "#/components/schemas/Language" }
+        text:
+          description: |
+            Answer text in the user's language. Citation markers appear as `[[c:<citationId>]]`
+            at the claim they support.
+          type: string
+        citations:
+          type: array
+          items: { $ref: "#/components/schemas/Citation" }
+
+    Citation:
+      type: object
+      required: [id, sourceId, claim, verification]
+      properties:
+        id: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid }
+        claim:
+          description: The claim in the answer that this citation supports.
+          type: string
+        locator:
+          description: Section, article or paragraph within the source.
+          type: string
+          examples: ["s. 497", "para 14"]
+        quote:
+          description: Verbatim span in the source's original language (FR-RES-10).
+          type: string
+        quoteLanguage: { $ref: "#/components/schemas/Language" }
+        verification: { $ref: "#/components/schemas/Verification" }
+
+    Verification:
+      description: Stored trust-layer result (§7). Exactly one status per citation (FR-TRUST-4).
+      type: object
+      required: [status, flags, lastVerifiedAt]
+      properties:
+        status:
+          type: string
+          enum: [verified, needs_review, unverified]
+        flags:
+          type: array
+          items:
+            type: string
+            enum:
+              # blocking (force needs_review)
+              - overruled
+              - repealed
+              - superseded_version
+              - conflict
+              # non-blocking (shown as chips)
+              - stale
+              - third_party_source
+              - headnote_only
+              - amended_since
+        lastVerifiedAt: { type: string, format: date-time }
+        checks:
+          type: object
+          properties:
+            existence: { type: string, enum: [pass, fail] }
+            support: { type: string, enum: [pass, uncertain, fail, not_run] }
+            currency: { type: string, enum: [current, historical, unknown] }
+
+    Source:
+      type: object
+      required: [id, kind, title, officialUrl, language]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [statute, judgment, rule, other] }
+        title: { type: string }
+        citation:
+          description: Reported citation, e.g. "PLD 2023 SC 1".
+          type: string
+        court: { type: string }
+        decidedOn: { type: string, format: date }
+        officialUrl:
+          description: Public URL of the original on the official source (FR-RES-7).
+          type: string
+          format: uri
+        sourceTier:
+          description: Source register tier (§15.2).
+          type: integer
+          enum: [1, 2]
+        thirdParty: { type: boolean }
+        headnoteOnly: { type: boolean }
+        language: { $ref: "#/components/schemas/Language" }
+        excerpt:
+          description: Text around the cited locator, verbatim.
+          type: string
+        retrievedAt: { type: string, format: date-time }
