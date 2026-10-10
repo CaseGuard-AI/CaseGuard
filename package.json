@@ -17,6 +17,7 @@
     "dev:web": "pnpm --filter ./apps/web run dev",
     "dev:api": "pnpm --filter ./apps/api run dev",
     "dev:ai": "uv run --directory services/ai uvicorn caseguard_ai.main:app --reload --port 8000",
+    "llm:check": "uv run --directory services/ai python -m caseguard_ai.gateway.check",
     "lint": "pnpm -r --if-present run lint",
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
