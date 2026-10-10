@@ -21,13 +21,13 @@ if ! gh api "repos/$REPO/branches/staging" >/dev/null 2>&1; then
   echo "  created staging from main@$MAIN_SHA"
 fi
 
-echo "→ Repository settings (default branch, merge methods, auto-delete)"
+echo "→ Repository settings (default branch, merge methods, keep merged branches)"
 gh api -X PATCH "repos/$REPO" \
   -f default_branch=staging \
   -F allow_squash_merge=true \
   -F allow_merge_commit=true \
   -F allow_rebase_merge=false \
-  -F delete_branch_on_merge=true \
+  -F delete_branch_on_merge=false \
   -f squash_merge_commit_title=PR_TITLE \
   -f squash_merge_commit_message=PR_BODY >/dev/null
 
