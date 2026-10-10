@@ -169,9 +169,8 @@ class SindhHighCourtScraper(BaseScraper):
                     self.config.base_url.rstrip("/")
                     + "/caselaw/public/reported-judgements-detail-all/"
                     + match.group(1)
-                    + "/"
-                    + match.group(2)
-)
+                    + ("/AFR/AFR" if wanted == "AFR" else "/-1")
+                )
                 if url in seen:
                     continue
                 seen.add(url)
