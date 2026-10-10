@@ -1,6 +1,6 @@
 # Production image for apps/api. Build from the repo root:
 #   docker build -f apps/api/Dockerfile -t caseguard-api .
-FROM node:22-slim AS base
+FROM node:25-slim AS base
 RUN corepack enable
 WORKDIR /repo
 
@@ -12,7 +12,7 @@ COPY apps/api apps/api
 RUN pnpm --filter @caseguard/api run build \
  && pnpm --filter @caseguard/api deploy --prod --legacy /out
 
-FROM node:22-slim AS runtime
+FROM node:25-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /out/node_modules ./node_modules
