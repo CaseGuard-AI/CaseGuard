@@ -1,0 +1,28 @@
+{
+  "App": {
+    "name": "CaseGuard AI",
+    "tagline": "Legal research for Pakistani law, with every citation verified."
+  },
+  "Nav": {
+    "research": "Research",
+    "cases": "Cases",
+    "drafting": "Drafting",
+    "settings": "Settings",
+    "switchLanguage": "اردو"
+  },
+  "Home": {
+    "heading": "Ask a legal question",
+    "placeholder": "e.g. What are the grounds for bail in a non-bailable offence?",
+    "comingSoon": "Research is being built. This shell is ready for the first feature.",
+    "trust": {
+      "verified": "Verified",
+      "needs_review": "Needs review",
+      "unverified": "Unverified"
+    }
+  },
+  "Status": {
+    "api": "API",
+    "up": "up",
+    "down": "down"
+  }
+}

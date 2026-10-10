@@ -44,6 +44,9 @@ services/collector/data_*/
 *.safetensors
 /eval-runs/
 
+# ── Tooling output ──
+.playwright-mcp/
+
 # ── OS / editors ──────────────────────
 .DS_Store
 Thumbs.db
