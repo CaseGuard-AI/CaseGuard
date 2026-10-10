@@ -1,0 +1,49 @@
+name: Bug report
+description: Something is broken on staging or in a release
+title: "fix(<area>): "
+labels: ["type: bug", "status: triage"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [web, api, ai, collector, contracts, infra, docs, eval]
+    validations:
+      required: true
+  - type: dropdown
+    id: env
+    attributes:
+      label: Where
+      options: [local, staging, main / release]
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Data leakage or a wrong "Verified" status is always S1.
+      options:
+        - "S1 — data leak, wrong trust status, security"
+        - "S2 — feature broken, no workaround"
+        - "S3 — degraded, workaround exists"
+        - "S4 — cosmetic"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Remove API keys, passwords and case content before pasting.
+      render: shell

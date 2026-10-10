@@ -1,0 +1,59 @@
+# Local development stack.
+#   cp .env.example .env && docker compose up -d db
+# App services are added here as each one is scaffolded (see the commented blocks).
+
+name: caseguard
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # api:            # apps/api: Express (Stream A)
+  #   build: ./apps/api
+  #   env_file: .env
+  #   depends_on: { db: { condition: service_healthy } }
+  #   ports: ["127.0.0.1:4000:4000"]
+  #   networks: [default, internal]
+
+  # ai:             # services/ai: FastAPI, internal only (ADR-0002, SEC-14): no published ports
+  #   build: ./services/ai
+  #   env_file: .env
+  #   depends_on: { db: { condition: service_healthy } }
+  #   networks: [internal]
+
+  # web:            # apps/web: Next.js (Stream A)
+  #   build: ./apps/web
+  #   env_file: .env
+  #   depends_on: [api]
+  #   ports: ["127.0.0.1:3000:3000"]
+
+  # ollama:         # optional local models (ADR-0005)
+  #   image: ollama/ollama
+  #   profiles: [local-llm]
+  #   volumes: [ollama:/root/.ollama]
+  #   networks: [internal]
+
+volumes:
+  pgdata:
+  # ollama:
+
+# networks:
+#   internal:
+#     internal: true
