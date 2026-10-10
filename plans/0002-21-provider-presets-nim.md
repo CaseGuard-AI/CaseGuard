@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** groundwork for [#21](https://github.com/CaseGuard-AI/CaseGuard/issues/21) · **PR:** _tbd_
+> **Status:** In progress · **Issue:** groundwork for [#21](https://github.com/CaseGuard-AI/CaseGuard/issues/21) · **PR:** [#33](https://github.com/CaseGuard-AI/CaseGuard/pull/33)
 
 # Plan: model provider presets (incl. NVIDIA NIM) + `pnpm llm:check`
 
