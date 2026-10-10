@@ -17,11 +17,12 @@ Read this before your first PR. The full branching and release model is in [`doc
 ```bash
 git clone https://github.com/CaseGuard-AI/CaseGuard.git && cd CaseGuard
 git switch staging
-cp .env.example .env
-docker compose up -d db          # Postgres 17 + pgvector
+pnpm setup                       # .env, pnpm install, uv venvs for the Python services
+pnpm db:up                       # Postgres 17 + pgvector in Docker, or: pnpm db:bootstrap (native Postgres)
+pnpm dev                         # web :3000 · api :4000 · ai :8000
 ```
 
-Each app and service has its own README with setup steps once it's scaffolded.
+Running without Docker, the tools to install, and pgvector on Windows are all covered in [`docs/engineering/local-setup.md`](docs/engineering/local-setup.md).
 
 ## Workflow
 
