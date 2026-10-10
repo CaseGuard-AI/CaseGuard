@@ -1,0 +1,104 @@
+name: Dependabot auto-merge
+
+# Merges low-risk Dependabot PRs into staging once CI is green; anything riskier is
+# labelled `needs-review` for a human. GitHub's native auto-merge isn't available on a
+# private free-plan repo, so this waits for the CI run itself (workflow_run).
+#
+# Auto-merged:  grouped "*-minor-and-patch" PRs, or a single bump within the same major
+#               (for 0.x versions: within the same minor).
+# Needs review: major bumps, 0.x minor bumps, anything unparseable, any failing check.
+#
+# Security: runs in the default-branch context and never checks out PR code.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write # re-run CI on staging after merging (GITHUB_TOKEN merges trigger no push workflows)
+
+jobs:
+  automerge:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - name: Find the PR
+        id: pr
+        run: |
+          pr=$(gh pr list --head "$HEAD_BRANCH" --state open --json number,author,baseRefName,headRefOid,title \
+                --jq '.[] | select(.author.login == "app/dependabot")')
+          if [ -z "$pr" ]; then echo "No open Dependabot PR for $HEAD_BRANCH"; exit 0; fi
+          number=$(jq -r .number <<<"$pr"); base=$(jq -r .baseRefName <<<"$pr")
+          head=$(jq -r .headRefOid <<<"$pr"); title=$(jq -r .title <<<"$pr")
+          if [ "$base" != "staging" ] || [ "$head" != "$HEAD_SHA" ]; then
+            echo "Skip: base=$base, or the PR moved on since this CI run"; exit 0
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+          { echo "title<<EOF"; echo "$title"; echo "EOF"; } >> "$GITHUB_OUTPUT"
+
+      - name: Decide (minor/patch vs major)
+        id: decide
+        if: steps.pr.outputs.number
+        env:
+          TITLE: ${{ steps.pr.outputs.title }}
+        run: |
+          decision=review; reason="could not classify the update"
+          re='from v?([0-9]+)\.([0-9]+)[^ ]* to v?([0-9]+)\.([0-9]+)'
+          if [[ "$HEAD_BRANCH" == *minor-and-patch* ]]; then
+            decision=merge; reason="grouped minor/patch updates"
+          elif [[ "$TITLE" =~ $re ]]; then
+            fmaj=${BASH_REMATCH[1]} fmin=${BASH_REMATCH[2]} tmaj=${BASH_REMATCH[3]} tmin=${BASH_REMATCH[4]}
+            if [ "$fmaj" != "$tmaj" ]; then reason="major bump $fmaj → $tmaj"
+            elif [ "$fmaj" = 0 ] && [ "$fmin" != "$tmin" ]; then reason="0.x minor bump (may break)"
+            else decision=merge; reason="same-major update"; fi
+          fi
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
+          echo "reason=$reason" >> "$GITHUB_OUTPUT"
+          echo "→ $decision: $reason"
+
+      - name: Wait for the other checks (PR policy, secret scan)
+        if: steps.decide.outputs.decision == 'merge'
+        run: |
+          pr=${{ steps.pr.outputs.number }}
+          for _ in $(seq 1 40); do
+            states=$(gh pr view "$pr" --json statusCheckRollup \
+              --jq '[.statusCheckRollup[] | select(.name != "automerge") | (.conclusion // .status // .state)] | join(" ")')
+            echo "checks: $states"
+            if grep -Eq 'FAILURE|CANCELLED|TIMED_OUT|ACTION_REQUIRED|ERROR' <<<"$states"; then
+              echo "::error::A check failed; leaving the PR for review"; exit 1
+            fi
+            if ! grep -Eq 'QUEUED|IN_PROGRESS|PENDING|WAITING|REQUESTED|EXPECTED' <<<"$states"; then exit 0; fi
+            sleep 15
+          done
+          echo "::error::Checks did not finish in time"; exit 1
+
+      - name: Merge
+        if: steps.decide.outputs.decision == 'merge'
+        run: |
+          pr=${{ steps.pr.outputs.number }}
+          gh pr comment "$pr" --body "Auto-merging: ${{ steps.decide.outputs.reason }}, CI green."
+          gh pr merge "$pr" --squash --delete-branch --match-head-commit "$HEAD_SHA"
+          gh workflow run ci.yml --ref staging
+
+      - name: Flag for review
+        if: steps.decide.outputs.decision == 'review' || failure()
+        run: |
+          pr=${{ steps.pr.outputs.number }}
+          [ -n "$pr" ] || exit 0
+          if gh pr view "$pr" --json labels --jq '.labels[].name' | grep -qx needs-review; then
+            echo "Already flagged"; exit 0
+          fi
+          gh label create needs-review --color d93f0b --description "Needs a human before merge" --force >/dev/null
+          gh pr edit "$pr" --add-label needs-review
+          gh pr comment "$pr" --body "Not auto-merged (${{ steps.decide.outputs.reason || 'a check failed' }}). Please review: check the changelog for breaking changes, then squash-merge."
