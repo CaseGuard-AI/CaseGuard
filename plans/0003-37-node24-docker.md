@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#37](https://github.com/CaseGuard-AI/CaseGuard/issues/37) · **PR:** pending
+> **Status:** In progress · **Issue:** [#37](https://github.com/CaseGuard-AI/CaseGuard/issues/37) · **PR:** [#38](https://github.com/CaseGuard-AI/CaseGuard/pull/38)
 
 # Plan: clear the open PR queue (#31, #34, #35, #36) and align Docker on Node 24 LTS
 
