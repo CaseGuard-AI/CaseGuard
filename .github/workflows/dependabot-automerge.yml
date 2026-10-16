@@ -18,6 +18,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  checks: read # the wait step reads statusCheckRollup (check runs + commit statuses)
+  statuses: read
   actions: write # re-run CI on staging after merging (GITHUB_TOKEN merges trigger no push workflows)
 
 jobs:
