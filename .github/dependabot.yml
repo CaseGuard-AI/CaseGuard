@@ -21,6 +21,13 @@ updates:
     open-pull-requests-limit: 10
     groups:
       js-minor-and-patch: { update-types: ["minor", "patch"] }
+    ignore:
+      # Hold TypeScript below 7 until typescript-eslint supports it ("does not support TS 7.0").
+      - dependency-name: typescript
+        versions: [">=7"]
+      # Node types track the runtime (Node 24 LTS, .nvmrc). Lift with the Node hold below.
+      - dependency-name: "@types/node"
+        versions: [">=25"]
 
   - package-ecosystem: uv
     directories: ["/services/ai", "/services/collector"]
@@ -40,6 +47,11 @@ updates:
     ignore:
       - dependency-name: node
         versions: [">=25"]
+      # Hold services/ai on Python 3.12: pyproject pins requires-python <3.13, and a newer
+      # image makes uv fetch a private 3.12 the non-root user can't run. Lift together with
+      # requires-python and the ruff/mypy targets.
+      - dependency-name: python
+        versions: [">=3.13"]
 
   - package-ecosystem: docker-compose
     directory: /
