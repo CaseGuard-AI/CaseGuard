@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#45](https://github.com/CaseGuard-AI/CaseGuard/issues/45) · **PR:** [#46](https://github.com/CaseGuard-AI/CaseGuard/pull/46)
+> **Status:** Done · **Issue:** [#45](https://github.com/CaseGuard-AI/CaseGuard/issues/45) · **PR:** [#46](https://github.com/CaseGuard-AI/CaseGuard/pull/46)
 
 # Fix the 6 red Dependabot PRs (#39–#44)
 
