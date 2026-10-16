@@ -35,6 +35,11 @@ updates:
     target-branch: staging
     schedule: { interval: weekly, day: monday }
     commit-message: { prefix: "build", include: scope }
+    # Hold Node on 24 LTS (matches .nvmrc). Lift this when moving to 26 once it is LTS,
+    # and bump .nvmrc + package.json engines in the same PR.
+    ignore:
+      - dependency-name: node
+        versions: [">=25"]
 
   - package-ecosystem: docker-compose
     directory: /
