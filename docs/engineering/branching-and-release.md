@@ -60,7 +60,7 @@ git push -u origin feature/ai-rrf-fusion
 ```
 
 - Rebase your *own* branch freely. Never rebase or force-push a shared branch.
-- Once the PR is squash-merged, the branch is deleted automatically.
+- Once the PR is squash-merged, **keep the remote branch**. It is a record of what each piece of work added. Deleting your local copy is fine (`git branch -D <branch>`). Don't reuse a merged branch for new work: cut a fresh one from `staging`.
 
 ## 4. Commits and PR titles
 
@@ -113,7 +113,7 @@ These are applied by the setup script, or set them by hand in GitHub → Setting
 - Default branch: **`staging`**, so PRs target it by default. `main` holds releases.
 - Allow squash merge **and** merge commits. Disable rebase merge.
 - Squash commit message: PR title + description.
-- Automatically delete head branches after merge.
+- **Do not** automatically delete head branches after merge. Merged branches stay on the remote as a record.
 - Dependabot alerts and security updates on. Secret scanning and push protection on.
 
 ## 9. Dependency updates (Dependabot)
