@@ -1,7 +1,8 @@
 # Production image for apps/web (Next.js standalone output). Build from the repo root:
 #   docker build -f apps/web/Dockerfile --build-arg NEXT_PUBLIC_API_URL=https://… -t caseguard-web .
-FROM node:22-slim AS base
-RUN corepack enable
+FROM node:24-slim AS base
+# Node 25+ no longer bundles corepack; install it so pnpm (package.json "packageManager") resolves.
+RUN npm install -g corepack@latest && corepack enable
 WORKDIR /repo
 
 FROM base AS build
@@ -13,7 +14,7 @@ RUN pnpm install --frozen-lockfile --filter @caseguard/web...
 COPY apps/web apps/web
 RUN pnpm --filter @caseguard/web run build
 
-FROM node:22-slim AS runtime
+FROM node:24-slim AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=build --chown=node:node /repo/apps/web/.next/standalone ./

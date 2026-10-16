@@ -1,7 +1,8 @@
 # Production image for apps/api. Build from the repo root:
 #   docker build -f apps/api/Dockerfile -t caseguard-api .
-FROM node:22-slim AS base
-RUN corepack enable
+FROM node:24-slim AS base
+# Node 25+ no longer bundles corepack; install it so pnpm (package.json "packageManager") resolves.
+RUN npm install -g corepack@latest && corepack enable
 WORKDIR /repo
 
 FROM base AS build
@@ -12,7 +13,7 @@ COPY apps/api apps/api
 RUN pnpm --filter @caseguard/api run build \
  && pnpm --filter @caseguard/api deploy --prod --legacy /out
 
-FROM node:22-slim AS runtime
+FROM node:24-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /out/node_modules ./node_modules

@@ -4,7 +4,7 @@
   "description": "CaseGuard AI monorepo: see README.md and docs/engineering/local-setup.md",
   "packageManager": "pnpm@10.34.6",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "setup": "node scripts/setup.mjs",
