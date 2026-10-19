@@ -42,7 +42,11 @@ Then open `.env` and replace every `change-me-…` value.
 pnpm db:up        # docker compose up -d db → pgvector/pgvector:pg17
 ```
 
-The container runs `infra/db/sql/bootstrap.sql` the first time it starts. To rebuild it from scratch, run `docker compose down -v`.
+The container runs `infra/db/sql/bootstrap.sql` the first time it starts. To rebuild it from scratch, run `docker compose down -v`. Then create the app tables:
+
+```bash
+pnpm db:migrate   # app schema migrations as caseguard_app (ADR-0007); safe to re-run
+```
 
 ### Option B: Fully native (no Docker)
 
@@ -51,6 +55,7 @@ The container runs `infra/db/sql/bootstrap.sql` the first time it starts. To reb
 3. Run:
    ```bash
    pnpm db:bootstrap   # creates the database, roles and schemas; safe to re-run
+   pnpm db:migrate     # creates the app tables as caseguard_app; safe to re-run
    ```
    It finds `psql` on PATH, under `C:\Program Files\PostgreSQL\<ver>\bin`, or in `PG_BIN`.
 

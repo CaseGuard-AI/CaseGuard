@@ -42,8 +42,26 @@ src/
   routes/              one router per contract tag (health now; auth, conversations, citations, sources next)
   middleware/errors.ts RFC 9457 problem+json for 404, Zod and HttpProblem errors
   lib/                 logger (secrets redacted), HttpProblem
+  db/                  Drizzle schema, client and migration runner (up/down)
+drizzle/               generated SQL migrations + hand-written .down.sql
 test/                  vitest + supertest
 Dockerfile             production image (build from the repo root)
 ```
 
-The **migration tool** for the `app` schema (Prisma or Drizzle, PRD §14.2) is Stream A's choice. Add it in the first PR that creates tables.
+## Database migrations
+
+The `app` schema is managed with **Drizzle** ([ADR-0007](../../docs/adr/0007-drizzle-for-app-schema.md)). Migrations run as `caseguard_app` (`API_DATABASE_URL`). The schema itself comes from `pnpm db:bootstrap`.
+
+```bash
+pnpm db:migrate                               # apply pending migrations (from the repo root)
+pnpm --filter ./apps/api db:migrate:down      # revert the newest migration
+```
+
+To change the schema:
+
+1. Edit `src/db/schema.ts`.
+2. Run `pnpm --filter ./apps/api db:generate`. It writes `drizzle/NNNN_<tag>.sql`. Review it and remove any `CREATE SCHEMA "app"`.
+3. Write `drizzle/NNNN_<tag>.down.sql` by hand to reverse it. A test fails without it.
+4. Run `pnpm db:migrate`, then `pnpm --filter ./apps/api test`. The DB tests run when `APP_TEST_DATABASE_URL` points at a bootstrapped database as `caseguard_app`.
+
+The Docker image applies pending migrations before it starts the server.

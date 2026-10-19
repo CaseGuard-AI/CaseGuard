@@ -19,7 +19,9 @@ WORKDIR /app
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/package.json ./
 COPY --from=build /repo/apps/api/dist ./dist
+COPY --from=build /repo/apps/api/drizzle ./drizzle
 USER node
 EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=3s CMD node -e "fetch('http://127.0.0.1:4000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "dist/server.js"]
+# Apply pending app-schema migrations as caseguard_app, then serve (ADR-0007).
+CMD ["sh", "-c", "node dist/db/migrate.js up && exec node dist/server.js"]

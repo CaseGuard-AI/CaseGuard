@@ -24,7 +24,18 @@ const schema = z.object({
 export type Env = z.infer<typeof schema>;
 
 export function parseEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const result = schema.safeParse(source);
+  return parseWith(schema, source);
+}
+
+// The migration CLI needs only the database, not the AI or JWT secrets.
+const dbSchema = schema.pick({ NODE_ENV: true, API_DATABASE_URL: true, LOG_LEVEL: true });
+
+export function parseDbEnv(source: NodeJS.ProcessEnv = process.env): z.infer<typeof dbSchema> {
+  return parseWith(dbSchema, source);
+}
+
+function parseWith<T extends z.ZodType>(s: T, source: NodeJS.ProcessEnv): z.infer<T> {
+  const result = s.safeParse(source);
   if (!result.success) {
     const issues = result.error.issues.map((i) => `  ${i.path.join(".")}: ${i.message}`).join("\n");
     throw new Error(`Invalid environment (see .env.example):\n${issues}`);
