@@ -22,10 +22,10 @@ pnpm dev:api                 # tsx watch → http://localhost:4000/api/v1
 
 Config is validated at startup (`src/config/env.ts`). It's read from real environment variables, then `apps/api/.env`, then the repo-root `.env`. A missing or weak value stops the server with a readable message.
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/v1/health` | Liveness |
-| `GET /api/v1/ready` | Readiness: Postgres as `caseguard_app` **and** `services/ai` with the service token |
+| Endpoint             | Purpose                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `GET /api/v1/health` | Liveness                                                                            |
+| `GET /api/v1/ready`  | Readiness: Postgres as `caseguard_app` **and** `services/ai` with the service token |
 
 ## Scripts
 
