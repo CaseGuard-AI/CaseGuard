@@ -28,6 +28,8 @@ tags:
     description: Conversations and answers (FR-RES)
   - name: sources
     description: Citations and source records (FR-RES-7, FR-TRUST)
+  - name: admin
+    description: AI access and model providers. Admin role only; Users get 403 (FR-AUTH-2, FR-AUTH-3)
 
 paths:
   /health:
@@ -302,6 +304,109 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /admin/users:
+    get:
+      tags: [admin]
+      operationId: adminListUsers
+      summary: Every user in the deployment, oldest first (FR-AUTH-3)
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of users
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/AdminUser" }
+                  nextCursor: { type: [string, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /admin/users/{userId}:
+    patch:
+      tags: [admin]
+      operationId: adminUpdateUser
+      summary: Enable or disable AI features for a user (FR-AUTH-3)
+      description: |
+        With `aiEnabled: false`, every AI endpoint returns 403 for that user (for example
+        `askQuestion`). The change applies from the user's next request.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminUserUpdate" }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminUser" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /admin/providers:
+    get:
+      tags: [admin]
+      operationId: adminListProviders
+      summary: The model providers this deployment knows, and which are enabled (FR-AUTH-3, SEC-11)
+      description: |
+        The provider allow-list. Case data goes only to enabled providers or to a key the
+        user supplied (SEC-11). The catalog comes from the deployment's model configuration
+        (ADR-0005); this API only switches entries on or off.
+      responses:
+        "200":
+          description: Providers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Provider" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /admin/providers/{providerId}:
+    patch:
+      tags: [admin]
+      operationId: adminUpdateProvider
+      summary: Enable or disable a model provider (FR-AUTH-3, SEC-11)
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ProviderId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProviderUpdate" }
+      responses:
+        "200":
+          description: Updated provider
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Provider" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -498,3 +603,43 @@ components:
           type: array
           items: { $ref: "./ai.v1.yaml#/components/schemas/Citation" }
         createdAt: { type: string, format: date-time }
+
+    AdminUser:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [createdAt]
+          properties:
+            createdAt: { type: string, format: date-time }
+
+    AdminUserUpdate:
+      type: object
+      required: [aiEnabled]
+      additionalProperties: false
+      properties:
+        aiEnabled: { type: boolean }
+
+    ProviderId:
+      description: Stable provider key, such as `gemini` or `ollama`.
+      type: string
+      pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
+      examples: [gemini, ollama]
+
+    Provider:
+      type: object
+      required: [id, name, kind, enabled]
+      properties:
+        id: { $ref: "#/components/schemas/ProviderId" }
+        name: { type: string, examples: ["Google Gemini"] }
+        kind:
+          description: "`local` keeps data on the machine (for example Ollama); `cloud` sends it to a third party (SEC-11)."
+          type: string
+          enum: [cloud, local]
+        enabled: { type: boolean }
+
+    ProviderUpdate:
+      type: object
+      required: [enabled]
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }

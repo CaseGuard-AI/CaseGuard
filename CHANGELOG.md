@@ -12,3 +12,4 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - Auth for `/api/v1/auth/*` (register, login, refresh, logout, me): argon2id passwords, a 15-minute access JWT and a rotating 14-day refresh token in the `cg_refresh` HttpOnly cookie with reuse detection, rate-limited login, `requireAuth` / `requireRole` for User/Admin, and contract tests against `api.v1.yaml` (#10)
 - api.v1 contract: password reset, with `POST /auth/password-reset` (always 202) and `POST /auth/password-reset/confirm` (204, revokes existing sessions) (#53)
 - Model provider presets in `.env.example` (NVIDIA NIM, Gemini, Groq, OpenRouter, OpenAI, Anthropic, Ollama) and `pnpm llm:check` to test a configured provider and key
+- api.v1 contract: Admin endpoints for AI access, with `GET /admin/users`, `PATCH /admin/users/{userId}` (`aiEnabled`), and the provider allow-list `GET /admin/providers` and `PATCH /admin/providers/{providerId}` (#55)
