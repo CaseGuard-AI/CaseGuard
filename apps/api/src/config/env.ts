@@ -29,6 +29,8 @@ const schema = z.object({
   SMTP_USER: blankAsUnset,
   SMTP_PASSWORD: blankAsUnset,
   MAIL_FROM: z.string().min(3).default("CaseGuard <no-reply@caseguard.local>"),
+  // The web page that password reset emails link to (#53, #62); the token goes in ?token=.
+  RESET_URL_BASE: z.string().url().default("http://localhost:3000/reset-password"),
 });
 
 export type Env = z.infer<typeof schema>;

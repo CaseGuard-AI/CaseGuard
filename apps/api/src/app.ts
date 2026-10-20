@@ -14,7 +14,7 @@ import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
 
 export interface AppDeps {
-  env: Pick<Env, "CORS_ORIGIN" | "JWT_SECRET">;
+  env: Pick<Env, "CORS_ORIGIN" | "JWT_SECRET" | "RESET_URL_BASE">;
   logger: Logger;
   db: Pick<Pool, "query">;
   orm: Db;
@@ -36,7 +36,14 @@ export function createApp(deps: AppDeps) {
 
   const v1 = express.Router();
   v1.use(healthRouter({ db: deps.db, ai: deps.ai }));
-  v1.use(authRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
+  v1.use(
+    authRouter({
+      db: deps.orm,
+      jwtSecret: deps.env.JWT_SECRET,
+      mailer: deps.mailer,
+      resetUrlBase: deps.env.RESET_URL_BASE,
+    }),
+  );
   // Feature routers (conversations, citations, sources) mount here, per packages/contracts.
   app.use("/api/v1", v1);
 
