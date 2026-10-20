@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#54](https://github.com/CaseGuard-AI/CaseGuard/issues/54) · **PR:** #N
+> **Status:** In progress · **Issue:** [#54](https://github.com/CaseGuard-AI/CaseGuard/issues/54) · **PR:** [#65](https://github.com/CaseGuard-AI/CaseGuard/pull/65)
 
 # #54: `db:create-admin` CLI
 
