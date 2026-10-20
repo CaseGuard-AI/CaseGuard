@@ -12,6 +12,7 @@ import type { Mailer } from "./lib/mailer.js";
 import { errorHandler, notFound } from "./middleware/errors.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
+import { conversationsRouter } from "./routes/conversations.js";
 import { healthRouter } from "./routes/health.js";
 
 export interface AppDeps {
@@ -46,7 +47,8 @@ export function createApp(deps: AppDeps) {
     }),
   );
   v1.use(adminRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
-  // Feature routers (conversations, citations, sources) mount here, per packages/contracts.
+  v1.use(conversationsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
+  // Feature routers (citations, sources) mount here, per packages/contracts.
   app.use("/api/v1", v1);
 
   app.use(notFound);

@@ -5,8 +5,14 @@ import { createApp, type AppDeps } from "../src/app.js";
 import { parseEnv } from "../src/config/env.js";
 import { createLogger } from "../src/lib/logger.js";
 
-const upAi: AppDeps["ai"] = { info: async () => ({ service: "caseguard-ai", version: "test" }) };
+const upAi: AppDeps["ai"] = {
+  info: async () => ({ service: "caseguard-ai", version: "test" }),
+  answer: async () => {
+    throw new Error("not used");
+  },
+};
 const downAi: AppDeps["ai"] = {
+  ...upAi,
   info: async () => {
     throw new Error("down");
   },

@@ -59,3 +59,15 @@ export function authLimiter() {
     handler: tooMany,
   });
 }
+
+/** Questions to the AI per signed-in user: 30 per 15 minutes. Mount after requireAuth. */
+export function aiLimiter() {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit: 30,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    keyGenerator: (req) => req.auth?.userId ?? ip(req),
+    handler: tooMany,
+  });
+}
