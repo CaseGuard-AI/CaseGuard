@@ -3,6 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { requireAiEnabled, requireAuth } from "../auth/middleware.js";
 import type { AiClient, Answer } from "../clients/ai.js";
+import { languageSchema, parseAnswer } from "../clients/ai-schemas.js";
 import {
   auditFailure,
   createConversation,
@@ -29,37 +30,17 @@ const createBody = z.object({
   caseId: z.uuid().optional(),
 });
 
-const language = z.enum(["en", "ur", "roman_ur"]);
-
 const askBody = z.object({
   question: z.string().trim().min(1).max(4000),
-  language: language.optional(),
+  language: languageSchema.optional(),
   lawAsOf: z.iso.date().optional(),
 });
 
-// FR-RES-6: an answer reaches the user only if every citation carries a stored verification.
-// FR-RES-9: an unanswerable answer carries no citations. Anything else is treated as a failure.
-const answerSchema = z.object({
-  requestId: z.uuid(),
-  answerable: z.boolean(),
-  language,
-  text: z.string(),
-  citations: z.array(
-    z.looseObject({
-      id: z.uuid(),
-      sourceId: z.uuid(),
-      claim: z.string(),
-      verification: z.looseObject({
-        status: z.enum(["verified", "needs_review", "unverified"]),
-        flags: z.array(z.string()),
-        lastVerifiedAt: z.string(),
-      }),
-    }),
-  ),
-});
-
+// FR-RES-6: an answer reaches the user only if every citation carries a stored verification
+// (checked by parseAnswer). FR-RES-9: an unanswerable answer carries no citations. Anything
+// else is treated as a failure.
 function checkAnswer(raw: unknown, requestId: string): Answer {
-  const answer = answerSchema.parse(raw) as Answer;
+  const answer = parseAnswer(raw);
   if (answer.requestId !== requestId) throw new Error("answer is for a different request");
   if (!answer.answerable && answer.citations.length > 0) {
     throw new Error("an unanswerable answer carried citations");

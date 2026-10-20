@@ -10,6 +10,12 @@ const upAi: AppDeps["ai"] = {
   answer: async () => {
     throw new Error("not used");
   },
+  getCitation: async () => {
+    throw new Error("not used");
+  },
+  getSource: async () => {
+    throw new Error("not used");
+  },
 };
 const downAi: AppDeps["ai"] = {
   ...upAi,

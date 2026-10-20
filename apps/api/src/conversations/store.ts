@@ -183,3 +183,27 @@ function truncate(text: string, max: number): string {
   const flat = text.replace(/\s+/g, " ").trim();
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
+
+/**
+ * Whether the citation appears in one of this user's own answers. The citations route checks
+ * this before asking services/ai, so another user's citation is a 404 with no content
+ * (FR-AUTH-4). Served by the GIN index on messages.citations (migration 0005).
+ */
+export async function userHasCitation(
+  db: Db,
+  userId: string,
+  citationId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: messages.id })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.ownerUserId, userId),
+        eq(messages.role, "assistant"),
+        sql`${messages.citations} @> ${JSON.stringify([{ id: citationId }])}::jsonb`,
+      ),
+    )
+    .limit(1);
+  return row !== undefined;
+}
