@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#75](https://github.com/CaseGuard-AI/CaseGuard/issues/75) · **PR:** #N
+> **Status:** In progress · **Issue:** [#75](https://github.com/CaseGuard-AI/CaseGuard/issues/75) · **PR:** [#76](https://github.com/CaseGuard-AI/CaseGuard/pull/76)
 
 # #75: send the provider allow-list to services/ai on ask
 
