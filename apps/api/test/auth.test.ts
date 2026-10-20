@@ -48,6 +48,7 @@ describe.skipIf(!url)("auth (api.v1 /auth/*)", () => {
       db: pool,
       orm: createDb(pool),
       ai: { info: async () => ({ service: "caseguard-ai", version: "test" }) } as AppDeps["ai"],
+      mailer: { send: async () => {} },
     });
   });
 

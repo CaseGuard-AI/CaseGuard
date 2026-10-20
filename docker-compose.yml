@@ -5,7 +5,8 @@
 # No Docker? See docs/engineering/local-setup.md (native Postgres + pnpm db:bootstrap).
 #
 # Networks (ADR-0002, SEC-14):
-#   edge       web, api, db       normal bridge; the only network with published ports
+#   edge       web, api, db,      normal bridge;
+#              mailpit the only network with published ports
 #   internal   api, ai, db        no outside access; api reaches ai and db here
 #   ai-egress  ai only            outbound internet for model providers (Gemini, OpenAI,
 #                                 OpenRouter, Anthropic, user keys) and model downloads
@@ -61,13 +62,24 @@ services:
       API_PORT: 4000 # container port is fixed; the host side follows .env API_PORT
       API_DATABASE_URL: postgresql://caseguard_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
       AI_SERVICE_URL: http://ai:8000
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
     depends_on:
       db: { condition: service_healthy }
       ai: { condition: service_healthy }
+      mailpit: { condition: service_started }
     ports:
       - "127.0.0.1:${API_PORT:-4000}:4000"
     networks: [edge, internal]
     # HEALTHCHECK on /api/v1/health is defined in apps/api/Dockerfile
+
+  mailpit: # dev mail catcher (#61). api sends here; read mail at http://localhost:8025
+    image: axllent/mailpit:v1.31.3
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025" # web UI and API
+      - "127.0.0.1:1025:1025" # SMTP, for an api run natively (SMTP_HOST=localhost)
+    networks: [edge]
 
   web: # apps/web: Next.js (Stream A). NEXT_PUBLIC_* is baked in at build time
     build:

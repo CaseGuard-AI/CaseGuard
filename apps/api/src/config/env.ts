@@ -10,6 +10,9 @@ for (const rel of ["../../.env", "../../../../.env"]) {
   if (existsSync(path)) loadDotenv({ path, quiet: true });
 }
 
+// `KEY=` in .env means unset, not an empty value.
+const blankAsUnset = z.preprocess((v) => (v === "" ? undefined : v), z.string().optional());
+
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_PORT: z.coerce.number().int().positive().default(4000),
@@ -19,6 +22,13 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
   CORS_ORIGIN: z.string().default("http://localhost:3000"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+  // Email (#61). Unset SMTP_HOST disables sending: the API starts, and every send fails.
+  SMTP_HOST: blankAsUnset,
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: z.stringbool().default(false),
+  SMTP_USER: blankAsUnset,
+  SMTP_PASSWORD: blankAsUnset,
+  MAIL_FROM: z.string().min(3).default("CaseGuard <no-reply@caseguard.local>"),
 });
 
 export type Env = z.infer<typeof schema>;

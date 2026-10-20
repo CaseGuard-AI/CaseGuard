@@ -8,6 +8,7 @@ import type { AiClient } from "./clients/ai.js";
 import type { Env } from "./config/env.js";
 import type { Db } from "./db/client.js";
 import type { Logger } from "./lib/logger.js";
+import type { Mailer } from "./lib/mailer.js";
 import { errorHandler, notFound } from "./middleware/errors.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
@@ -18,6 +19,7 @@ export interface AppDeps {
   db: Pick<Pool, "query">;
   orm: Db;
   ai: AiClient;
+  mailer: Mailer;
 }
 
 // Dependencies are injected so tests can run the app without a real DB or AI service.

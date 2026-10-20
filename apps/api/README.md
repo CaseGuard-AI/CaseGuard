@@ -41,6 +41,15 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 - Rate limits (SEC-15): 10 failed sign-ins per IP and email, and 20 register/refresh requests per IP, each per 15 minutes. The store is in memory, so limits are per process; use a shared store before running more than one API instance.
 - To make an admin for now: `UPDATE app.users SET role = 'admin' WHERE lower(email) = lower('…');`
 
+## Email
+
+`src/lib/mailer.ts` sends over SMTP with nodemailer, configured by `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` and `MAIL_FROM`. Routes get it as `deps.mailer`, and tests inject a fake.
+
+- **Dev:** Mailpit catches everything (`docker compose up -d mailpit`, then open http://localhost:8025). In Docker the api uses `mailpit:1025` automatically.
+- **No `SMTP_HOST`:** the API still starts, but every send rejects with `MailNotConfiguredError` and logs an error.
+- **Logging:** only the subject and message id are logged, never the recipient or the body, because bodies can hold reset links.
+- **Tests:** `test/mailer.test.ts` sends to a real Mailpit when `MAILPIT_URL` is set (CI runs Mailpit as a service container). `MAILPIT_SMTP_PORT` defaults to 1025.
+
 ## Scripts
 
 `dev`, `build`, `start`, `lint`, `typecheck`, `test` (vitest + supertest) and `format`. CI runs `lint`, `typecheck` and `test` against a Postgres service container (`DATABASE_URL`).
@@ -56,7 +65,7 @@ src/
   routes/              one router per contract tag (health, auth; conversations, citations, sources next)
   auth/                passwords (argon2id), tokens (JWT + refresh), store, requireAuth/requireRole
   middleware/          errors (RFC 9457 problem+json), rate limits
-  lib/                 logger (secrets redacted), HttpProblem
+  lib/                 logger (secrets redacted), HttpProblem, mailer (SMTP)
   db/                  Drizzle schema, client and migration runner (up/down)
 drizzle/               generated SQL migrations + hand-written .down.sql
 test/                  vitest + supertest
