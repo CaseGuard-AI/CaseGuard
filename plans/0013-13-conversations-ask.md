@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#13](https://github.com/CaseGuard-AI/CaseGuard/issues/13) · **PR:** #N
+> **Status:** In progress · **Issue:** [#13](https://github.com/CaseGuard-AI/CaseGuard/issues/13) · **PR:** [#69](https://github.com/CaseGuard-AI/CaseGuard/pull/69)
 
 # #13: conversations and the ask route (API)
 
