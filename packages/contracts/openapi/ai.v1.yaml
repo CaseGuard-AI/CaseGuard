@@ -58,6 +58,10 @@ paths:
         Runs retrieval → graph step → rerank → generation → trust layer. Returns only when every
         citation has a stored verification (FR-RES-6). If the corpus doesn't support an answer,
         `answerable` is false and `citations` is empty (FR-RES-9).
+
+        Every model call for this request goes only to providers in `allowedProviders` (SEC-11).
+        If no allowed provider is configured for a role the pipeline needs, the answer is 503,
+        never a fallback to another provider.
       requestBody:
         required: true
         content:
@@ -174,6 +178,14 @@ components:
       type: string
       enum: [en, ur, roman_ur]
 
+    ProviderId:
+      description: |
+        Stable model-provider key, such as `gemini` or `ollama` (ADR-0005). Shared with api.v1,
+        where the Admin's allow-list uses the same keys.
+      type: string
+      pattern: "^[a-z0-9][a-z0-9-]{0,62}$"
+      examples: [gemini, ollama]
+
     Turn:
       type: object
       required: [role, content]
@@ -203,6 +215,15 @@ components:
           maxItems: 20
           items: { $ref: "#/components/schemas/Turn" }
         scope: { $ref: "#/components/schemas/Scope" }
+        allowedProviders:
+          description: |
+            Model providers this request's data may be sent to: the Admin's allow-list, resolved
+            by apps/api (FR-AUTH-3, SEC-11). services/ai never widens it. Omitted means local
+            providers only (for example Ollama), so a caller that forgets it fails closed.
+          type: array
+          uniqueItems: true
+          maxItems: 32
+          items: { $ref: "#/components/schemas/ProviderId" }
 
     Answer:
       type: object
