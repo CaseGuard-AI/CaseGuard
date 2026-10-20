@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#21](https://github.com/CaseGuard-AI/CaseGuard/issues/21) · **PR:** #N
+> **Status:** In progress · **Issue:** [#21](https://github.com/CaseGuard-AI/CaseGuard/issues/21) · **PR:** [#74](https://github.com/CaseGuard-AI/CaseGuard/pull/74)
 
 # #21 (part 1): the provider allow-list in the ai.v1 contract
 
