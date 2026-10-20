@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#10](https://github.com/CaseGuard-AI/CaseGuard/issues/10) · **PR:** [#56](https://github.com/CaseGuard-AI/CaseGuard/pull/56)
+> **Status:** Done · **Issue:** [#10](https://github.com/CaseGuard-AI/CaseGuard/issues/10) · **PR:** [#56](https://github.com/CaseGuard-AI/CaseGuard/pull/56)
 
 # #10: Auth — register, login, refresh, logout, me (api.v1)
 
