@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#9](https://github.com/CaseGuard-AI/CaseGuard/issues/9) · **PR:** [#51](https://github.com/CaseGuard-AI/CaseGuard/pull/51)
+> **Status:** Done · **Issue:** [#9](https://github.com/CaseGuard-AI/CaseGuard/issues/9) · **PR:** [#51](https://github.com/CaseGuard-AI/CaseGuard/pull/51)
 
 # #9: Drizzle migrations for the `app` schema, plus `users` and `accounts`
 
