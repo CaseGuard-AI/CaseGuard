@@ -29,6 +29,9 @@
     "concurrently": "^10.0.6"
   },
   "pnpm": {
+    "overrides": {
+      "@esbuild-kit/core-utils>esbuild": "^0.25.0"
+    },
     "ignoredBuiltDependencies": [
       "sharp",
       "unrs-resolver"
