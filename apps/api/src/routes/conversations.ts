@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
+import { enabledProviderIds } from "../admin/store.js";
 import { requireAiEnabled, requireAuth } from "../auth/middleware.js";
 import type { AiClient, Answer } from "../clients/ai.js";
 import { languageSchema, parseAnswer } from "../clients/ai-schemas.js";
@@ -115,6 +116,9 @@ export function conversationsRouter(deps: { db: Db; jwtSecret: string; ai: AiCli
 
       const requestId = randomUUID();
       const started = Date.now();
+      // The Admin's allow-list, always sent explicitly: an omitted list means "local only"
+      // to services/ai, never "whatever is enabled" (SEC-11, #75).
+      const allowedProviders = await enabledProviderIds(db);
       const ctx: Omit<AskContext, "latencyMs"> = {
         requestId,
         owner,
@@ -122,7 +126,17 @@ export function conversationsRouter(deps: { db: Db; jwtSecret: string; ai: AiCli
         question: body.question,
         ...(body.language ? { language: body.language } : {}),
         ...(body.lawAsOf ? { lawAsOf: body.lawAsOf } : {}),
+        allowedProviders,
       };
+
+      if (allowedProviders.length === 0) {
+        await auditFailure(db, { ...ctx, latencyMs: Date.now() - started }, "no provider enabled");
+        throw new HttpProblem(
+          503,
+          "Service Unavailable",
+          "No model provider is enabled. Ask an administrator to enable one.",
+        );
+      }
 
       let answer: Answer;
       try {
@@ -135,6 +149,7 @@ export function conversationsRouter(deps: { db: Db; jwtSecret: string; ai: AiCli
             history: await recentTurns(db, conversation.id),
             // Public corpus only until cases land (P1). Never widened by the AI (FR-CASE-6).
             scope: { userId: owner.userId, accountId: owner.accountId, allowedCaseIds: [] },
+            allowedProviders,
           }),
           requestId,
         );

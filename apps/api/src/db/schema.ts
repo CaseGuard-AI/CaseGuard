@@ -201,6 +201,8 @@ export const aiAuditRecords = app.table(
     answerLanguage: text("answer_language", { enum: LANGUAGES }),
     citations: jsonb("citations").$type<Citation[]>(),
     error: text("error"),
+    // The provider allow-list in effect for this request (SEC-11, #75). Null on older rows.
+    allowedProviders: text("allowed_providers").array(),
     latencyMs: integer("latency_ms").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

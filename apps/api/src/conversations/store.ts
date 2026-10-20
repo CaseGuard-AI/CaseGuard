@@ -113,6 +113,7 @@ export interface AskContext {
   question: string;
   language?: Language;
   lawAsOf?: string;
+  allowedProviders: string[];
   latencyMs: number;
 }
 
@@ -175,6 +176,7 @@ function auditBase(ctx: AskContext) {
     question: ctx.question,
     language: ctx.language ?? null,
     lawAsOf: ctx.lawAsOf ?? null,
+    allowedProviders: ctx.allowedProviders,
     latencyMs: ctx.latencyMs,
   };
 }

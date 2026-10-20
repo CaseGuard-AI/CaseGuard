@@ -22,6 +22,8 @@ export interface AnswerRequest {
   lawAsOf?: string;
   history?: Turn[];
   scope: Scope;
+  /** Providers this request's data may go to (SEC-11). Omitted means local only. */
+  allowedProviders?: string[];
 }
 
 export interface Verification {

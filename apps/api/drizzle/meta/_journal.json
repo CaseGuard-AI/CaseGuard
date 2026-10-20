@@ -43,6 +43,13 @@
       "when": 1792512844273,
       "tag": "0005_messages_citations_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792514977920,
+      "tag": "0006_audit_allowed_providers",
+      "breakpoints": true
     }
   ]
 }

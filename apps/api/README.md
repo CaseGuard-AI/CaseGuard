@@ -91,7 +91,8 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 
 - Everything under `/api/v1/admin` requires `requireAuth` and `requireRole("admin")`, so Users get 403. Create the first admin with `pnpm db:create-admin` (see Auth).
 - **AI access** (FR-AUTH-3): `PATCH /admin/users/{userId} { aiEnabled }`. Mount `requireAiEnabled(db)` after `requireAuth` on every AI route. It reads `ai_enabled` from the database on each request, so a change applies to the user's very next request.
-- **Provider allow-list** (SEC-11): `app.providers` is seeded by migration `0003` from the ADR-0005 presets. Only `ollama` (local) starts enabled, so an Admin switches cloud providers on. The API only toggles entries and never stores provider keys. Enforcement in `services/ai` comes with #21.
+- **Provider allow-list** (SEC-11): `app.providers` is seeded by migration `0003` from the ADR-0005 presets. Only `ollama` (local) starts enabled, so an Admin switches cloud providers on. The API only toggles entries and never stores provider keys.
+- **Sending the allow-list** (#75): every question sends the enabled ids explicitly as `allowedProviders`, read fresh on each request. To services/ai, an omitted list means "local only". With nothing enabled, the ask route returns 503 without calling services/ai. The list in effect is stored on the audit row (`allowed_providers`). Enforcement inside `services/ai` is #21.
 
 ## Email
 
