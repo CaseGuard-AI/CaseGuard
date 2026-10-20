@@ -22,10 +22,24 @@ pnpm dev:api                 # tsx watch → http://localhost:4000/api/v1
 
 Config is validated at startup (`src/config/env.ts`). It's read from real environment variables, then `apps/api/.env`, then the repo-root `.env`. A missing or weak value stops the server with a readable message.
 
-| Endpoint             | Purpose                                                                             |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `GET /api/v1/health` | Liveness                                                                            |
-| `GET /api/v1/ready`  | Readiness: Postgres as `caseguard_app` **and** `services/ai` with the service token |
+| Endpoint                     | Purpose                                                                             |
+| ---------------------------- | ----------------------------------------------------------------------------------- |
+| `GET /api/v1/health`         | Liveness                                                                            |
+| `GET /api/v1/ready`          | Readiness: Postgres as `caseguard_app` **and** `services/ai` with the service token |
+| `POST /api/v1/auth/register` | Create an account and sign in                                                       |
+| `POST /api/v1/auth/login`    | Sign in (rate-limited)                                                              |
+| `POST /api/v1/auth/refresh`  | Rotate the refresh cookie, get a new access token                                   |
+| `POST /api/v1/auth/logout`   | Revoke the refresh token and clear the cookie                                       |
+| `GET /api/v1/auth/me`        | The signed-in user                                                                  |
+
+## Auth
+
+- Passwords are hashed with **argon2id** (`src/auth/password.ts`).
+- Sign-in returns a 15-minute **access JWT** (HS256, `JWT_SECRET`) in the body, sent back as `Authorization: Bearer`. The 14-day **refresh token** is set only in the `cg_refresh` cookie (`HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`). Only its SHA-256 is stored, in `app.refresh_tokens`.
+- Each refresh spends the token and issues a new one in the same family. Presenting a spent token again revokes the whole family.
+- Protect a route with `requireAuth(jwtSecret)`, and add `requireRole("admin")` for admin-only routes (403 for Users).
+- Rate limits (SEC-15): 10 failed sign-ins per IP and email, and 20 register/refresh requests per IP, each per 15 minutes. The store is in memory, so limits are per process; use a shared store before running more than one API instance.
+- To make an admin for now: `UPDATE app.users SET role = 'admin' WHERE lower(email) = lower('…');`
 
 ## Scripts
 
@@ -39,8 +53,9 @@ src/
   app.ts               createApp(deps): middleware + /api/v1 router (dependencies injected, so it's testable)
   config/env.ts        Zod-validated environment
   clients/ai.ts        /ai/v1 client (bearer service token)
-  routes/              one router per contract tag (health now; auth, conversations, citations, sources next)
-  middleware/errors.ts RFC 9457 problem+json for 404, Zod and HttpProblem errors
+  routes/              one router per contract tag (health, auth; conversations, citations, sources next)
+  auth/                passwords (argon2id), tokens (JWT + refresh), store, requireAuth/requireRole
+  middleware/          errors (RFC 9457 problem+json), rate limits
   lib/                 logger (secrets redacted), HttpProblem
   db/                  Drizzle schema, client and migration runner (up/down)
 drizzle/               generated SQL migrations + hand-written .down.sql

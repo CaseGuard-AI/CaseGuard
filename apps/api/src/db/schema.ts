@@ -57,6 +57,32 @@ export const users = app.table(
   ],
 );
 
+// Refresh tokens (FR-AUTH-1, SEC-1). Only the SHA-256 of a token is stored. Each refresh
+// revokes the presented row and adds its successor to the same family; presenting a revoked
+// token again revokes the whole family (reuse detection).
+export const refreshTokens = app.table(
+  "refresh_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    familyId: uuid("family_id").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("refresh_tokens_owner_user_id_idx").on(t.ownerUserId),
+    index("refresh_tokens_family_id_idx").on(t.familyId),
+  ],
+);
+
 export type Account = typeof accounts.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type RefreshToken = typeof refreshTokens.$inferSelect;
