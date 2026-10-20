@@ -70,3 +70,8 @@ Branch `feature/api-auth` off `staging`. PR title: `feat(api): auth with access 
 3. Manual: `pnpm dev:api`, then curl register → login (check `Set-Cookie`) → `/auth/me` with the bearer → refresh with the cookie → logout.
 4. `docker compose up --build` gives a healthy api (argon2 native binary loads in the slim image).
 5. PR CI: `api`, `stack`, `ci-ok` green.
+
+## Follow-ups
+- [#53](https://github.com/CaseGuard-AI/CaseGuard/issues/53): password reset (FR-AUTH-1)
+- [#54](https://github.com/CaseGuard-AI/CaseGuard/issues/54): `db:create-admin` CLI (FR-AUTH-2)
+- [#55](https://github.com/CaseGuard-AI/CaseGuard/issues/55): admin endpoints for per-user AI and providers (FR-AUTH-3)
