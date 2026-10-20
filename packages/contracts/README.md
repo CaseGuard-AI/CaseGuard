@@ -31,3 +31,5 @@ npx @redocly/cli lint packages/contracts/openapi/*.yaml     # config: /redocly.y
 ## Status
 
 `1.0.0-draft` covers the M1 vertical slice: auth, conversations, asking a question, an answer with verified citations, and fetching a citation or source. Generated clients (`generated/`) come with the first consumer PR.
+
+The `admin` tag (Admin role only) covers AI access for each user and the model-provider allow-list (FR-AUTH-3, SEC-11).
