@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#70](https://github.com/CaseGuard-AI/CaseGuard/issues/70) · **PR:** [#72](https://github.com/CaseGuard-AI/CaseGuard/pull/72)
+> **Status:** Done · **Issue:** [#70](https://github.com/CaseGuard-AI/CaseGuard/issues/70) · **PR:** [#72](https://github.com/CaseGuard-AI/CaseGuard/pull/72)
 
 # #70: citations and sources routes (API)
 
