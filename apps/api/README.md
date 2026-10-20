@@ -33,6 +33,10 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 | `GET /api/v1/auth/me`                      | The signed-in user                                                                  |
 | `POST /api/v1/auth/password-reset`         | Email a reset link (always 202)                                                     |
 | `POST /api/v1/auth/password-reset/confirm` | Set a new password with the emailed token; ends every session                       |
+| `GET /api/v1/conversations`                | The user's conversations, most recently active first (`cursor`, `limit`)            |
+| `POST /api/v1/conversations`               | Start a conversation (`title`; `caseId` waits for cases, P1)                        |
+| `GET /api/v1/conversations/{id}`           | A conversation with its messages (404 if it isn't yours)                            |
+| `POST /api/v1/conversations/{id}/messages` | Ask a question; answers only with verified citations (rate-limited, AI must be on)  |
 | `GET /api/v1/admin/users`                  | Admin: every user, oldest first (`cursor`, `limit`)                                 |
 | `PATCH /api/v1/admin/users/{userId}`       | Admin: turn AI on or off for a user (`aiEnabled`)                                   |
 | `GET /api/v1/admin/providers`              | Admin: the model-provider allow-list                                                |
@@ -60,6 +64,19 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
   ```
 
   The password is never accepted as an argument, because it would land in shell history and the process list. The command runs as `caseguard_app` (`API_DATABASE_URL`). The role takes effect at the user's next sign-in or refresh.
+
+## Research (conversations and ask)
+
+`POST /conversations/{id}/messages` runs as follows:
+
+1. **Checks:** `requireAuth`, then `aiLimiter` (30 questions per user per 15 minutes, SEC-15), then `requireAiEnabled` (403 when AI is off, FR-AUTH-3). A conversation that isn't the user's gives 404 (FR-AUTH-4).
+2. **The AI call:** `ai.answer()` (`/ai/v1/research/answer`, with the service token and a 120 s timeout) gets a fresh `requestId`, up to 20 earlier turns, and the scope `{ userId, accountId, allowedCaseIds: [] }`. The scope is the public corpus only until cases land (P1, FR-CASE-6).
+3. **Checking the answer:** it's accepted only if its `requestId` matches and every citation has a stored verification (FR-RES-6), and an unanswerable answer must carry no citations (FR-RES-9). Anything else, or an AI error, returns **503**. Nothing is added to the conversation, and the failure is audited with `outcome = 'error'`.
+4. **Saving:** on success, the question, the answer and the audit row are saved in one transaction.
+
+**The audit record** (PRD §13.3, FR-TRUST-12) lives in `app.ai_audit_records`, keyed by `request_id`. It holds the user, account, conversation, case, question, language, `lawAsOf`, outcome, response, the citations with their verifications, the error, the latency and the time. A trigger makes it append-only. `services/ai` writes the other half under the same `request_id` (the model, provider, chunks, graph context, guardrails and translated query) with #20.
+
+`services/ai` doesn't serve `research/answer` yet (#20), so in the running stack an ask returns 503 for now. The tests use a fake that follows ai.v1.
 
 ## Admin
 
