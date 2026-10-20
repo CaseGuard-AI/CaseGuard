@@ -37,6 +37,8 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 | `POST /api/v1/conversations`               | Start a conversation (`title`; `caseId` waits for cases, P1)                        |
 | `GET /api/v1/conversations/{id}`           | A conversation with its messages (404 if it isn't yours)                            |
 | `POST /api/v1/conversations/{id}/messages` | Ask a question; answers only with verified citations (rate-limited, AI must be on)  |
+| `GET /api/v1/citations/{id}`               | A citation from your own answers, with its current verification                     |
+| `GET /api/v1/sources/{id}`                 | A corpus source record with its official URL                                        |
 | `GET /api/v1/admin/users`                  | Admin: every user, oldest first (`cursor`, `limit`)                                 |
 | `PATCH /api/v1/admin/users/{userId}`       | Admin: turn AI on or off for a user (`aiEnabled`)                                   |
 | `GET /api/v1/admin/providers`              | Admin: the model-provider allow-list                                                |
@@ -75,6 +77,13 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 4. **Saving:** on success, the question, the answer and the audit row are saved in one transaction.
 
 **The audit record** (PRD §13.3, FR-TRUST-12) lives in `app.ai_audit_records`, keyed by `request_id`. It holds the user, account, conversation, case, question, language, `lawAsOf`, outcome, response, the citations with their verifications, the error, the latency and the time. A trigger makes it append-only. `services/ai` writes the other half under the same `request_id` (the model, provider, chunks, graph context, guardrails and translated query) with #20.
+
+**Citations and sources** (#70) proxy to ai.v1 `getCitation` and `getSource`.
+
+- `GET /citations/{id}` first checks that the citation appears in one of the user's own answers. It's a GIN-indexed `citations @>` lookup on `app.messages`. If it doesn't, the route returns 404 without asking `services/ai` (FR-AUTH-4).
+- A citation comes back with its **current** stored verification, so re-verification shows up (FR-TRUST-5).
+- Sources from the public corpus are readable by any signed-in user.
+- Every response from `services/ai` is checked against `src/clients/ai-schemas.ts`. An ai.v1 404 stays a 404. Any other failure, or a malformed record, becomes 503.
 
 `services/ai` doesn't serve `research/answer` yet (#20), so in the running stack an ask returns 503 for now. The tests use a fake that follows ai.v1.
 

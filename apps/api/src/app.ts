@@ -14,6 +14,7 @@ import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { conversationsRouter } from "./routes/conversations.js";
 import { healthRouter } from "./routes/health.js";
+import { sourcesRouter } from "./routes/sources.js";
 
 export interface AppDeps {
   env: Pick<Env, "CORS_ORIGIN" | "JWT_SECRET" | "RESET_URL_BASE">;
@@ -48,7 +49,7 @@ export function createApp(deps: AppDeps) {
   );
   v1.use(adminRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
   v1.use(conversationsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
-  // Feature routers (citations, sources) mount here, per packages/contracts.
+  v1.use(sourcesRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
   app.use("/api/v1", v1);
 
   app.use(notFound);

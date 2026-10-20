@@ -51,6 +51,12 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
       calls.push(req);
       return (await respond(req)) as Answer;
     },
+    getCitation: async () => {
+      throw new Error("not used");
+    },
+    getSource: async () => {
+      throw new Error("not used");
+    },
   };
 
   async function register(email: string) {

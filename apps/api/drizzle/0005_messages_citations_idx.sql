@@ -1,0 +1,1 @@
+CREATE INDEX "messages_citations_idx" ON "app"."messages" USING gin ("citations" jsonb_path_ops);

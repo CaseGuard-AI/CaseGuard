@@ -49,10 +49,42 @@ export interface Answer {
   citations: Citation[];
 }
 
+export interface Source {
+  id: string;
+  kind: "statute" | "judgment" | "rule" | "other";
+  title: string;
+  citation?: string;
+  court?: string;
+  decidedOn?: string;
+  /** Public URL of the original on the official source (FR-RES-7). */
+  officialUrl: string;
+  sourceTier?: 1 | 2;
+  thirdParty?: boolean;
+  headnoteOnly?: boolean;
+  language: Language;
+  excerpt?: string;
+  retrievedAt?: string;
+}
+
+/** A non-2xx response from services/ai. `status` lets routes tell a 404 from an outage. */
+export class AiHttpError extends Error {
+  constructor(
+    readonly path: string,
+    readonly status: number,
+  ) {
+    super(`AI service ${path} -> ${status}`);
+  }
+}
+
+// Every method rejects on a non-2xx response (AiHttpError) or a timeout.
 export interface AiClient {
   info(): Promise<{ service: string; version: string }>;
-  /** Runs the research pipeline. Rejects on any non-200 response or a timeout. */
+  /** Runs the research pipeline. */
   answer(req: AnswerRequest): Promise<Answer>;
+  /** A citation with its current stored verification (FR-TRUST-5). */
+  getCitation(citationId: string): Promise<Citation>;
+  /** A corpus source record (FR-RES-7). */
+  getSource(sourceId: string): Promise<Source>;
 }
 
 export function createAiClient(
@@ -67,7 +99,7 @@ export function createAiClient(
       headers: { authorization: `Bearer ${token}`, ...init.headers },
       signal: AbortSignal.timeout(ms),
     });
-    if (!res.ok) throw new Error(`AI service ${path} -> ${res.status}`);
+    if (!res.ok) throw new AiHttpError(path, res.status);
     return (await res.json()) as T;
   }
   return {
@@ -82,5 +114,7 @@ export function createAiClient(
         },
         answerTimeoutMs,
       ),
+    getCitation: (id) => call(`/ai/v1/citations/${encodeURIComponent(id)}`),
+    getSource: (id) => call(`/ai/v1/sources/${encodeURIComponent(id)}`),
   };
 }

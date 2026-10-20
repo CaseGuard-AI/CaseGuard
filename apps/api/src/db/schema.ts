@@ -170,6 +170,8 @@ export const messages = app.table(
   },
   (t) => [
     index("messages_conversation_seq_idx").on(t.conversationId, t.seq),
+    // Ownership check for GET /citations/{id} (#70): citations @> '[{"id": …}]'.
+    index("messages_citations_idx").using("gin", sql`${t.citations} jsonb_path_ops`),
     check("messages_role_check", sql`role in ('user', 'assistant')`),
   ],
 );
