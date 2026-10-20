@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#10](https://github.com/CaseGuard-AI/CaseGuard/issues/10) · **PR:** #N
+> **Status:** In progress · **Issue:** [#10](https://github.com/CaseGuard-AI/CaseGuard/issues/10) · **PR:** [#56](https://github.com/CaseGuard-AI/CaseGuard/pull/56)
 
 # #10: Auth — register, login, refresh, logout, me (api.v1)
 
@@ -18,7 +18,7 @@ Link them from the plan record's Follow-ups section and from the PR body.
 Branch `feature/api-auth` off `staging`. PR title: `feat(api): auth with access JWT and rotating refresh cookie`.
 
 ## Changes
-1. **Plan record** `plans/0006-10-api-auth.md` (copy of this plan, `> **Status:** In progress · **Issue:** #10 · **PR:** #N`).
+1. **Plan record** `plans/0006-10-api-auth.md` (copy of this plan, `> **Status:** In progress · **Issue:** #10 · **PR:** [#56](https://github.com/CaseGuard-AI/CaseGuard/pull/56)`).
 2. **Dependencies** (`apps/api/package.json`): `jose` (HS256 JWT, pure ESM), `@node-rs/argon2` (prebuilt binaries for win32 and the Debian `node:24-slim` image, no node-gyp; argon2id by default), `express-rate-limit`, `cookie-parser` (+ `@types/cookie-parser`). Dev: `ajv`, `ajv-formats`, `yaml`, `@apidevtools/json-schema-ref-parser` for contract tests.
 3. **Schema + migration** — `src/db/schema.ts` adds `app.refresh_tokens`:
    - `id uuid pk`, `owner_user_id → users(id) on delete cascade`, `account_id → accounts(id) on delete cascade` (FR-AUTH-5 rule), `family_id uuid not null`, `token_hash text not null unique` (SHA-256 of the token; raw token never stored), `expires_at`, `revoked_at` (nullable), `created_at`; indexes on `owner_user_id` and `family_id`.
