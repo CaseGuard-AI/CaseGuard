@@ -46,7 +46,16 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
   - The token is valid for 30 minutes and works once. Only its SHA-256 is stored, in `app.password_reset_tokens`, and requesting a new link spends the older ones.
   - Confirming sets the new password (argon2id) and revokes every refresh token the user has.
   - Rate limits: 5 requests per IP and email, plus the shared 20 per IP, each per 15 minutes.
-- To make an admin for now: `UPDATE app.users SET role = 'admin' WHERE lower(email) = lower('…');`
+- **Making an admin** (#54):
+
+  ```bash
+  pnpm db:create-admin --email ops@example.com                  # promote an existing user (no password asked)
+  pnpm db:create-admin --email ops@example.com --name "Ops"     # create a new admin: prompts for the password twice
+  echo "$PASSWORD" | pnpm db:create-admin --email … --name …   # non-interactive: first line of stdin
+  docker compose exec api node dist/db/create-admin.js --email …   # in the running container
+  ```
+
+  The password is never accepted as an argument, because it would land in shell history and the process list. The command runs as `caseguard_app` (`API_DATABASE_URL`). The role takes effect at the user's next sign-in or refresh.
 
 ## Email
 

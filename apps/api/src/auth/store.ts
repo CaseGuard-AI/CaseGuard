@@ -18,6 +18,8 @@ export interface NewUserInput {
   passwordHash: string;
   name: string;
   locale: User["locale"];
+  /** Defaults to user. Only the create-admin CLI passes admin; register never does. */
+  role?: User["role"];
 }
 
 /** Creates an individual account and its user in one transaction. 409 if the email is taken. */

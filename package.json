@@ -12,6 +12,7 @@
     "db:down": "docker compose down",
     "db:bootstrap": "node scripts/db-bootstrap.mjs",
     "db:migrate": "pnpm --filter ./apps/api run db:migrate",
+    "db:create-admin": "pnpm --filter ./apps/api run db:create-admin",
     "stack:up": "docker compose up --build -d --wait",
     "stack:down": "docker compose down",
     "dev": "concurrently -k -n web,api,ai -c blue,green,magenta \"pnpm dev:web\" \"pnpm dev:api\" \"pnpm dev:ai\"",
