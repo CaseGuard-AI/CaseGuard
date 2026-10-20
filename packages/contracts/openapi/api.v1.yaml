@@ -284,6 +284,7 @@ paths:
               schema: { $ref: "./ai.v1.yaml#/components/schemas/Citation" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
 
   /sources/{sourceId}:
     get:
@@ -303,6 +304,7 @@ paths:
               schema: { $ref: "./ai.v1.yaml#/components/schemas/Source" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
 
   /admin/users:
     get:
