@@ -33,6 +33,10 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 | `GET /api/v1/auth/me`                      | The signed-in user                                                                  |
 | `POST /api/v1/auth/password-reset`         | Email a reset link (always 202)                                                     |
 | `POST /api/v1/auth/password-reset/confirm` | Set a new password with the emailed token; ends every session                       |
+| `GET /api/v1/admin/users`                  | Admin: every user, oldest first (`cursor`, `limit`)                                 |
+| `PATCH /api/v1/admin/users/{userId}`       | Admin: turn AI on or off for a user (`aiEnabled`)                                   |
+| `GET /api/v1/admin/providers`              | Admin: the model-provider allow-list                                                |
+| `PATCH /api/v1/admin/providers/{id}`       | Admin: switch a provider on or off (`enabled`)                                      |
 
 ## Auth
 
@@ -56,6 +60,12 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
   ```
 
   The password is never accepted as an argument, because it would land in shell history and the process list. The command runs as `caseguard_app` (`API_DATABASE_URL`). The role takes effect at the user's next sign-in or refresh.
+
+## Admin
+
+- Everything under `/api/v1/admin` requires `requireAuth` and `requireRole("admin")`, so Users get 403. Create the first admin with `pnpm db:create-admin` (see Auth).
+- **AI access** (FR-AUTH-3): `PATCH /admin/users/{userId} { aiEnabled }`. Mount `requireAiEnabled(db)` after `requireAuth` on every AI route. It reads `ai_enabled` from the database on each request, so a change applies to the user's very next request.
+- **Provider allow-list** (SEC-11): `app.providers` is seeded by migration `0003` from the ADR-0005 presets. Only `ollama` (local) starts enabled, so an Admin switches cloud providers on. The API only toggles entries and never stores provider keys. Enforcement in `services/ai` comes with #21.
 
 ## Email
 

@@ -13,6 +13,7 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - Transactional email for the api: an SMTP mailer (nodemailer) configured by `SMTP_*` / `MAIL_FROM`, and Mailpit in docker-compose and the CI api job to catch dev and test mail at http://localhost:8025 (#61)
 - Password reset for the api (`POST /auth/password-reset`, `POST /auth/password-reset/confirm`): an emailed single-use link that expires in 30 minutes, always 202 with no account enumeration, rate limits, and a confirm that revokes every session (#53)
 - `pnpm db:create-admin --email … [--name …]`: promotes an existing user to Admin, or creates one with the password typed at a hidden prompt or read from stdin, never taken as an argument (#54)
+- Admin endpoints for the api: `GET /admin/users` (paged), `PATCH /admin/users/{userId}` to turn AI on or off for a user, and the provider allow-list `GET /admin/providers` / `PATCH /admin/providers/{id}`, seeded with only Ollama (local) enabled; plus `requireAiEnabled` for AI routes (#55)
 - api.v1 contract: password reset, with `POST /auth/password-reset` (always 202) and `POST /auth/password-reset/confirm` (204, revokes existing sessions) (#53)
 - Model provider presets in `.env.example` (NVIDIA NIM, Gemini, Groq, OpenRouter, OpenAI, Anthropic, Ollama) and `pnpm llm:check` to test a configured provider and key
 - api.v1 contract: Admin endpoints for AI access, with `GET /admin/users`, `PATCH /admin/users/{userId}` (`aiEnabled`), and the provider allow-list `GET /admin/providers` and `PATCH /admin/providers/{providerId}` (#55)
