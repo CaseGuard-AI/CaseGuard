@@ -50,6 +50,7 @@ jobs:
             api:
               - *shared_js
               - 'apps/api/**'
+              - 'infra/db/**'
             ai:
               - 'services/ai/**'
               - 'packages/contracts/**'
@@ -110,6 +111,8 @@ jobs:
           --health-cmd "pg_isready -U caseguard" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://caseguard:caseguard@localhost:5432/caseguard_test
+      # Migration tests connect as the app role, created by bootstrap.sql below (#9).
+      APP_TEST_DATABASE_URL: postgresql://caseguard_app:caseguard_app@localhost:5432/caseguard_test
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -118,6 +121,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Bootstrap roles and schemas
+        run: psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -v app_pw=caseguard_app -v ai_pw=caseguard_ai -f infra/db/sql/bootstrap.sql
       - run: pnpm --filter ./apps/api run --if-present lint
       - run: pnpm --filter ./apps/api run --if-present typecheck
       - run: pnpm --filter ./apps/api run --if-present test

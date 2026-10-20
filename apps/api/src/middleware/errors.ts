@@ -13,12 +13,15 @@ export const notFound: RequestHandler = (req, res) => {
 
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
   if (err instanceof ZodError) {
-    res.status(400).type(PROBLEM).json({
-      type: "about:blank",
-      title: "Bad Request",
-      status: 400,
-      errors: err.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
-    });
+    res
+      .status(400)
+      .type(PROBLEM)
+      .json({
+        type: "about:blank",
+        title: "Bad Request",
+        status: 400,
+        errors: err.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
+      });
     return;
   }
   if (err instanceof HttpProblem) {
