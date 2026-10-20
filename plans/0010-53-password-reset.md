@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#53](https://github.com/CaseGuard-AI/CaseGuard/issues/53) · **PR:** [#64](https://github.com/CaseGuard-AI/CaseGuard/pull/64)
+> **Status:** Done · **Issue:** [#53](https://github.com/CaseGuard-AI/CaseGuard/issues/53) · **PR:** [#64](https://github.com/CaseGuard-AI/CaseGuard/pull/64)
 
 # #53: password reset (API)
 

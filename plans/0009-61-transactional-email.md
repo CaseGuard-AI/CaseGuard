@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#61](https://github.com/CaseGuard-AI/CaseGuard/issues/61) · **PR:** [#63](https://github.com/CaseGuard-AI/CaseGuard/pull/63)
+> **Status:** Done · **Issue:** [#61](https://github.com/CaseGuard-AI/CaseGuard/issues/61) · **PR:** [#63](https://github.com/CaseGuard-AI/CaseGuard/pull/63)
 
 # #61: transactional email (SMTP + Mailpit)
 
