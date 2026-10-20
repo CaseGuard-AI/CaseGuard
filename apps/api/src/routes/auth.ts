@@ -3,18 +3,21 @@ import { z } from "zod";
 import { requireAuth } from "../auth/middleware.js";
 import { burnVerify, hashPassword, verifyPassword } from "../auth/password.js";
 import {
+  createResetToken,
   createUserWithAccount,
   findUserByEmail,
   findUserById,
   issueRefresh,
+  resetPassword,
   revokeRefresh,
   rotateRefresh,
 } from "../auth/store.js";
-import { ACCESS_TTL_S, REFRESH_TTL_S, signAccessToken } from "../auth/tokens.js";
+import { ACCESS_TTL_S, REFRESH_TTL_S, RESET_TTL_S, signAccessToken } from "../auth/tokens.js";
 import type { Db } from "../db/client.js";
 import type { User } from "../db/schema.js";
+import type { Mailer } from "../lib/mailer.js";
 import { HttpProblem } from "../lib/problem.js";
-import { authLimiter, loginLimiter } from "../middleware/rate-limit.js";
+import { authLimiter, loginLimiter, resetLimiter } from "../middleware/rate-limit.js";
 
 // packages/contracts: RegisterRequest, LoginRequest. Unknown fields (such as `role`) are dropped.
 const registerBody = z.object({
@@ -27,6 +30,16 @@ const registerBody = z.object({
 const loginBody = z.object({
   email: z.string().trim().pipe(z.email()),
   password: z.string(),
+});
+
+// packages/contracts: PasswordResetRequest, PasswordResetConfirm.
+const resetRequestBody = z.object({
+  email: z.string().trim().pipe(z.email().max(254)),
+});
+
+const resetConfirmBody = z.object({
+  token: z.string().min(1).max(512),
+  password: z.string().min(10).max(128),
 });
 
 // packages/contracts: RefreshCookie.
@@ -53,8 +66,32 @@ export function toUserDto(user: User) {
 const unauthorized = () =>
   new HttpProblem(401, "Unauthorized", "Your session has expired. Sign in again.");
 
-export function authRouter(deps: { db: Db; jwtSecret: string }) {
-  const { db, jwtSecret } = deps;
+/** The reset email: a link to the web page, with the token in the query string. */
+export function resetEmail(to: string, resetUrlBase: string, token: string) {
+  const url = new URL(resetUrlBase);
+  url.searchParams.set("token", token);
+  const minutes = RESET_TTL_S / 60;
+  return {
+    to,
+    subject: "Reset your CaseGuard password",
+    text: [
+      "Someone asked to reset the password for your CaseGuard account.",
+      "",
+      `Set a new password here (the link works once and expires in ${minutes} minutes):`,
+      url.toString(),
+      "",
+      "If this wasn't you, ignore this email. Your password stays the same.",
+    ].join("\n"),
+  };
+}
+
+export function authRouter(deps: {
+  db: Db;
+  jwtSecret: string;
+  mailer: Mailer;
+  resetUrlBase: string;
+}) {
+  const { db, jwtSecret, mailer, resetUrlBase } = deps;
   const router = Router();
   const limitAuth = authLimiter();
 
@@ -113,6 +150,30 @@ export function authRouter(deps: { db: Db; jwtSecret: string }) {
     const revoked = typeof token === "string" && token ? await revokeRefresh(db, token) : false;
     clearCookie(res);
     if (!revoked) throw unauthorized();
+    res.status(204).end();
+  });
+
+  // Always 202, sent before any lookup, so neither the status nor the timing reveals whether
+  // the email has an account. The token and email are handled in the background.
+  router.post("/auth/password-reset", limitAuth, resetLimiter(), (req, res) => {
+    const body = resetRequestBody.parse(req.body);
+    res.status(202).end();
+    void (async () => {
+      const user = await findUserByEmail(db, body.email);
+      if (!user) return;
+      const token = await createResetToken(db, user);
+      await mailer.send(resetEmail(user.email, resetUrlBase, token));
+    })().catch((err: unknown) => req.log.error({ err }, "password reset email failed"));
+  });
+
+  // Sets the new password and ends every session (FR-AUTH-1).
+  router.post("/auth/password-reset/confirm", limitAuth, async (req, res) => {
+    const body = resetConfirmBody.parse(req.body);
+    const changed = await resetPassword(db, body.token, await hashPassword(body.password));
+    if (!changed) {
+      throw new HttpProblem(400, "Bad Request", "This reset link is invalid or has expired.");
+    }
+    clearCookie(res);
     res.status(204).end();
   });
 

@@ -43,7 +43,11 @@ describe.skipIf(!url)("auth (api.v1 /auth/*)", () => {
   beforeEach(async () => {
     await pool.query("TRUNCATE app.accounts CASCADE");
     app = createApp({
-      env: { CORS_ORIGIN: "http://localhost:3000", JWT_SECRET: "j".repeat(32) },
+      env: {
+        CORS_ORIGIN: "http://localhost:3000",
+        JWT_SECRET: "j".repeat(32),
+        RESET_URL_BASE: "http://localhost:3000/reset-password",
+      },
       logger: createLogger("silent", false),
       db: pool,
       orm: createDb(pool),

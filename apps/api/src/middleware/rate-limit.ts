@@ -33,7 +33,22 @@ export function loginLimiter() {
   });
 }
 
-/** Register and refresh: 20 requests per IP per 15 minutes. */
+/** Password reset requests per IP and email: 5 per 15 minutes. */
+export function resetLimiter() {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit: 5,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    keyGenerator: (req) => {
+      const email = typeof req.body?.email === "string" ? req.body.email.toLowerCase() : "";
+      return `${ip(req)}|${email}`;
+    },
+    handler: tooMany,
+  });
+}
+
+/** Register, refresh and password reset: 20 requests per IP per 15 minutes. */
 export function authLimiter() {
   return rateLimit({
     windowMs: WINDOW_MS,

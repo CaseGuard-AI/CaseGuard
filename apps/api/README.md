@@ -22,15 +22,17 @@ pnpm dev:api                 # tsx watch → http://localhost:4000/api/v1
 
 Config is validated at startup (`src/config/env.ts`). It's read from real environment variables, then `apps/api/.env`, then the repo-root `.env`. A missing or weak value stops the server with a readable message.
 
-| Endpoint                     | Purpose                                                                             |
-| ---------------------------- | ----------------------------------------------------------------------------------- |
-| `GET /api/v1/health`         | Liveness                                                                            |
-| `GET /api/v1/ready`          | Readiness: Postgres as `caseguard_app` **and** `services/ai` with the service token |
-| `POST /api/v1/auth/register` | Create an account and sign in                                                       |
-| `POST /api/v1/auth/login`    | Sign in (rate-limited)                                                              |
-| `POST /api/v1/auth/refresh`  | Rotate the refresh cookie, get a new access token                                   |
-| `POST /api/v1/auth/logout`   | Revoke the refresh token and clear the cookie                                       |
-| `GET /api/v1/auth/me`        | The signed-in user                                                                  |
+| Endpoint                                   | Purpose                                                                             |
+| ------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `GET /api/v1/health`                       | Liveness                                                                            |
+| `GET /api/v1/ready`                        | Readiness: Postgres as `caseguard_app` **and** `services/ai` with the service token |
+| `POST /api/v1/auth/register`               | Create an account and sign in                                                       |
+| `POST /api/v1/auth/login`                  | Sign in (rate-limited)                                                              |
+| `POST /api/v1/auth/refresh`                | Rotate the refresh cookie, get a new access token                                   |
+| `POST /api/v1/auth/logout`                 | Revoke the refresh token and clear the cookie                                       |
+| `GET /api/v1/auth/me`                      | The signed-in user                                                                  |
+| `POST /api/v1/auth/password-reset`         | Email a reset link (always 202)                                                     |
+| `POST /api/v1/auth/password-reset/confirm` | Set a new password with the emailed token; ends every session                       |
 
 ## Auth
 
@@ -39,6 +41,11 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 - Each refresh spends the token and issues a new one in the same family. Presenting a spent token again revokes the whole family.
 - Protect a route with `requireAuth(jwtSecret)`, and add `requireRole("admin")` for admin-only routes (403 for Users).
 - Rate limits (SEC-15): 10 failed sign-ins per IP and email, and 20 register/refresh requests per IP, each per 15 minutes. The store is in memory, so limits are per process; use a shared store before running more than one API instance.
+- **Password reset** (#53):
+  - `POST /auth/password-reset` answers 202 before it looks anything up, so neither the status nor the timing reveals whether an account exists. If the account does exist, it emails `RESET_URL_BASE?token=…` in the background.
+  - The token is valid for 30 minutes and works once. Only its SHA-256 is stored, in `app.password_reset_tokens`, and requesting a new link spends the older ones.
+  - Confirming sets the new password (argon2id) and revokes every refresh token the user has.
+  - Rate limits: 5 requests per IP and email, plus the shared 20 per IP, each per 15 minutes.
 - To make an admin for now: `UPDATE app.users SET role = 'admin' WHERE lower(email) = lower('…');`
 
 ## Email

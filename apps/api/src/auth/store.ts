@@ -1,8 +1,8 @@
 import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
-import { accounts, refreshTokens, users, type User } from "../db/schema.js";
+import { accounts, passwordResetTokens, refreshTokens, users, type User } from "../db/schema.js";
 import { HttpProblem } from "../lib/problem.js";
-import { REFRESH_TTL_S, hashToken, newRefreshToken } from "./tokens.js";
+import { REFRESH_TTL_S, RESET_TTL_S, hashToken, newRefreshToken } from "./tokens.js";
 
 // Drizzle wraps driver errors; the Postgres SQLSTATE is on the error or its cause.
 function pgCode(err: unknown): string | undefined {
@@ -129,4 +129,63 @@ export async function revokeRefresh(db: Db, token: string): Promise<boolean> {
   if (!row) return false;
   await revokeFamily(db, row.familyId);
   return true;
+}
+
+/**
+ * Creates a password reset token for the user and returns the raw token (only its hash is kept).
+ * The user's older unused tokens are spent, so only the newest link works.
+ */
+export async function createResetToken(
+  db: Db,
+  user: Pick<User, "id" | "accountId">,
+): Promise<string> {
+  const token = newRefreshToken();
+  await db.transaction(async (tx) => {
+    await spendResetTokens(tx, user.id);
+    await tx.insert(passwordResetTokens).values({
+      ownerUserId: user.id,
+      accountId: user.accountId,
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + RESET_TTL_S * 1000),
+    });
+  });
+  return token;
+}
+
+/**
+ * Spends a reset token and sets the new password in one transaction. Every refresh token of the
+ * user is revoked, so all sessions end. Returns false for an unknown, used or expired token.
+ */
+export async function resetPassword(db: Db, token: string, passwordHash: string): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [spent] = await tx
+      .update(passwordResetTokens)
+      .set({ usedAt: sql`now()` })
+      .where(
+        and(
+          eq(passwordResetTokens.tokenHash, hashToken(token)),
+          isNull(passwordResetTokens.usedAt),
+          gt(passwordResetTokens.expiresAt, sql`now()`),
+        ),
+      )
+      .returning({ userId: passwordResetTokens.ownerUserId });
+    if (!spent) return false;
+    await tx
+      .update(users)
+      .set({ passwordHash, updatedAt: sql`now()` })
+      .where(eq(users.id, spent.userId));
+    await spendResetTokens(tx, spent.userId);
+    await tx
+      .update(refreshTokens)
+      .set({ revokedAt: sql`now()` })
+      .where(and(eq(refreshTokens.ownerUserId, spent.userId), isNull(refreshTokens.revokedAt)));
+    return true;
+  });
+}
+
+async function spendResetTokens(db: Db | Tx, userId: string): Promise<void> {
+  await db
+    .update(passwordResetTokens)
+    .set({ usedAt: sql`now()` })
+    .where(and(eq(passwordResetTokens.ownerUserId, userId), isNull(passwordResetTokens.usedAt)));
 }

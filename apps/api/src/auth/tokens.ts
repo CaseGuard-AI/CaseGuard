@@ -4,6 +4,7 @@ import type { User } from "../db/schema.js";
 
 export const ACCESS_TTL_S = 15 * 60;
 export const REFRESH_TTL_S = 14 * 24 * 60 * 60;
+export const RESET_TTL_S = 30 * 60;
 
 const ISSUER = "caseguard-api";
 const AUDIENCE = "caseguard-web";
