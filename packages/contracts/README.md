@@ -20,6 +20,7 @@ The **source of truth** for every interface between services ([ADR-0002](../../d
 - **Errors** use RFC 9457 `application/problem+json`. Validation errors add an `errors[]` list of `{path, message}`.
 - **Trust shapes are defined once.** `Citation`, `Verification`, `Source`, `Language` and `Problem` live in `ai.v1.yaml`, and `api.v1.yaml` references them with `$ref`, so a status can't mean different things on each side (FR-TRUST-10).
 - **Citation markers** in answer text: `[[c:<citationId>]]` at the claim the citation supports.
+- **Admin-only operations** carry the `admin` tag and declare 403, which Users get (FR-AUTH-2). They cover AI access for each user and the model-provider allow-list (FR-AUTH-3, SEC-11).
 - **Scope** (`userId`, `accountId`, `allowedCaseIds`) is resolved by `apps/api` and applied by `services/ai` inside SQL (FR-CASE-6).
 
 ## Lint
@@ -31,5 +32,3 @@ npx @redocly/cli lint packages/contracts/openapi/*.yaml     # config: /redocly.y
 ## Status
 
 `1.0.0-draft` covers the M1 vertical slice: auth, conversations, asking a question, an answer with verified citations, and fetching a citation or source. Generated clients (`generated/`) come with the first consumer PR.
-
-The `admin` tag (Admin role only) covers AI access for each user and the model-provider allow-list (FR-AUTH-3, SEC-11).
