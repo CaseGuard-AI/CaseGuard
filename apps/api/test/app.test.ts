@@ -20,6 +20,7 @@ function app(overrides: Partial<AppDeps> = {}) {
     db: upDb,
     orm: {} as AppDeps["orm"],
     ai: upAi,
+    mailer: { send: async () => {} },
     ...overrides,
   });
 }

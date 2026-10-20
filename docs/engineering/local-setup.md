@@ -48,6 +48,12 @@ The container runs `infra/db/sql/bootstrap.sql` the first time it starts. To reb
 pnpm db:migrate   # app schema migrations as caseguard_app (ADR-0007); safe to re-run
 ```
 
+To see the email the api sends (password reset, #61), also start Mailpit. It catches every message, and you read them at http://localhost:8025:
+
+```bash
+docker compose up -d mailpit   # SMTP on localhost:1025, matching SMTP_HOST/SMTP_PORT in .env.example
+```
+
 ### Option B: Fully native (no Docker)
 
 1. Install PostgreSQL 17 and **pgvector** (see below).
@@ -129,10 +135,11 @@ pnpm stack:down          # stop everything (add -v to the docker command to wipe
 | web | http://localhost:3000 | Next.js standalone build |
 | api | http://localhost:4000/api/v1 | `/health` (liveness), `/ready` (db + ai) |
 | db | localhost:`POSTGRES_PORT` | same data volume as Option A |
+| mailpit | http://localhost:8025 | catches all mail the api sends (#61) |
 | ai | *not published* | only api can reach it (ADR-0002, SEC-14) |
 
-**Networks.** `edge` (web, api, db) carries the published ports. `internal` (api, ai, db) has no outside access. `ai-egress` has only ai on it, which lets the AI service call model providers (Gemini, OpenAI, OpenRouter, Anthropic, user-supplied keys) and download models, while nothing can connect *in* to it. Web never shares a network with ai.
+**Networks.** `edge` (web, api, db, mailpit) carries the published ports. `internal` (api, ai, db) has no outside access. `ai-egress` has only ai on it, which lets the AI service call model providers (Gemini, OpenAI, OpenRouter, Anthropic, user-supplied keys) and download models, while nothing can connect *in* to it. Web never shares a network with ai.
 
-**Hostnames.** The URLs in `.env` point at `localhost` for native runs. `docker-compose.yml` overrides them with container hostnames (`db:5432`, `ai:8000`), so the same `.env` works for both, whatever `POSTGRES_PORT` is.
+**Hostnames.** The URLs in `.env` point at `localhost` for native runs. `docker-compose.yml` overrides them with container hostnames (`db:5432`, `ai:8000`, `mailpit:1025`), so the same `.env` works for both, whatever `POSTGRES_PORT` is.
 
 **Changing `NEXT_PUBLIC_API_URL`** needs a rebuild (`pnpm stack:up` rebuilds), because Next.js bakes it into the browser bundle.
