@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#55](https://github.com/CaseGuard-AI/CaseGuard/issues/55) · **PR:** #N
+> **Status:** In progress · **Issue:** [#55](https://github.com/CaseGuard-AI/CaseGuard/issues/55) · **PR:** [#66](https://github.com/CaseGuard-AI/CaseGuard/pull/66)
 
 # #55: admin endpoints for AI access and the provider allow-list (API)
 
