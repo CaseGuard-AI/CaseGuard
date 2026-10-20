@@ -18,6 +18,7 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - api.v1 contract: `getCitation` and `getSource` declare `503 Unavailable` for when the AI service can't answer (#70)
 - Citation and source routes for the api (`GET /citations/{id}`, `GET /sources/{id}`): proxy to ai.v1 with the service token, only citations from the user's own answers (404 otherwise, without calling the AI service), the current verification, and every AI response validated (#70)
 - ai.v1 contract: `AnswerRequest.allowedProviders`, the Admin's provider allow-list passed to services/ai, which may call only those providers (omitted = local only; 503 if no allowed provider fits). `ProviderId` now lives in ai.v1 and api.v1 references it (#21)
+- The api's ask route sends the Admin's provider allow-list as `allowedProviders` on every question, records it on the audit row, and returns 503 without calling services/ai when no provider is enabled (#75)
 - api.v1 contract: password reset, with `POST /auth/password-reset` (always 202) and `POST /auth/password-reset/confirm` (204, revokes existing sessions) (#53)
 - Model provider presets in `.env.example` (NVIDIA NIM, Gemini, Groq, OpenRouter, OpenAI, Anthropic, Ollama) and `pnpm llm:check` to test a configured provider and key
 - api.v1 contract: Admin endpoints for AI access, with `GET /admin/users`, `PATCH /admin/users/{userId}` (`aiEnabled`), and the provider allow-list `GET /admin/providers` and `PATCH /admin/providers/{providerId}` (#55)

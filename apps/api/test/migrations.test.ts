@@ -129,6 +129,7 @@ describe.skipIf(!url)("app schema migrations", () => {
   });
 
   it("is reversible: down drops the tables, up recreates them", async () => {
+    expect(await migrateDown(pool)).toBe("0006_audit_allowed_providers");
     expect(await migrateDown(pool)).toBe("0005_messages_citations_idx");
     expect(await migrateDown(pool)).toBe("0004_conversations");
     expect(await migrateDown(pool)).toBe("0003_providers");
@@ -162,6 +163,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0003_providers",
       "0004_conversations",
       "0005_messages_citations_idx",
+      "0006_audit_allowed_providers",
     ]);
     expect((await tables()).map((t) => t.tablename)).toEqual([
       "__drizzle_migrations",

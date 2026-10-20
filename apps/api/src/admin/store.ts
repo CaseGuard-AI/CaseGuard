@@ -67,3 +67,13 @@ export async function setProviderEnabled(
     .returning();
   return provider;
 }
+
+/** Ids of the enabled providers, sorted: the allow-list sent with every question (SEC-11, #75). */
+export async function enabledProviderIds(db: Db): Promise<string[]> {
+  const rows = await db
+    .select({ id: providers.id })
+    .from(providers)
+    .where(eq(providers.enabled, true))
+    .orderBy(asc(providers.id));
+  return rows.map((r) => r.id);
+}

@@ -107,8 +107,12 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
     await migrateUp(pool);
   });
 
+  const setProviders = (enabled: string[]) =>
+    pool.query("UPDATE app.providers SET enabled = (id = ANY($1::text[]))", [enabled]);
+
   beforeEach(async () => {
     await pool.query("TRUNCATE app.accounts CASCADE");
+    await setProviders(["ollama"]); // the seeded default (#55)
     calls = [];
     respond = async (req) => verifiedAnswer(req);
     app = createApp({
@@ -129,6 +133,7 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
 
   afterAll(async () => {
     await pool.query("TRUNCATE app.accounts CASCADE");
+    await setProviders(["ollama"]);
     await pool.end();
   });
 
@@ -319,6 +324,45 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
       expect(res.status).toBe(429);
       expectContract(res, "post", "/conversations/{conversationId}/messages");
       expect(Number(res.headers["retry-after"])).toBeGreaterThan(0);
+    });
+  });
+
+  describe("provider allow-list (SEC-11, #75)", () => {
+    it("sends exactly the enabled providers, read fresh on every question", async () => {
+      const id = await newConversation();
+      await ask(id);
+      expect(calls[0]!.allowedProviders).toEqual(["ollama"]);
+
+      await setProviders(["ollama", "gemini"]);
+      await ask(id);
+      expect(calls[1]!.allowedProviders).toEqual(["gemini", "ollama"]);
+
+      await setProviders(["gemini"]);
+      await ask(id);
+      expect(calls[2]!.allowedProviders).toEqual(["gemini"]);
+    });
+
+    it("records the allow-list in effect on the audit row", async () => {
+      await setProviders(["ollama", "groq"]);
+      await ask(await newConversation());
+      expect((await audits())[0].allowed_providers).toEqual(["groq", "ollama"]);
+    });
+
+    it("503 with no provider enabled, without calling the AI; the error is audited", async () => {
+      await setProviders([]);
+      const id = await newConversation();
+      const res = await ask(id);
+      expect(res.status).toBe(503);
+      expectContract(res, "post", "/conversations/{conversationId}/messages");
+      expect(res.body.detail).toMatch(/No model provider is enabled/);
+      expect(calls).toHaveLength(0);
+      const [audit] = await audits();
+      expect(audit).toMatchObject({
+        outcome: "error",
+        error: "no provider enabled",
+        allowed_providers: [],
+      });
+      expect((await as(alice.token).get(`/conversations/${id}`)).body.messages).toEqual([]);
     });
   });
 

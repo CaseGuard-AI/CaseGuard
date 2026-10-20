@@ -1,0 +1,1 @@
+ALTER TABLE "app"."ai_audit_records" ADD COLUMN "allowed_providers" text[];
