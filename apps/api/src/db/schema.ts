@@ -102,7 +102,26 @@ export const passwordResetTokens = app.table(
   (t) => [index("password_reset_tokens_owner_user_id_idx").on(t.ownerUserId)],
 );
 
+// Model provider allow-list (FR-AUTH-3, SEC-11, #55). Deployment configuration, not owned
+// rows. Seeded by migration 0003 from the ADR-0005 presets; an Admin only switches entries on
+// or off. Case data may go only to enabled providers (enforced in services/ai with #21).
+export const providers = app.table(
+  "providers",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    kind: text("kind", { enum: ["cloud", "local"] }).notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  () => [
+    check("providers_id_check", sql`id ~ '^[a-z0-9][a-z0-9-]{0,62}$'`),
+    check("providers_kind_check", sql`kind in ('cloud', 'local')`),
+  ],
+);
+
 export type Account = typeof accounts.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type RefreshToken = typeof refreshTokens.$inferSelect;
+export type Provider = typeof providers.$inferSelect;

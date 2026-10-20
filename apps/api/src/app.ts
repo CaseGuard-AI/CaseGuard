@@ -10,6 +10,7 @@ import type { Db } from "./db/client.js";
 import type { Logger } from "./lib/logger.js";
 import type { Mailer } from "./lib/mailer.js";
 import { errorHandler, notFound } from "./middleware/errors.js";
+import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { healthRouter } from "./routes/health.js";
 
@@ -44,6 +45,7 @@ export function createApp(deps: AppDeps) {
       resetUrlBase: deps.env.RESET_URL_BASE,
     }),
   );
+  v1.use(adminRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
   // Feature routers (conversations, citations, sources) mount here, per packages/contracts.
   app.use("/api/v1", v1);
 

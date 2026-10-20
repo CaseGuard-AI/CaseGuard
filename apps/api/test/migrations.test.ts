@@ -71,6 +71,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       { tablename: "__drizzle_migrations", tableowner: role },
       { tablename: "accounts", tableowner: role },
       { tablename: "password_reset_tokens", tableowner: role },
+      { tablename: "providers", tableowner: role },
       { tablename: "refresh_tokens", tableowner: role },
       { tablename: "users", tableowner: role },
     ]);
@@ -125,6 +126,14 @@ describe.skipIf(!url)("app schema migrations", () => {
   });
 
   it("is reversible: down drops the tables, up recreates them", async () => {
+    expect(await migrateDown(pool)).toBe("0003_providers");
+    expect((await tables()).map((t) => t.tablename)).toEqual([
+      "__drizzle_migrations",
+      "accounts",
+      "password_reset_tokens",
+      "refresh_tokens",
+      "users",
+    ]);
     expect(await migrateDown(pool)).toBe("0002_password_reset_tokens");
     expect((await tables()).map((t) => t.tablename)).toEqual([
       "__drizzle_migrations",
@@ -145,11 +154,13 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0000_users_accounts",
       "0001_refresh_tokens",
       "0002_password_reset_tokens",
+      "0003_providers",
     ]);
     expect((await tables()).map((t) => t.tablename)).toEqual([
       "__drizzle_migrations",
       "accounts",
       "password_reset_tokens",
+      "providers",
       "refresh_tokens",
       "users",
     ]);
