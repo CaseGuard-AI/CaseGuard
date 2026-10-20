@@ -64,12 +64,13 @@ describe.skipIf(!url)("app schema migrations", () => {
     await pool.end();
   });
 
-  it("creates users and accounts owned by the migrating role", async () => {
+  it("creates the app tables owned by the migrating role", async () => {
     const { rows } = await pool.query<{ u: string }>("SELECT current_user AS u");
     const role = rows[0]!.u;
     expect(await tables()).toEqual([
       { tablename: "__drizzle_migrations", tableowner: role },
       { tablename: "accounts", tableowner: role },
+      { tablename: "refresh_tokens", tableowner: role },
       { tablename: "users", tableowner: role },
     ]);
   });
@@ -123,13 +124,20 @@ describe.skipIf(!url)("app schema migrations", () => {
   });
 
   it("is reversible: down drops the tables, up recreates them", async () => {
-    expect(await migrateDown(pool)).toBe("0000_users_accounts");
-    expect((await tables()).map((t) => t.tablename)).toEqual(["__drizzle_migrations"]);
-    expect(await migrateDown(pool)).toBeNull();
-    expect(await migrateUp(pool)).toEqual(["0000_users_accounts"]);
+    expect(await migrateDown(pool)).toBe("0001_refresh_tokens");
     expect((await tables()).map((t) => t.tablename)).toEqual([
       "__drizzle_migrations",
       "accounts",
+      "users",
+    ]);
+    expect(await migrateDown(pool)).toBe("0000_users_accounts");
+    expect((await tables()).map((t) => t.tablename)).toEqual(["__drizzle_migrations"]);
+    expect(await migrateDown(pool)).toBeNull();
+    expect(await migrateUp(pool)).toEqual(["0000_users_accounts", "0001_refresh_tokens"]);
+    expect((await tables()).map((t) => t.tablename)).toEqual([
+      "__drizzle_migrations",
+      "accounts",
+      "refresh_tokens",
       "users",
     ]);
   });
