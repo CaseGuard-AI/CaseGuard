@@ -135,6 +135,47 @@ paths:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /auth/password-reset:
+    post:
+      tags: [auth]
+      operationId: requestPasswordReset
+      summary: Request a password reset (FR-AUTH-1)
+      description: |
+        Always answers 202, whether or not the email has an account, so the response doesn't
+        reveal which emails are registered. If it does, a single-use reset token that expires
+        after a short time is sent to that address out of band. The token never appears in an
+        API response.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetRequest" }
+      responses:
+        "202": { description: "Accepted. If the account exists, a reset link is on its way." }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/password-reset/confirm:
+    post:
+      tags: [auth]
+      operationId: confirmPasswordReset
+      summary: Set a new password with a reset token (FR-AUTH-1)
+      description: |
+        Spends the token and sets the new password. Every existing session of the user is
+        revoked, so the user signs in again with the new password. An unknown, used or expired
+        token gives 400.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetConfirm" }
+      responses:
+        "204": { description: "Password changed. Existing sessions are revoked." }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
   /conversations:
     get:
       tags: [research]
@@ -484,6 +525,23 @@ components:
       properties:
         email: { type: string, format: email }
         password: { type: string }
+
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+
+    PasswordResetConfirm:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          description: The reset token from the out-of-band message.
+          type: string
+          minLength: 1
+          maxLength: 512
+        password: { type: string, minLength: 10, maxLength: 128 }
 
     Session:
       type: object

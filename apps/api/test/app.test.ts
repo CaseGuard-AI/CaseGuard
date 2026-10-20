@@ -15,9 +15,10 @@ const upDb: AppDeps["db"] = { query: (async () => ({ rows: [] })) as never };
 
 function app(overrides: Partial<AppDeps> = {}) {
   return createApp({
-    env: { CORS_ORIGIN: "http://localhost:3000" },
+    env: { CORS_ORIGIN: "http://localhost:3000", JWT_SECRET: "x".repeat(32) },
     logger: createLogger("silent", false),
     db: upDb,
+    orm: {} as AppDeps["orm"],
     ai: upAi,
     ...overrides,
   });
