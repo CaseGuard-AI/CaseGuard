@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#55](https://github.com/CaseGuard-AI/CaseGuard/issues/55) · **PR:** [#58](https://github.com/CaseGuard-AI/CaseGuard/pull/58)
+> **Status:** Done · **Issue:** [#55](https://github.com/CaseGuard-AI/CaseGuard/issues/55) · **PR:** [#58](https://github.com/CaseGuard-AI/CaseGuard/pull/58)
 
 # #55 (part 1): admin AI-access endpoints in the api.v1 contract
 

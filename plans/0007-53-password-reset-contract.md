@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#53](https://github.com/CaseGuard-AI/CaseGuard/issues/53) · **PR:** [#57](https://github.com/CaseGuard-AI/CaseGuard/pull/57)
+> **Status:** Done · **Issue:** [#53](https://github.com/CaseGuard-AI/CaseGuard/issues/53) · **PR:** [#57](https://github.com/CaseGuard-AI/CaseGuard/pull/57)
 
 # #53 (part 1): password reset in the api.v1 contract
 
