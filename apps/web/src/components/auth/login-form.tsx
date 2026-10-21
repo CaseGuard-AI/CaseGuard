@@ -10,7 +10,9 @@ import { useAuthSubmit } from "./use-auth-submit";
 
 export function LoginForm() {
   const t = useTranslations("Auth");
-  const next = useSearchParams().get("next");
+  const params = useSearchParams();
+  const next = params.get("next");
+  const resetDone = params.get("reset") === "1";
   const { pending, errors, onSubmit } = useAuthSubmit((form) =>
     api.POST("/auth/login", {
       body: { email: String(form.get("email")), password: String(form.get("password")) },
@@ -19,6 +21,14 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      {resetDone && !errors.form && (
+        <p
+          role="status"
+          className="rounded-sm border border-success/20 bg-success-soft p-3 text-sm text-success"
+        >
+          {t("login.resetDone")}
+        </p>
+      )}
       {errors.form && (
         <p
           role="alert"
@@ -44,6 +54,11 @@ export function LoginForm() {
         dir="ltr"
         required
         error={errors.fields.password}
+        labelAction={
+          <Link href="/forgot-password" className="text-xs font-semibold text-primary">
+            {t("login.forgot")}
+          </Link>
+        }
       />
       <Button type="submit" className="h-11 w-full" disabled={pending}>
         {t("login.submit")}

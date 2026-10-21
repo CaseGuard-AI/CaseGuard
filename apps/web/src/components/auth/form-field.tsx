@@ -1,4 +1,4 @@
-import { useId, type ComponentProps } from "react";
+import { useId, type ComponentProps, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -6,10 +6,12 @@ type FormFieldProps = ComponentProps<typeof Input> & {
   label: string;
   hint?: string;
   error?: string;
+  /** Sits at the end of the label row, such as a "Forgot password?" link. */
+  labelAction?: ReactNode;
 };
 
 // A labelled input whose hint and error are announced with it (aria-describedby).
-export function FormField({ label, hint, error, ...input }: FormFieldProps) {
+export function FormField({ label, hint, error, labelAction, ...input }: FormFieldProps) {
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -17,7 +19,14 @@ export function FormField({ label, hint, error, ...input }: FormFieldProps) {
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      {labelAction ? (
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor={id}>{label}</Label>
+          {labelAction}
+        </div>
+      ) : (
+        <Label htmlFor={id}>{label}</Label>
+      )}
       <Input
         id={id}
         className="h-11"

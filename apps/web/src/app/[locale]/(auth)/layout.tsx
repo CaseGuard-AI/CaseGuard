@@ -2,7 +2,6 @@ import { FileCheck2, Scale, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { Suspense, use } from "react";
-import { RedirectIfSignedIn } from "@/components/auth/redirect-if-signed-in";
 import { LanguageSwitch } from "@/components/shell/language-switch";
 
 // The prototype's sign-in layout: a navy hero beside the form on large screens, the form alone
@@ -52,10 +51,9 @@ export default function AuthLayout({ children, params }: LayoutProps<"/[locale]"
             </span>
             <span className="font-bold">{t("App.name")}</span>
           </div>
-          {/* The forms read `?next=`, which needs a Suspense boundary for static rendering. */}
-          <Suspense>
-            <RedirectIfSignedIn>{children}</RedirectIfSignedIn>
-          </Suspense>
+          {/* The forms read the query (`?next=`, `?token=`), which needs a Suspense boundary for
+              static rendering. */}
+          <Suspense>{children}</Suspense>
         </div>
       </section>
     </div>
