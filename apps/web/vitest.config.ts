@@ -10,6 +10,7 @@ export default defineConfig({
     // The first test in a file pays for a cold `await import(...)` of the forms; on a loaded
     // machine that alone can pass the 5 s default.
     testTimeout: 15_000,
+    setupFiles: ["test/setup.ts"],
     include: ["test/**/*.test.{ts,tsx}", "src/**/*.test.{ts,tsx}"],
   },
 });
