@@ -24,6 +24,8 @@ tags:
     description: Liveness
   - name: auth
     description: Accounts and sessions (FR-AUTH)
+  - name: settings
+    description: The signed-in user's own preferences (FR-SET)
   - name: research
     description: Conversations and answers (FR-RES)
   - name: sources
@@ -175,6 +177,40 @@ paths:
         "204": { description: "Password changed. Existing sessions are revoked." }
         "400": { $ref: "#/components/responses/BadRequest" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /me/settings:
+    get:
+      tags: [settings]
+      operationId: getMySettings
+      summary: The signed-in user's settings (FR-SET-1)
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSettings" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [settings]
+      operationId: updateMySettings
+      summary: Change some of the signed-in user's settings (FR-SET-1)
+      description: |
+        Partial update: send only the fields that change. Always the caller's own settings
+        (FR-AUTH-4). The change applies from the next request. `User` (from `getMe` and the
+        session) shows a new `name` or `locale` after the next refresh.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserSettingsUpdate" }
+      responses:
+        "200":
+          description: The settings after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /conversations:
     get:
@@ -511,6 +547,30 @@ components:
         aiEnabled:
           description: Set by an admin (FR-AUTH-3).
           type: boolean
+
+    Theme:
+      description: "`system` follows the device's light or dark preference."
+      type: string
+      enum: [light, dark, system]
+
+    UserSettings:
+      description: FR-SET-1. Users who never chose a theme get `system`.
+      type: object
+      required: [name, locale, theme]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        locale: { type: string, enum: [en, ur] }
+        theme: { $ref: "#/components/schemas/Theme" }
+
+    UserSettingsUpdate:
+      description: At least one field. Unknown fields are rejected with 400.
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        locale: { type: string, enum: [en, ur] }
+        theme: { $ref: "#/components/schemas/Theme" }
 
     RegisterRequest:
       type: object

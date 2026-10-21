@@ -151,6 +151,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in user's settings (FR-SET-1) */
+        get: operations["getMySettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change some of the signed-in user's settings (FR-SET-1)
+         * @description Partial update: send only the fields that change. Always the caller's own settings
+         *     (FR-AUTH-4). The change applies from the next request. `User` (from `getMe` and the
+         *     session) shows a new `name` or `locale` after the next refresh.
+         */
+        patch: operations["updateMySettings"];
+        trace?: never;
+    };
     "/conversations": {
         parameters: {
             query?: never;
@@ -342,6 +365,25 @@ export interface components {
             locale: "en" | "ur";
             /** @description Set by an admin (FR-AUTH-3). */
             aiEnabled: boolean;
+        };
+        /**
+         * @description `system` follows the device's light or dark preference.
+         * @enum {string}
+         */
+        Theme: "light" | "dark" | "system";
+        /** @description FR-SET-1. Users who never chose a theme get `system`. */
+        UserSettings: {
+            name: string;
+            /** @enum {string} */
+            locale: "en" | "ur";
+            theme: components["schemas"]["Theme"];
+        };
+        /** @description At least one field. Unknown fields are rejected with 400. */
+        UserSettingsUpdate: {
+            name?: string;
+            /** @enum {string} */
+            locale?: "en" | "ur";
+            theme?: components["schemas"]["Theme"];
         };
         RegisterRequest: {
             /** Format: email */
@@ -784,6 +826,53 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             429: components["responses"]["TooManyRequests"];
+        };
+    };
+    getMySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSettings"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateMySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description The settings after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
         };
     };
     listConversations: {
