@@ -13,9 +13,9 @@ export function ApiStatus() {
   });
   if (isPending) return null;
   return (
-    <p className="text-sm text-zinc-500">
+    <p className="text-sm text-muted-foreground">
       {t("api")}:{" "}
-      <span className={isSuccess ? "text-emerald-600" : "text-red-600"}>
+      <span className={isSuccess ? "text-success" : "text-danger"}>
         {isSuccess ? t("up") : t("down")}
       </span>
     </p>

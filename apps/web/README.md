@@ -30,6 +30,7 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 - Strings live in `messages/en.json` and `messages/ur.json`. A test fails if their keys ever differ.
 - `<html lang dir>` is set per locale. Urdu uses Noto Nastaliq Urdu with a taller line height.
 - Use `Link`, `useRouter` and `usePathname` from `@/i18n/navigation`, not from `next/*`.
+- `test/rtl-classes.test.ts` fails on any physical utility (`ml-*`, `pl-*`, `left-*`, `border-r`, `text-left`…) under `src/`. Mirror directional icons with `rtl:rotate-180` or `rtl:-scale-x-100`.
 
 ## Scripts
 
@@ -39,13 +40,21 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 
 ```
 messages/{en,ur}.json      UI strings
-src/app/[locale]/          root layout (lang/dir, fonts, providers) and pages
-src/components/            SiteHeader (language switch), TrustBadge, ApiStatus, Providers (TanStack Query)
+src/app/globals.css        design tokens ported from the prototype (oklch, light theme only)
+src/app/[locale]/          root layout (lang/dir, fonts, providers), pages and not-found
+src/components/shell/      AppShell: sidebar, header, nav items, PageIntro, ComingSoon placeholder
+src/components/ui/         shadcn/ui components (RTL-safe)
+src/components/            TrustBadge, ApiStatus, Providers (TanStack Query, Radix direction, tooltips)
 src/i18n/                  routing, request config, locale-aware navigation
 src/lib/api.ts             API base URL + fetch helper (replaced by the generated client later)
+src/lib/utils.ts           cn() for class names
 src/proxy.ts               locale redirect
 test/                      vitest
 Dockerfile                 standalone production image (build from the repo root)
 ```
 
-shadcn/ui is added (`pnpm dlx shadcn@latest init`) in the first PR that ports prototype screens.
+## Shell and components
+
+- Every screen from the prototype has a route. Screens that are not built yet render `ComingSoon`. Replace it when the screen's issue lands. Nav order and icons live in `src/components/shell/nav-items.ts`.
+- Add shadcn/ui components when a screen needs them: `pnpm dlx shadcn@latest add <name>` (`components.json` has `rtl: true`). Then run `pnpm test`, because the RTL check catches any physical class the generator leaves behind. Import `cn` from `@/lib/utils`.
+- Radix side props (`side="left"`) are physical. Pick the side from `directionOf(locale)`, or use the sheet's logical `start`/`end`.
