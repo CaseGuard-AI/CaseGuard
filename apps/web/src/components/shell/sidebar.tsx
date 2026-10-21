@@ -2,11 +2,13 @@
 
 import { CircleUserRound, PanelLeftClose, PanelLeftOpen, Scale } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { useSession } from "@/components/auth/session-provider";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link, usePathname } from "@/i18n/navigation";
 import { directionOf, type Locale } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
+import { initials } from "./initials";
 import { activePage, mainNav, settingsNav, type NavItem } from "./nav-items";
 
 type SidebarProps = {
@@ -20,6 +22,8 @@ type SidebarProps = {
 export function Sidebar({ collapsed = false, onToggle, onNavigate }: SidebarProps) {
   const t = useTranslations();
   const active = activePage(usePathname());
+  const session = useSession();
+  const user = session.status === "authenticated" ? session.user : undefined;
 
   return (
     <div className="flex h-full flex-col bg-navy text-primary-foreground">
@@ -72,10 +76,26 @@ export function Sidebar({ collapsed = false, onToggle, onNavigate }: SidebarProp
           collapsed={collapsed}
           onNavigate={onNavigate}
         />
-        {/* Placeholder until auth (#12) provides the signed-in user. */}
         <div className="flex h-12 items-center gap-3 px-3 text-primary-foreground/65">
-          <CircleUserRound className="size-[17px] shrink-0" />
-          {!collapsed && <span className="truncate text-xs font-semibold">{t("Nav.account")}</span>}
+          {user ? (
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-foreground/15 text-xs font-bold text-primary-foreground">
+              {initials(user.name)}
+            </span>
+          ) : (
+            <CircleUserRound className="size-[17px] shrink-0" />
+          )}
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="truncate text-xs font-semibold text-primary-foreground">
+                {user?.name ?? t("Nav.account")}
+              </p>
+              {user && (
+                <p className="truncate text-[10px] text-primary-foreground/45">
+                  {t(`Nav.roles.${user.role}`)}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

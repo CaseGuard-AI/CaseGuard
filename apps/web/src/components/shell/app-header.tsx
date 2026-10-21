@@ -5,28 +5,34 @@ import {
   ChevronRight,
   CircleUserRound,
   HelpCircle,
+  LogOut,
   Menu,
   Search,
   Settings,
 } from "lucide-react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
+import { useSession } from "@/components/auth/session-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Link, usePathname } from "@/i18n/navigation";
+import { signOut } from "@/lib/session";
+import { initials } from "./initials";
+import { LanguageSwitch } from "./language-switch";
 import { activePage } from "./nav-items";
 
 export function AppHeader({ onMenu }: { onMenu: () => void }) {
   const t = useTranslations();
-  const locale = useLocale();
-  const pathname = usePathname();
-  const page = activePage(pathname);
-  const other = locale === "ur" ? "en" : "ur";
+  const page = activePage(usePathname());
+  const session = useSession();
+  const user = session.status === "authenticated" ? session.user : undefined;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-card/95 px-4 backdrop-blur sm:px-6">
@@ -66,23 +72,32 @@ export function AppHeader({ onMenu }: { onMenu: () => void }) {
         </div>
       </div>
 
-      <Button asChild variant="outline" size="sm" className="ms-auto md:ms-0">
-        <Link href={pathname} locale={other} lang={other}>
-          {t("Nav.switchLanguage")}
-        </Link>
-      </Button>
+      <LanguageSwitch className="ms-auto md:ms-0" />
 
-      {/* Placeholder until auth (#12) provides the signed-in user and sign-out. */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-10 px-2" aria-label={t("Nav.account")}>
-            <span className="flex size-7 items-center justify-center rounded-full bg-navy text-primary-foreground">
-              <CircleUserRound className="size-4" />
+            <span className="flex size-7 items-center justify-center rounded-full bg-navy text-[10px] font-bold text-primary-foreground">
+              {user ? initials(user.name) : <CircleUserRound className="size-4" />}
             </span>
+            {user && (
+              <span className="hidden max-w-40 truncate text-xs sm:inline">{user.name}</span>
+            )}
             <ChevronDown className="size-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuContent align="end" className="w-56">
+          {user && (
+            <>
+              <DropdownMenuLabel>
+                <div className="truncate">{user.name}</div>
+                <div className="truncate text-xs font-normal text-muted-foreground" dir="ltr">
+                  {user.email}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem asChild>
             <Link href="/settings">
               <CircleUserRound />
@@ -98,6 +113,12 @@ export function AppHeader({ onMenu }: { onMenu: () => void }) {
           <DropdownMenuItem disabled>
             <HelpCircle />
             {t("Nav.help")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {/* The session guard then sends this tab (and the others) to the login page. */}
+          <DropdownMenuItem onSelect={() => void signOut()}>
+            <LogOut className="rtl:-scale-x-100" />
+            {t("Nav.signOut")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
