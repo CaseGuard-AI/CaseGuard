@@ -32,6 +32,14 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 - Use `Link`, `useRouter` and `usePathname` from `@/i18n/navigation`, not from `next/*`.
 - `test/rtl-classes.test.ts` fails on any physical utility (`ml-*`, `pl-*`, `left-*`, `border-r`, `text-left`…) under `src/`. Mirror directional icons with `rtl:rotate-180` or `rtl:-scale-x-100`.
 
+## Auth and the session
+
+- `/login` and `/register` (`src/app/[locale]/(auth)/`) sit outside the shell. Every page in `(app)/` goes through `RequireSession`, which sends signed-out visitors to `/login?next=<path>`.
+- The session (`src/lib/session.ts`) lives **in memory only**. The HttpOnly `cg_refresh` cookie is what survives a reload, and `/auth/refresh` turns it back into a session. The store adds `Authorization: Bearer …` to every non-auth call on `api`, and refreshes first when the token has less than 30 s left.
+- **Never call `/auth/refresh` directly.** The API revokes the whole session family if a rotated refresh token is sent again. `refresh()` is single-flight in the tab and holds a Web Lock across tabs. Tabs share the session over a `BroadcastChannel`, so a new tab usually doesn't refresh at all, and signing out in one tab signs out all of them.
+- A 429 or network error on refresh shows "can't reach the server" with Retry. It doesn't sign the user out. (`/auth/refresh` shares a rate limit with register: #83.)
+- Local dev: the cookie is `Secure`, which Chrome and Firefox accept on `http://localhost`.
+
 ## Scripts
 
 `dev`, `build`, `start`, `lint`, `typecheck` (`next typegen` + `tsc`), `test` (vitest + Testing Library, jsdom) and `format`.
@@ -41,10 +49,11 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 ```
 messages/{en,ur}.json      UI strings
 src/app/globals.css        design tokens ported from the prototype (oklch, light theme only)
-src/app/[locale]/          root layout (lang/dir, fonts, providers), pages and not-found
+src/app/[locale]/          root layout (lang/dir, fonts, providers), not-found; (app)/ guarded screens, (auth)/ login and register
 src/components/shell/      AppShell: sidebar, header, nav items, PageIntro, ComingSoon placeholder
 src/components/ui/         shadcn/ui components (RTL-safe)
-src/components/            TrustBadge, ApiStatus, Providers (TanStack Query, Radix direction, tooltips)
+src/components/auth/       session provider and guard, login and register forms
+src/components/            TrustBadge, ApiStatus, Providers (TanStack Query, Radix direction, tooltips, session)
 src/i18n/                  routing, request config, locale-aware navigation
 src/lib/api.ts             typed api.v1 client (openapi-fetch + @caseguard/contracts), problemOf()
 src/lib/utils.ts           cn() for class names

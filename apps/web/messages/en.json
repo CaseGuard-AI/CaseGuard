@@ -27,7 +27,12 @@
     "notifications": "Notifications",
     "account": "My account",
     "profile": "Profile",
-    "help": "Help centre"
+    "help": "Help centre",
+    "signOut": "Sign out",
+    "roles": {
+      "user": "User",
+      "admin": "Admin"
+    }
   },
   "Pages": {
     "dashboard": {
@@ -83,6 +88,51 @@
     "title": "Page not found",
     "body": "The page you are looking for does not exist or has moved.",
     "back": "Back to dashboard"
+  },
+  "Auth": {
+    "hero": {
+      "eyebrow": "Research. Verify. Strategize. Defend.",
+      "title": "Legal intelligence you can verify.",
+      "body": "Research, analyze, strategize and draft with evidence-backed legal intelligence for Pakistan.",
+      "sourceVerified": "Source verified",
+      "procedurallyChecked": "Procedurally checked",
+      "footer": "An all-in-one, verifiable legal workspace for Pakistan."
+    },
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to your legal workspace.",
+      "submit": "Sign in",
+      "noAccount": "New to CaseGuard?",
+      "register": "Create an account"
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Start a verifiable legal workspace.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "login": "Sign in",
+      "passwordHint": "At least 10 characters."
+    },
+    "fields": {
+      "name": "Full name",
+      "email": "Email",
+      "password": "Password"
+    },
+    "errors": {
+      "invalidCredentials": "Incorrect email or password.",
+      "emailTaken": "An account with this email already exists.",
+      "tooMany": "Too many attempts. Wait a few minutes and try again.",
+      "network": "Can't reach the server. Check your connection and try again.",
+      "email": "Enter a valid email address.",
+      "password": "Use 10 to 128 characters.",
+      "name": "Enter your name.",
+      "generic": "Something went wrong. Try again."
+    },
+    "session": {
+      "checking": "Checking your session…",
+      "unavailable": "Can't reach the server right now. Your session is still saved.",
+      "retry": "Try again"
+    }
   },
   "Home": {
     "heading": "Ask a legal question",

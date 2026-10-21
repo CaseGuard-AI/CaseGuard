@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,10 +6,17 @@ import { Providers } from "@/components/providers";
 import { AppShell } from "@/components/shell/app-shell";
 import { activePage } from "@/components/shell/nav-items";
 import { directionOf, type Locale } from "@/i18n/routing";
+import { getSnapshot, signIn, signOut } from "@/lib/session";
 import en from "../messages/en.json";
 import ur from "../messages/ur.json";
 
 const nav = vi.hoisted(() => ({ pathname: "/" }));
+// Installed before the imports: openapi-fetch keeps the fetch it finds when the client is created.
+const fetchMock = vi.hoisted(() => {
+  const mock = vi.fn<typeof fetch>();
+  globalThis.fetch = mock;
+  return mock;
+});
 
 vi.mock("@/i18n/navigation", () => ({
   usePathname: () => nav.pathname,
@@ -55,8 +62,33 @@ function renderShell(locale: Locale, messages: typeof en) {
 
 beforeEach(() => {
   nav.pathname = "/";
+  // Session restore and sign-out: no API here, so the cookie is "rejected".
+  fetchMock.mockImplementation(
+    async () =>
+      new Response(JSON.stringify({ type: "about:blank", title: "x", status: 401 }), {
+        status: 401,
+        headers: { "Content-Type": "application/problem+json" },
+      }),
+  );
 });
-afterEach(cleanup);
+afterEach(async () => {
+  cleanup();
+  await signOut();
+  fetchMock.mockReset();
+});
+
+const ayesha = {
+  accessToken: "t",
+  expiresIn: 900,
+  user: {
+    id: "00000000-0000-4000-8000-000000000001",
+    email: "ayesha@chambers.pk",
+    name: "Ayesha Khan",
+    role: "admin" as const,
+    locale: "ur" as const,
+    aiEnabled: true,
+  },
+};
 
 describe("AppShell", () => {
   it("renders every nav item from the Urdu messages", () => {
@@ -105,6 +137,28 @@ describe("AppShell", () => {
     const link = screen.getByRole("link", { name: ur.Nav.switchLanguage });
     expect(link.dataset.locale).toBe("en");
     expect(link.getAttribute("lang")).toBe("en");
+  });
+});
+
+describe("AppShell with a signed-in user", () => {
+  it("shows the user's name, initials and role", () => {
+    renderShell("ur", ur);
+    act(() => signIn(ayesha));
+    expect(screen.getAllByText("Ayesha Khan").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("AK").length).toBeGreaterThan(0);
+    expect(screen.getByText(ur.Nav.roles.admin)).toBeTruthy();
+  });
+
+  it("signs out from the account menu", async () => {
+    renderShell("en", en);
+    act(() => signIn(ayesha));
+    fireEvent.keyDown(screen.getByRole("button", { name: en.Nav.account }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: en.Nav.signOut }));
+    await waitFor(() => expect(getSnapshot().status).toBe("anonymous"));
+    const paths = fetchMock.mock.calls.map(
+      ([request]) => new URL((request as Request).url).pathname,
+    );
+    expect(paths).toContain("/api/v1/auth/logout");
   });
 });
 

@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Providers } from "@/components/providers";
-import { AppShell } from "@/components/shell/app-shell";
 import { directionOf, routing } from "@/i18n/routing";
 import "../globals.css";
 
@@ -40,9 +39,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     >
       <body className="min-h-full">
         <NextIntlClientProvider>
-          <Providers dir={dir}>
-            <AppShell>{children}</AppShell>
-          </Providers>
+          <Providers dir={dir}>{children}</Providers>
         </NextIntlClientProvider>
       </body>
     </html>
