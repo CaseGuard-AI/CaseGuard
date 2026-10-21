@@ -189,6 +189,13 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: npx --yes @redocly/cli@latest lint packages/contracts/openapi/*.yaml
+      - uses: pnpm/action-setup@v6
+      - run: pnpm install --frozen-lockfile --filter @caseguard/contracts
+      - name: Generated types match the specs
+        run: |
+          pnpm gen:contracts
+          git diff --exit-code packages/contracts/generated ||
+            { echo "::error::packages/contracts/generated is stale. Run 'pnpm gen:contracts' and commit the result."; exit 1; }
 
   compose:
     name: docker compose config

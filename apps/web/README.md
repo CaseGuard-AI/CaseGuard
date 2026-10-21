@@ -20,7 +20,7 @@ pnpm install          # from the repo root (or: pnpm setup)
 pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 ```
 
-`NEXT_PUBLIC_API_URL` (default `http://localhost:4000/api/v1`) points at `apps/api`. The home page shows whether the API is reachable.
+`NEXT_PUBLIC_API_URL` (default `http://localhost:4000/api/v1`) points at `apps/api`. Call it only through `api` from `@/lib/api`, which is typed from `packages/contracts`. After a contract change, run `pnpm gen:contracts`. The home page shows whether the API is reachable.
 
 > **Next.js 16.** `middleware` is now `src/proxy.ts`, and `cacheComponents` and partial prefetching are on. APIs differ from older docs, so check `node_modules/next/dist/docs/` first (see `AGENTS.md`).
 
@@ -46,7 +46,7 @@ src/components/shell/      AppShell: sidebar, header, nav items, PageIntro, Comi
 src/components/ui/         shadcn/ui components (RTL-safe)
 src/components/            TrustBadge, ApiStatus, Providers (TanStack Query, Radix direction, tooltips)
 src/i18n/                  routing, request config, locale-aware navigation
-src/lib/api.ts             API base URL + fetch helper (replaced by the generated client later)
+src/lib/api.ts             typed api.v1 client (openapi-fetch + @caseguard/contracts), problemOf()
 src/lib/utils.ts           cn() for class names
 src/proxy.ts               locale redirect
 test/                      vitest
