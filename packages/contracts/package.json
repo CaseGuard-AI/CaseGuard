@@ -1,0 +1,17 @@
+{
+  "name": "@caseguard/contracts",
+  "version": "1.0.0-draft",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./api.v1": {
+      "types": "./generated/api.v1.ts"
+    }
+  },
+  "scripts": {
+    "generate": "openapi-typescript openapi/api.v1.yaml -o generated/api.v1.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "7.13.0"
+  }
+}
