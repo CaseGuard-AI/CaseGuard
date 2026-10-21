@@ -1,24 +1,98 @@
 {
   "App": {
     "name": "CaseGuard AI",
-    "tagline": "Legal research for Pakistani law, with every citation verified."
+    "tagline": "Legal research for Pakistani law, with every citation verified.",
+    "motto": "Trust every claim"
   },
   "Nav": {
-    "research": "Research",
+    "dashboard": "Dashboard",
     "cases": "Cases",
-    "drafting": "Drafting",
+    "research": "Research Hub",
+    "precedents": "Precedent Intelligence",
+    "strategy": "Strategy Builder",
+    "drafting": "Drafting Studio",
+    "linter": "Procedural Linter",
+    "stressTest": "Opposition Stress-Test",
+    "documents": "Documents",
+    "evaluation": "Evaluation",
     "settings": "Settings",
-    "switchLanguage": "اردو"
+    "main": "Main navigation",
+    "breadcrumb": "Breadcrumb",
+    "switchLanguage": "اردو",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "search": "Search cases, sources, documents…",
+    "notifications": "Notifications",
+    "account": "My account",
+    "profile": "Profile",
+    "help": "Help centre"
+  },
+  "Pages": {
+    "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Here’s what needs your attention today."
+    },
+    "cases": {
+      "title": "Cases",
+      "subtitle": "Manage matters, evidence, and legal work in one place."
+    },
+    "research": {
+      "title": "Research Hub",
+      "subtitle": "Research Pakistani law with evidence you can inspect."
+    },
+    "precedents": {
+      "title": "Precedent Intelligence",
+      "subtitle": "Trace how authority has evolved, not just where it was cited."
+    },
+    "strategy": {
+      "title": "Strategy Builder",
+      "subtitle": "Build an evidence-backed litigation strategy."
+    },
+    "drafting": {
+      "title": "Drafting Studio",
+      "subtitle": "Draft pleadings and documents grounded in verified sources."
+    },
+    "linter": {
+      "title": "Procedural Linter",
+      "subtitle": "Check legal documents against filing and format requirements."
+    },
+    "stressTest": {
+      "title": "Opposition Stress-Test",
+      "subtitle": "Challenge your strategy before the opposing counsel does."
+    },
+    "documents": {
+      "title": "Documents",
+      "subtitle": "Securely organize and analyze your case record."
+    },
+    "evaluation": {
+      "title": "Evaluation Dashboard",
+      "subtitle": "Measure retrieval quality, answer grounding, and trust performance."
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Manage your account, security, and verification preferences."
+    }
+  },
+  "Common": {
+    "comingSoon": "This section is being built.",
+    "close": "Close"
+  },
+  "NotFound": {
+    "title": "Page not found",
+    "body": "The page you are looking for does not exist or has moved.",
+    "back": "Back to dashboard"
   },
   "Home": {
     "heading": "Ask a legal question",
     "placeholder": "e.g. What are the grounds for bail in a non-bailable offence?",
-    "comingSoon": "Research is being built. This shell is ready for the first feature.",
-    "trust": {
-      "verified": "Verified",
-      "needs_review": "Needs review",
-      "unverified": "Unverified"
-    }
+    "comingSoon": "Research is being built. This shell is ready for the first feature."
+  },
+  "Trust": {
+    "verified": "Verified",
+    "needs_review": "Needs review",
+    "unverified": "Unverified"
   },
   "Status": {
     "api": "API",

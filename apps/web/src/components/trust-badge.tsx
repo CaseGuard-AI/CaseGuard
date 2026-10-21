@@ -1,22 +1,31 @@
+import { CircleAlert, CircleCheck, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 
 // The three trust statuses (PRD §7.2). Always render the status stored by the trust layer;
-// never derive one in the UI (FR-TRUST-10).
+// never derive one in the UI (FR-TRUST-10). The prototype's "arguable" is our "needs_review".
 export type TrustStatus = "verified" | "needs_review" | "unverified";
 
 const styles: Record<TrustStatus, string> = {
-  verified: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  needs_review: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  unverified: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+  verified: "border-success/20 bg-success-soft text-success",
+  needs_review: "border-warning/20 bg-warning-soft text-warning",
+  unverified: "border-danger/20 bg-danger-soft text-danger",
 };
 
+const icons = { verified: CircleCheck, needs_review: CircleAlert, unverified: X };
+
 export function TrustBadge({ status }: { status: TrustStatus }) {
-  const t = useTranslations("Home.trust");
+  const t = useTranslations("Trust");
+  const Icon = icons[status];
   return (
     <span
       data-status={status}
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status]}`}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-sm border px-2 py-1 text-[10px] font-bold uppercase",
+        styles[status],
+      )}
     >
+      <Icon className="size-3" aria-hidden />
       {t(status)}
     </span>
   );
