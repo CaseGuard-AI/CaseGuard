@@ -16,6 +16,7 @@
     "documents": "Documents",
     "evaluation": "Evaluation",
     "settings": "Settings",
+    "admin": "Admin",
     "main": "Main navigation",
     "breadcrumb": "Breadcrumb",
     "switchLanguage": "اردو",
@@ -78,6 +79,10 @@
     "settings": {
       "title": "Settings",
       "subtitle": "Manage your account, security, and verification preferences."
+    },
+    "admin": {
+      "title": "Admin console",
+      "subtitle": "AI access for each user and the model providers this deployment may use."
     }
   },
   "Common": {
@@ -220,6 +225,49 @@
       "tierValue": "Tier {tier}",
       "thirdParty": "Third-party source",
       "headnoteOnly": "Head-note only"
+    }
+  },
+  "Admin": {
+    "tabs": {
+      "users": "Users",
+      "providers": "Model providers"
+    },
+    "forbidden": "Admins only",
+    "forbiddenBody": "This page is for Admins. Ask an Admin if you need AI access changed.",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "loadError": "Couldn't load this list.",
+    "users": {
+      "aiAccess": "AI access",
+      "aiFor": "AI access for {name}",
+      "you": "You",
+      "joined": "Joined {date}",
+      "language": "Language: {locale}",
+      "locales": {
+        "en": "English",
+        "ur": "Urdu"
+      },
+      "loadMore": "Load more",
+      "empty": "No users yet.",
+      "intro": "Turn AI research on or off for each user. With AI off, their questions are refused."
+    },
+    "providers": {
+      "intro": "Questions and case data go only to the providers turned on here, or to a key the user supplied.",
+      "local": "Local",
+      "localBody": "Data stays on this machine.",
+      "cloud": "Cloud",
+      "cloudBody": "Sends questions and case data to a third party.",
+      "enabledFor": "{name} enabled",
+      "confirmTitle": "Turn on {name}?",
+      "confirmBody": "{name} is a cloud provider. Once it's on, questions and case data may be sent to {name}.",
+      "confirm": "Turn on",
+      "cancel": "Cancel",
+      "noneEnabled": "No provider is turned on. Every question will fail until one is.",
+      "empty": "This deployment has no model providers configured."
+    },
+    "errors": {
+      "network": "Can't reach the server. Check your connection and try again.",
+      "generic": "The change wasn't saved. Try again."
     }
   }
 }

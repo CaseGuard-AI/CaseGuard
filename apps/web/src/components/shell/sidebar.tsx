@@ -9,7 +9,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { directionOf, type Locale } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 import { initials } from "./initials";
-import { activePage, mainNav, settingsNav, type NavItem } from "./nav-items";
+import { activePage, adminNav, mainNav, settingsNav, type NavItem } from "./nav-items";
 
 type SidebarProps = {
   collapsed?: boolean;
@@ -70,6 +70,14 @@ export function Sidebar({ collapsed = false, onToggle, onNavigate }: SidebarProp
       </nav>
 
       <div className="border-t border-primary-foreground/10 p-2">
+        {user?.role === "admin" && (
+          <NavLink
+            item={adminNav}
+            active={active === adminNav.key}
+            collapsed={collapsed}
+            onNavigate={onNavigate}
+          />
+        )}
         <NavLink
           item={settingsNav}
           active={active === settingsNav.key}

@@ -1,31 +1,12 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, problemOf, type Problem, type Schemas } from "@/lib/api";
+import { api, type Schemas } from "@/lib/api";
+import { ApiError, statusOf, unwrap } from "@/lib/api-query";
 
 export type Citation = Schemas["Citation"];
 export type Conversation = Schemas["Conversation"];
 export type Message = Schemas["Message"];
-
-/** A non-2xx answer from the API. A thrown fetch (no answer at all) is not one. */
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    readonly problem?: Problem,
-  ) {
-    super(problem?.detail ?? `HTTP ${status}`);
-  }
-}
-
-async function unwrap<T>(
-  request: Promise<{ data?: T; error?: unknown; response: Response }>,
-): Promise<T> {
-  const { data, error, response } = await request;
-  if (!response.ok || data === undefined) throw new ApiError(response.status, problemOf(error));
-  return data;
-}
-
-export const statusOf = (error: unknown) => (error instanceof ApiError ? error.status : undefined);
 
 /** The ask box's error message key under `Research.errors`. */
 export function researchErrorKey(error: unknown): string {

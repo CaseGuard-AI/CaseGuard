@@ -149,6 +149,15 @@ describe("AppShell with a signed-in user", () => {
     expect(screen.getByText(ur.Nav.roles.admin)).toBeTruthy();
   });
 
+  it("links the admin console for an Admin only", () => {
+    renderShell("ur", ur);
+    expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
+    act(() => signIn(ayesha));
+    expect(screen.getByRole("link", { name: ur.Nav.admin }).getAttribute("href")).toBe("/admin");
+    act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "user" } }));
+    expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
+  });
+
   it("signs out from the account menu", async () => {
     renderShell("en", en);
     act(() => signIn(ayesha));
@@ -168,6 +177,7 @@ describe("activePage", () => {
     expect(activePage("/stress-test")).toBe("stressTest");
     expect(activePage("/case/42")).toBe("cases");
     expect(activePage("/cases/new")).toBe("cases");
+    expect(activePage("/admin")).toBe("admin");
     expect(activePage("/nowhere")).toBeUndefined();
   });
 });

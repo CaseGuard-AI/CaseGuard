@@ -5,9 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { statusOf } from "@/lib/api-query";
 import { AnswerCard } from "./answer-card";
 import { AskBox } from "./ask-box";
-import { researchErrorKey, statusOf, useAsk, useConversation } from "./queries";
+import { researchErrorKey, useAsk, useConversation } from "./queries";
 import { SourcePanel } from "./source-panel";
 import type { Numbered } from "./sources-list";
 
