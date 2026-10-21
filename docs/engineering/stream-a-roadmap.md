@@ -1,6 +1,6 @@
 # Stream A roadmap: what's done and what's left
 
-> **Status:** Draft, 2026-10-21 · **Owner:** Stream A (`apps/web`, `apps/api`) · Source of scope: [PRD §16.1](../PRD.md#161-workstreams)
+> **Status:** Living document, updated 2026-10-22 · **Owner:** Stream A (`apps/web`, `apps/api`) · Source of scope: [PRD §16.1](../PRD.md#161-workstreams)
 
 The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 are still open. **But the PRD gives Stream A more than those issues cover:** "`apps/web` (… all screens), `apps/api` (auth, roles, cases, documents, uploads, settings, keys, notifications, audit writes, jobs)". This page compares that scope with what is merged and puts the rest in order. Each item has one or more issues (§4), and each issue gets one plan (`plans/NNNN-<issue#>-<slug>.md`), and a dependency gets its own issue first, as usual.
 
@@ -19,6 +19,7 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | Login, register, session, guard (web) | #12 | FR-AUTH-1 |
 | Forgot and reset password (web) | #62 | FR-AUTH-1 |
 | Research Hub answer view (web) | #14 | FR-RES-5, FR-RES-7, FR-RES-10, FR-TRUST-5, FR-TRUST-10 |
+| Admin console: per-user AI access and the provider allow-list (web), item A4 | #91 | FR-AUTH-2, FR-AUTH-3, SEC-11 |
 
 **Not blocked on Stream A, but it limits what's verifiable:** before #20 (services/ai `research/answer`, Stream C), every question gets 503. M1's definition of done ("Research Hub answers in English with citations") is met on Stream A's side, and the end-to-end demo waits for #20, #18, #19 and #16.
 
@@ -31,7 +32,6 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | A1 | **Refresh gets its own rate limit** | SEC-15 | Issue #83 | It shares 20 per 15 minutes with register and reset, so busy tabs can lock out a reset. |
 | A2 | **User settings: profile, language, theme** | FR-SET-1 | `users.locale` column; the web `LanguageSwitch` changes only the URL and cookie | No settings API, so the language doesn't follow the user across devices. No theme: the dark tokens were removed in #11, to return "with the theme setting". `/settings` is `ComingSoon`. |
 | A3 | **Default model, user API keys and model choice** | FR-SET-1 (model), FR-SET-2, SEC-4, SEC-11 | Admin provider allow-list | No key storage (AES-256-GCM), no key endpoints, no model list, and **ai.v1 has no field for the model or a user's credential.** This needs Stream C (#21). |
-| A4 | **Admin console (web)** | FR-AUTH-3, FR-AUTH-2 | The admin API (#55) | No screen, so an Admin has to use `curl`, as in the #14 browser check. The prototype has no admin screen. |
 | A5 | **"Law as of date" in the ask box** | FR-RES-11 | The API passes `lawAsOf` through (#13) | No date control in the Research Hub. It only means something once temporal curation (Streams B and C, M2) exists. |
 
 ### P1: M3, "Thin P1"
@@ -64,7 +64,6 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 P0 ─ now
   A1  #83 refresh rate limit (api)                         independent, small
   A2  settings: contract → api → web                       independent
-  A4  admin console (web)                                  independent, uses the existing API
   A3  ADR + contract (with Stream C, #21) → api keys → web settings "Models & keys"
   A5  "law as of" control (web)                            after temporal curation (M2)
 P1 ─ M3
@@ -79,7 +78,7 @@ P2 ─ M4
   A13, A14
 ```
 
-A2 and A4 are the best next pieces. They're P0, need nothing from other streams, and A4 removes the `curl` step from every browser check.
+A4 (the admin console) is done (#91). **A2 (settings, #88 → #89 → #90) is the best next piece**: it's P0 and needs nothing from other streams. A1 (#83) is small and can go in at any time.
 
 ## 4. Issues (filed 2026-10-21)
 
@@ -90,7 +89,7 @@ Labels: `stream:A`, plus `area:*` and priority. "→" means "blocked by".
 | #88 | api.v1 contract: user settings (`GET`/`PATCH /me/settings`: name, locale, theme) | area:contracts, P0 | — |
 | #89 | User settings API | area:api, P0 | settings contract |
 | #90 | Settings page: profile, language, theme (dark tokens) | area:web, P0 | settings API |
-| #91 | Admin console: users (AI on/off) and provider allow-list | area:web, P0 | — |
+| #91 | Admin console: users (AI on/off) and provider allow-list (**done**) | area:web, P0 | — |
 | #92 | ADR: how a user's key and model choice reach services/ai | area:docs, P0 | — (with Stream C) |
 | #93 | api.v1 + ai.v1 contract: user API keys, model list, default model, `AnswerRequest` model and credential | area:contracts, P0 | ADR, #21 design |
 | #94 | User API keys API: AES-256-GCM at rest, last-4 only, never logged | area:api, P0 | keys contract |
@@ -115,6 +114,5 @@ Labels: `stream:A`, plus `area:*` and priority. "→" means "blocked by".
 
    (a) keeps one owner for keys (SEC-4) and fits "services/ai never widens" the provider list. Its risk is keys in internal request bodies, which have to be kept out of logs on both sides.
 2. **Theme scope.** Is light/dark/system enough for FR-SET-1, and is dark mode part of M1/M2 or can it come later?
-3. **Where the admin console lives.** A `/admin` route group, hidden from Users (my lean), or tabs inside Settings for Admins. The API already returns 403 to Users either way.
-4. **Who owns the deployed demo environment and the NFR-9 load test.**
-5. **A native Urdu reviewer.** A name and a date, since the M3 "Urdu UI" depends on it.
+3. **Who owns the deployed demo environment and the NFR-9 load test.**
+4. **A native Urdu reviewer.** A name and a date, since the M3 "Urdu UI" depends on it.
