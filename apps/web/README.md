@@ -38,6 +38,8 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 - The session (`src/lib/session.ts`) lives **in memory only**. The HttpOnly `cg_refresh` cookie is what survives a reload, and `/auth/refresh` turns it back into a session. The store adds `Authorization: Bearer …` to every non-auth call on `api`, and refreshes first when the token has less than 30 s left.
 - **Never call `/auth/refresh` directly.** The API revokes the whole session family if a rotated refresh token is sent again. `refresh()` is single-flight in the tab and holds a Web Lock across tabs. Tabs share the session over a `BroadcastChannel`, so a new tab usually doesn't refresh at all, and signing out in one tab signs out all of them.
 - A 429 or network error on refresh shows "can't reach the server" with Retry. It doesn't sign the user out. (`/auth/refresh` shares a rate limit with register: #83.)
+- **Password reset.** `/forgot-password` shows "check your inbox" for any API answer (202, 400 or 429), so the page never reveals whether an account exists. Only a request that got no answer shows an error. The emailed link, `/reset-password?token=…`, has no locale, and the proxy keeps the query when it adds one. The page reads the token once, removes it from the address bar and history (`history.replaceState`), and sends `Referrer-Policy: no-referrer` (a `<meta name="referrer">`). A 400 with `errors[]` is a field error. A 400 without it is an unknown, used or expired token, which shows "invalid link" with a way to request a new one. After a reset the API revokes every session, so the page calls `signOut()` (all tabs) and goes to `/login?reset=1`.
+- Only `/login` and `/register` send a signed-in user on (`RedirectIfSignedIn` in each page). The reset pages work while signed in.
 - Local dev: the cookie is `Secure`, which Chrome and Firefox accept on `http://localhost`.
 
 ## Scripts
@@ -49,10 +51,10 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 ```
 messages/{en,ur}.json      UI strings
 src/app/globals.css        design tokens ported from the prototype (oklch, light theme only)
-src/app/[locale]/          root layout (lang/dir, fonts, providers), not-found; (app)/ guarded screens, (auth)/ login and register
+src/app/[locale]/          root layout (lang/dir, fonts, providers), not-found; (app)/ guarded screens, (auth)/ login, register, forgot and reset password
 src/components/shell/      AppShell: sidebar, header, nav items, PageIntro, ComingSoon placeholder
 src/components/ui/         shadcn/ui components (RTL-safe)
-src/components/auth/       session provider and guard, login and register forms
+src/components/auth/       session provider and guard, login, register and password-reset forms
 src/components/            TrustBadge, ApiStatus, Providers (TanStack Query, Radix direction, tooltips, session)
 src/i18n/                  routing, request config, locale-aware navigation
 src/lib/api.ts             typed api.v1 client (openapi-fetch + @caseguard/contracts), problemOf()

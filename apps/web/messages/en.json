@@ -103,7 +103,9 @@
       "subtitle": "Sign in to your legal workspace.",
       "submit": "Sign in",
       "noAccount": "New to CaseGuard?",
-      "register": "Create an account"
+      "register": "Create an account",
+      "forgot": "Forgot password?",
+      "resetDone": "Your password has been changed. Sign in with your new password."
     },
     "register": {
       "title": "Create your account",
@@ -112,6 +114,22 @@
       "haveAccount": "Already have an account?",
       "login": "Sign in",
       "passwordHint": "At least 10 characters."
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "Enter your account email and we'll send you a link to set a new password.",
+      "submit": "Send reset link",
+      "sentTitle": "Check your inbox",
+      "sentBody": "If an account exists for that email, a reset link is on its way. It expires in 30 minutes.",
+      "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "Set a new password",
+      "subtitle": "Choose a new password for your account.",
+      "submit": "Change password",
+      "invalidTitle": "This link is invalid or has expired",
+      "invalidBody": "Reset links work once and expire after 30 minutes. Request a new one to continue.",
+      "requestNew": "Request a new link"
     },
     "fields": {
       "name": "Full name",

@@ -7,6 +7,9 @@ export default defineConfig({
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   test: {
     environment: "jsdom",
+    // The first test in a file pays for a cold `await import(...)` of the forms; on a loaded
+    // machine that alone can pass the 5 s default.
+    testTimeout: 15_000,
     include: ["test/**/*.test.{ts,tsx}", "src/**/*.test.{ts,tsx}"],
   },
 });

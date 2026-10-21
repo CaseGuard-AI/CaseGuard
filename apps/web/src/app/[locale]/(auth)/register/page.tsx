@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { use } from "react";
 import { RegisterForm } from "@/components/auth/register-form";
+import { RedirectIfSignedIn } from "@/components/auth/redirect-if-signed-in";
 
 export async function generateMetadata({
   params,
@@ -21,7 +22,9 @@ export default function RegisterPage({ params }: PageProps<"/[locale]/register">
     <>
       <h2 className="text-2xl font-bold">{t("title")}</h2>
       <p className="mt-2 mb-8 text-sm text-muted-foreground">{t("subtitle")}</p>
-      <RegisterForm />
+      <RedirectIfSignedIn>
+        <RegisterForm />
+      </RedirectIfSignedIn>
     </>
   );
 }
