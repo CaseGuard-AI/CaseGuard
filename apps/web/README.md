@@ -49,7 +49,15 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 - **Answers are plain text.** `markers.ts` turns `[[c:<id>]]` into numbered chips and drops a marker with no matching citation. There's no Markdown and no `dangerouslySetInnerHTML`.
 - **Content keeps its own language (FR-RES-10).** The answer, each quote and each excerpt get `lang`/`dir` from their own `Language` (`src/lib/language.ts`), not the UI locale, and are never translated.
 - The official link renders only for `http(s)` URLs (`safeUrl`), with `target="_blank" rel="noopener noreferrer"`.
-- Until services/ai has `research/answer` (#20), the live stack answers every question with 503. Browser checks mock the ask, citation and source calls with Playwright `page.route`.
+- Until services/ai has `research/answer` (#20), the live stack answers every question with 503. Browser checks mock the ask, citation and source calls with Playwright `page.route`. To check the AI-off (403) state, turn AI off for the user in `/admin`.
+
+## Admin console
+
+- `/admin` (`src/components/admin/`) has two tabs: **Users**, for per-user AI access, and **Model providers**, for the allow-list. The tab is kept in `?tab=`. It's built on the admin API (`/admin/*`).
+- **The browser only hides it; the API decides.** The sidebar link and the page show only when `session.user.role === "admin"`. A User gets "Admins only" and the page sends no `/admin` request. A 403 from the API (for example, the role was removed elsewhere) shows the same panel.
+- **Switches wait for the server.** Each row owns its mutation, and the cache changes only when the PATCH succeeds. While it's in flight the switch is disabled; if it fails, the switch stays where it was and the row shows an error.
+- **Turning on a cloud provider asks first (SEC-11)**, because questions and case data may then go to a third party. Turning a local provider on, or anything off, doesn't ask. If every provider is off, a warning says every question will fail (the API's 503).
+- To make the first Admin locally: `printf '<password>\n' | docker compose exec -T api node dist/db/create-admin.js --email <email> --name "<name>"`. Sign in as that account and open `/admin`.
 
 ## Scripts
 
@@ -64,10 +72,12 @@ src/app/[locale]/          root layout (lang/dir, fonts, providers), not-found; 
 src/components/shell/      AppShell: sidebar, header, nav items, PageIntro, ComingSoon placeholder
 src/components/ui/         shadcn/ui components (RTL-safe)
 src/components/auth/       session provider and guard, login, register and password-reset forms
+src/components/admin/      Admin console: users' AI access, provider allow-list
 src/components/research/   Research Hub: thread, ask box, citation chips, sources list, source panel, queries
 src/components/            TrustBadge, ApiStatus, Providers (TanStack Query, Radix direction, tooltips, session)
 src/i18n/                  routing, request config, locale-aware navigation
 src/lib/api.ts             typed api.v1 client (openapi-fetch + @caseguard/contracts), problemOf()
+src/lib/api-query.ts       ApiError and unwrap() for TanStack Query over the api client
 src/lib/language.ts        content language → lang/dir (answers, quotes, sources)
 src/lib/utils.ts           cn() for class names
 src/proxy.ts               locale redirect

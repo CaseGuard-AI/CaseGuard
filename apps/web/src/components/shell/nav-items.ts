@@ -9,6 +9,7 @@ import {
   Network,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
@@ -25,7 +26,8 @@ export type PageKey =
   | "stressTest"
   | "documents"
   | "evaluation"
-  | "settings";
+  | "settings"
+  | "admin";
 
 export type NavItem = { key: PageKey; href: string; icon: LucideIcon };
 
@@ -45,10 +47,13 @@ export const mainNav: NavItem[] = [
 
 export const settingsNav: NavItem = { key: "settings", href: "/settings", icon: Settings };
 
+// Shown only to Admins (FR-AUTH-2). The API checks the role on every /admin call regardless.
+export const adminNav: NavItem = { key: "admin", href: "/admin", icon: ShieldCheck };
+
 // The screen a locale-less pathname belongs to. A single case (`/case/...`) counts as Cases.
 export function activePage(pathname: string): PageKey | undefined {
   if (pathname === "/case" || pathname.startsWith("/case/")) return "cases";
-  return [...mainNav, settingsNav].find(
+  return [...mainNav, settingsNav, adminNav].find(
     ({ href }) => pathname === href || (href !== "/" && pathname.startsWith(`${href}/`)),
   )?.key;
 }
