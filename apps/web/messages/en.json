@@ -160,11 +160,66 @@
   "Trust": {
     "verified": "Verified",
     "needs_review": "Needs review",
-    "unverified": "Unverified"
+    "unverified": "Unverified",
+    "lastVerified": "Last verified {date}",
+    "chip": "Citation {n}: {status}",
+    "flags": {
+      "overruled": "Overruled",
+      "repealed": "Repealed",
+      "superseded_version": "Superseded version",
+      "conflict": "Conflicting authority",
+      "stale": "Stale",
+      "third_party_source": "Third-party source",
+      "headnote_only": "Head-note only",
+      "amended_since": "Amended since"
+    }
   },
   "Status": {
     "api": "API",
     "up": "up",
     "down": "down"
+  },
+  "Research": {
+    "placeholder": "Ask a question about Pakistani law…",
+    "submit": "Research",
+    "shortcut": "Ctrl + Enter to send",
+    "asking": "Researching and verifying citations…",
+    "loading": "Loading the conversation…",
+    "analysis": "CaseGuard analysis",
+    "you": "You",
+    "sources": "Evidence & sources",
+    "unanswerable": "The sources don't support an answer to this question.",
+    "errors": {
+      "aiDisabled": "AI research is turned off for your account. Ask your administrator to enable it.",
+      "tooMany": "Too many questions. Wait a few minutes and try again.",
+      "unavailable": "The research service is unavailable right now. Try again shortly.",
+      "network": "Can't reach the server. Check your connection and try again.",
+      "generic": "Something went wrong. Try again."
+    },
+    "source": {
+      "title": "Evidence detail",
+      "description": "The stored verification, the source record and the cited passage.",
+      "claim": "Claim",
+      "quote": "Cited passage",
+      "excerpt": "Source text",
+      "openOfficial": "Open official source",
+      "loading": "Loading the source record…",
+      "unavailable": "The source record can't be loaded right now.",
+      "kindLabel": "Type",
+      "kind": {
+        "statute": "Statute",
+        "judgment": "Judgment",
+        "rule": "Rule",
+        "other": "Other"
+      },
+      "citation": "Citation",
+      "locator": "Locator",
+      "court": "Court",
+      "decidedOn": "Decided",
+      "tier": "Source tier",
+      "tierValue": "Tier {tier}",
+      "thirdParty": "Third-party source",
+      "headnoteOnly": "Head-note only"
+    }
   }
 }

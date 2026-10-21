@@ -42,6 +42,15 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 - Only `/login` and `/register` send a signed-in user on (`RedirectIfSignedIn` in each page). The reset pages work while signed in.
 - Local dev: the cookie is `Secure`, which Chrome and Firefox accept on `http://localhost`.
 
+## Research Hub
+
+- `/research` (`src/components/research/`) shows the conversation in `?c=<id>`. The first question creates the conversation, then asks. Only the URL decides which conversation is shown, so the sidebar link starts a fresh one. A `?c=` that gets 404 clears itself.
+- **One trust store (FR-TRUST-10).** Every view of a citation (its chip, its row in the sources list, the source panel) reads the same TanStack Query entry, `["citation", id]` in `queries.ts`. It starts from the copy saved with the answer, and `GET /citations/{id}` replaces it with the current stored verification. If that lookup fails, the saved copy stays. Never compute or derive a status in the UI.
+- **Answers are plain text.** `markers.ts` turns `[[c:<id>]]` into numbered chips and drops a marker with no matching citation. There's no Markdown and no `dangerouslySetInnerHTML`.
+- **Content keeps its own language (FR-RES-10).** The answer, each quote and each excerpt get `lang`/`dir` from their own `Language` (`src/lib/language.ts`), not the UI locale, and are never translated.
+- The official link renders only for `http(s)` URLs (`safeUrl`), with `target="_blank" rel="noopener noreferrer"`.
+- Until services/ai has `research/answer` (#20), the live stack answers every question with 503. Browser checks mock the ask, citation and source calls with Playwright `page.route`.
+
 ## Scripts
 
 `dev`, `build`, `start`, `lint`, `typecheck` (`next typegen` + `tsc`), `test` (vitest + Testing Library, jsdom) and `format`.
@@ -55,9 +64,11 @@ src/app/[locale]/          root layout (lang/dir, fonts, providers), not-found; 
 src/components/shell/      AppShell: sidebar, header, nav items, PageIntro, ComingSoon placeholder
 src/components/ui/         shadcn/ui components (RTL-safe)
 src/components/auth/       session provider and guard, login, register and password-reset forms
+src/components/research/   Research Hub: thread, ask box, citation chips, sources list, source panel, queries
 src/components/            TrustBadge, ApiStatus, Providers (TanStack Query, Radix direction, tooltips, session)
 src/i18n/                  routing, request config, locale-aware navigation
 src/lib/api.ts             typed api.v1 client (openapi-fetch + @caseguard/contracts), problemOf()
+src/lib/language.ts        content language → lang/dir (answers, quotes, sources)
 src/lib/utils.ts           cn() for class names
 src/proxy.ts               locale redirect
 test/                      vitest

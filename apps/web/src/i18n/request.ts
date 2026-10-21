@@ -7,6 +7,8 @@ export default getRequestConfig(async ({ requestLocale }) => {
   const locale = hasLocale(routing.locales, requested) ? requested : routing.defaultLocale;
   return {
     locale,
+    // Dates (such as a citation's last-verified time) are shown in Pakistan time on server and client.
+    timeZone: "Asia/Karachi",
     messages: (await import(`../../messages/${locale}.json`)).default,
   };
 });
