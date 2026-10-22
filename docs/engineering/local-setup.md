@@ -54,6 +54,29 @@ To see the email the api sends (password reset, #61), also start Mailpit. It cat
 docker compose up -d mailpit   # SMTP on localhost:1025, matching SMTP_HOST/SMTP_PORT in .env.example
 ```
 
+### Sending real email (Gmail)
+
+Mailpit only catches mail. To have password-reset emails reach real inboxes, send them through a Gmail account with an **app password**:
+
+1. Turn on **2-Step Verification** for the Google account (myaccount.google.com → Security). Google only offers app passwords after that.
+2. Open <https://myaccount.google.com/apppasswords>, create one named `CaseGuard`, and copy the 16-character password without the spaces Google shows between groups.
+3. In `.env` (never commit it), set:
+   ```bash
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=465
+   SMTP_SECURE=true
+   SMTP_USER=you@gmail.com                 # the full address, not a display name
+   SMTP_PASSWORD=abcdefghijklmnop          # the app password, not your Google password
+   MAIL_FROM="CaseGuard <you@gmail.com>"   # Gmail rewrites any other From address
+   ```
+4. Check it: `pnpm mail:check --to you@gmail.com`. It sends one test email, or explains the failure (wrong password, wrong port, and so on).
+5. Restart the api (`pnpm dev`), then try **Forgot password?** on the sign-in page. The email links to `RESET_URL_BASE?token=…`.
+
+Notes:
+- Gmail allows about 500 emails a day, which is fine for development and demos. A shared or production deploy should use a dedicated sender (for example Brevo or Amazon SES), configured with the same six variables.
+- The full Docker stack (`pnpm stack:up`) always points the api at Mailpit (`SMTP_HOST`/`SMTP_PORT` in `docker-compose.yml`). For Gmail there, add an untracked `docker-compose.override.yml` that sets `SMTP_HOST: smtp.gmail.com` and `SMTP_PORT: 465` under `services.api.environment`.
+- To go back to Mailpit, restore the `.env.example` values (`localhost`, `1025`, `false`, empty user and password).
+
 ### Option B: Fully native (no Docker)
 
 1. Install PostgreSQL 17 and **pgvector** (see below).

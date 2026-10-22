@@ -108,6 +108,7 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 `src/lib/mailer.ts` sends over SMTP with nodemailer, configured by `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` and `MAIL_FROM`. Routes get it as `deps.mailer`, and tests inject a fake.
 
 - **Dev:** Mailpit catches everything (`docker compose up -d mailpit`, then open http://localhost:8025). In Docker the api uses `mailpit:1025` automatically.
+- **Real email (Gmail):** see [Sending real email](../../docs/engineering/local-setup.md#sending-real-email-gmail). `pnpm mail:check --to <email>` (`src/lib/mail-check.ts`) sends one test message with the current `.env` and explains common failures.
 - **No `SMTP_HOST`:** the API still starts, but every send rejects with `MailNotConfiguredError` and logs an error.
 - **Logging:** only the subject and message id are logged, never the recipient or the body, because bodies can hold reset links.
 - **Tests:** `test/mailer.test.ts` sends to a real Mailpit when `MAILPIT_URL` is set (CI runs Mailpit as a service container). `MAILPIT_SMTP_PORT` defaults to 1025.
