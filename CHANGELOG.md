@@ -4,6 +4,10 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+## [0.1.0-alpha.1] - 2026-10-23
+
+First pre-release from `staging`: the foundation (M0) and the Stream A work towards the M1 vertical slice. The research UI and api are in place, but services/ai does not answer questions yet (no `/ai/v1/research/answer`), so the Research Hub shows "service unavailable".
+
 ### Added
 - Product Requirements Document v1.0 (`docs/PRD.md`)
 - Repository foundation: monorepo layout, branching model (`main` / `staging` / feature branches), contribution guide, ADRs 0001–0006, CI workflows, PR/issue templates, local Postgres + pgvector compose file
@@ -35,3 +39,6 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 
 ### Fixed
 - The theme script no longer logs React's "Encountered a script tag" error when switching language. The browser renders its copy as a `text/plain` data block, and the server copy still applies the theme before the first paint (#115)
+
+[Unreleased]: https://github.com/CaseGuard-AI/CaseGuard/compare/v0.1.0-alpha.1...staging
+[0.1.0-alpha.1]: https://github.com/CaseGuard-AI/CaseGuard/releases/tag/v0.1.0-alpha.1
