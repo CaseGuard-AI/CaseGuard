@@ -20,6 +20,7 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | Forgot and reset password (web) | #62 | FR-AUTH-1 |
 | Research Hub answer view (web) | #14 | FR-RES-5, FR-RES-7, FR-RES-10, FR-TRUST-5, FR-TRUST-10 |
 | Admin console: per-user AI access and the provider allow-list (web), item A4 | #91 | FR-AUTH-2, FR-AUTH-3, SEC-11 |
+| User settings: name, language and theme (contract, API, web, dark tokens), item A2 | #88, #89, #90 | FR-SET-1, FR-I18N-1 |
 
 **Not blocked on Stream A, but it limits what's verifiable:** before #20 (services/ai `research/answer`, Stream C), every question gets 503. M1's definition of done ("Research Hub answers in English with citations") is met on Stream A's side, and the end-to-end demo waits for #20, #18, #19 and #16.
 
@@ -30,7 +31,6 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | # | Item | Requirements | Exists today | Missing |
 |---|---|---|---|---|
 | A1 | **Refresh gets its own rate limit** | SEC-15 | Issue #83 | It shares 20 per 15 minutes with register and reset, so busy tabs can lock out a reset. |
-| A2 | **User settings: profile, language, theme** | FR-SET-1 | `users.locale` column; the web `LanguageSwitch` changes only the URL and cookie | No settings API, so the language doesn't follow the user across devices. No theme: the dark tokens were removed in #11, to return "with the theme setting". `/settings` is `ComingSoon`. |
 | A3 | **Default model, user API keys and model choice** | FR-SET-1 (model), FR-SET-2, SEC-4, SEC-11 | Admin provider allow-list | No key storage (AES-256-GCM), no key endpoints, no model list, and **ai.v1 has no field for the model or a user's credential.** This needs Stream C (#21). |
 | A5 | **"Law as of date" in the ask box** | FR-RES-11 | The API passes `lawAsOf` through (#13) | No date control in the Research Hub. It only means something once temporal curation (Streams B and C, M2) exists. |
 
@@ -78,7 +78,7 @@ P2 ─ M4
   A13, A14
 ```
 
-A4 (the admin console) is done (#91). **A2 (settings, #88 → #89 → #90) is the best next piece**: it's P0 and needs nothing from other streams. A1 (#83) is small and can go in at any time.
+A4 (the admin console, #91) and A2 (settings, #88 → #89 → #90) are done. A1 (#83) is small and can go in at any time. A3 (keys and models) waits on the ADR (#92) and Stream C (#21).
 
 ## 4. Issues (filed 2026-10-21)
 
@@ -88,7 +88,7 @@ Labels: `stream:A`, plus `area:*` and priority. "→" means "blocked by".
 |---|---|---|---|
 | #88 | api.v1 contract: user settings (`GET`/`PATCH /me/settings`: name, locale, theme) | area:contracts, P0 | — |
 | #89 | User settings API | area:api, P0 | settings contract |
-| #90 | Settings page: profile, language, theme (dark tokens) | area:web, P0 | settings API |
+| #90 | Settings page: profile, language, theme (dark tokens) (**done**) | area:web, P0 | settings API |
 | #91 | Admin console: users (AI on/off) and provider allow-list (**done**) | area:web, P0 | — |
 | #92 | ADR: how a user's key and model choice reach services/ai | area:docs, P0 | — (with Stream C) |
 | #93 | api.v1 + ai.v1 contract: user API keys, model list, default model, `AnswerRequest` model and credential | area:contracts, P0 | ADR, #21 design |

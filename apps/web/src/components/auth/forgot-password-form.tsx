@@ -74,7 +74,7 @@ export function ForgotPasswordForm() {
         {t("forgot.submit")}
       </Button>
       <p className="text-center text-sm">
-        <Link href="/login" className="font-semibold text-primary">
+        <Link href="/login" className="font-semibold text-link">
           {t("forgot.backToLogin")}
         </Link>
       </p>

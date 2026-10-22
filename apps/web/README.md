@@ -59,6 +59,16 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 - **Turning on a cloud provider asks first (SEC-11)**, because questions and case data may then go to a third party. Turning a local provider on, or anything off, doesn't ask. If every provider is off, a warning says every question will fail (the API's 503).
 - To make the first Admin locally: `printf '<password>\n' | docker compose exec -T api node dist/db/create-admin.js --email <email> --name "<name>"`. Sign in as that account and open `/admin`.
 
+## Settings, language and theme
+
+- `/settings` (`src/components/settings/`) edits the user's own name, language and theme through `GET`/`PATCH /me/settings` (FR-SET-1). Each section saves on its own, and the page shows only saved values: a failed save leaves the old one selected. A new name also updates the session's `user` (`updateUser` in `src/lib/session.ts`), so the header changes without waiting for a refresh.
+- **The account's language and theme apply wherever the user signs in.** `AccountPreferences`, mounted in `(app)/layout.tsx`, loads the settings and applies them.
+- **The saved locale takes over once per session start:** after sign-in, or when a new tab restores the session. After that, a reload or a typed or shared `/en` or `/ur` URL in the same tab is left alone. The flag is in `sessionStorage` (`cg-locale-applied`) and is cleared on sign-out.
+- **The header's language switch also saves to the account** when signed in. It waits for the `PATCH` before it moves the page, so the next settings load can't bring back the old locale. If the save fails, the page still switches.
+- **Theme (`src/lib/theme.ts`).** The resolved theme goes on `<html>` as `data-theme="light|dark"`. It's an attribute, not a class, because React owns `className` there. `dark:` variants and the dark tokens in `globals.css` key off it. `system` follows `prefers-color-scheme` live.
+- **No flash on reload.** The session and settings arrive only after `/auth/refresh`, so the last choice is cached in `localStorage` (`cg-theme`). An inline script in the root layout's `<head>` applies it before the first paint (`<html suppressHydrationWarning>`). The auth pages use the cached theme too.
+- **Dark tokens** have the same names as the light ones. `primary-foreground` stays light because it's also the text on navy. Use `text-link`, not `text-primary`, for text links: in dark mode `primary` is a button fill and too dark to read as text.
+
 ## Scripts
 
 `dev`, `build`, `start`, `lint`, `typecheck` (`next typegen` + `tsc`), `test` (vitest + Testing Library, jsdom) and `format`.
@@ -67,18 +77,20 @@ pnpm dev:web          # http://localhost:3000 → redirects to /en or /ur
 
 ```
 messages/{en,ur}.json      UI strings
-src/app/globals.css        design tokens ported from the prototype (oklch, light theme only)
+src/app/globals.css        design tokens ported from the prototype (oklch), plus the dark set
 src/app/[locale]/          root layout (lang/dir, fonts, providers), not-found; (app)/ guarded screens, (auth)/ login, register, forgot and reset password
 src/components/shell/      AppShell: sidebar, header, nav items, PageIntro, ComingSoon placeholder
 src/components/ui/         shadcn/ui components (RTL-safe)
 src/components/auth/       session provider and guard, login, register and password-reset forms
 src/components/admin/      Admin console: users' AI access, provider allow-list
+src/components/settings/   Settings page, settings queries, AccountPreferences (saved theme and locale)
 src/components/research/   Research Hub: thread, ask box, citation chips, sources list, source panel, queries
 src/components/            TrustBadge, ApiStatus, Providers (TanStack Query, Radix direction, tooltips, session)
 src/i18n/                  routing, request config, locale-aware navigation
 src/lib/api.ts             typed api.v1 client (openapi-fetch + @caseguard/contracts), problemOf()
 src/lib/api-query.ts       ApiError and unwrap() for TanStack Query over the api client
 src/lib/language.ts        content language → lang/dir (answers, quotes, sources)
+src/lib/theme.ts           applyTheme(), the pre-paint head script, the cg-theme cache
 src/lib/utils.ts           cn() for class names
 src/proxy.ts               locale redirect
 test/                      vitest

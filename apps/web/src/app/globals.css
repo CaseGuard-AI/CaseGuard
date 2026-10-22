@@ -4,9 +4,9 @@
 /* The RTL test's fixtures list physical classes on purpose; keep them out of the bundle. */
 @source not "../../test";
 
-/* `dark:` applies only under a `.dark` ancestor, so shadcn's dark variants stay off until the
-   theme setting (FR-SET-1) adds dark tokens. Without this, they would follow the OS preference. */
-@custom-variant dark (&:is(.dark *));
+/* `dark:` follows the theme setting (FR-SET-1), which `src/lib/theme.ts` puts on <html> as
+   `data-theme`. Without this, shadcn's dark variants would follow the OS preference instead. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 /* Design tokens ported from the prototype (CaseGuard-AI/high_level_design, ADR-0006). */
 @theme inline {
@@ -31,6 +31,7 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-link: var(--link);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
@@ -67,6 +68,8 @@
   --border: oklch(0.89 0.012 255);
   --input: oklch(0.86 0.014 255);
   --ring: oklch(0.56 0.13 252);
+  /* Text links. The same as primary here; lighter in dark, where primary is a button fill. */
+  --link: oklch(0.34 0.095 255);
   --success: oklch(0.48 0.14 152);
   --success-soft: oklch(0.95 0.04 150);
   --warning: oklch(0.58 0.14 67);
@@ -77,6 +80,42 @@
   --info-soft: oklch(0.95 0.03 250);
   --navy: oklch(0.2 0.055 258);
   --navy-soft: oklch(0.27 0.065 257);
+}
+
+/* Dark theme (FR-SET-1). The prototype has no dark set, so these follow its navy palette with the
+   same token names. `primary-foreground` stays light: it is also the text on navy surfaces. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: oklch(0.17 0.022 258);
+  --foreground: oklch(0.93 0.008 255);
+  --card: oklch(0.21 0.026 258);
+  --card-foreground: oklch(0.93 0.008 255);
+  --popover: oklch(0.23 0.028 258);
+  --popover-foreground: oklch(0.93 0.008 255);
+  --primary: oklch(0.52 0.13 255);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.27 0.035 256);
+  --secondary-foreground: oklch(0.88 0.03 250);
+  --muted: oklch(0.25 0.024 258);
+  --muted-foreground: oklch(0.72 0.022 256);
+  --accent: oklch(0.29 0.045 254);
+  --accent-foreground: oklch(0.92 0.02 250);
+  --destructive: oklch(0.55 0.19 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.31 0.026 258);
+  --input: oklch(0.36 0.028 258);
+  --ring: oklch(0.66 0.12 252);
+  --link: oklch(0.76 0.11 250);
+  --success: oklch(0.76 0.14 152);
+  --success-soft: oklch(0.27 0.05 152);
+  --warning: oklch(0.8 0.13 75);
+  --warning-soft: oklch(0.29 0.055 70);
+  --danger: oklch(0.72 0.16 25);
+  --danger-soft: oklch(0.28 0.06 25);
+  --info: oklch(0.75 0.12 250);
+  --info-soft: oklch(0.27 0.05 252);
+  --navy: oklch(0.13 0.03 258);
+  --navy-soft: oklch(0.2 0.045 257);
 }
 
 @layer base {

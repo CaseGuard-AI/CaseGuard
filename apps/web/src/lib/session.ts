@@ -19,7 +19,10 @@ export type SessionState =
 
 type Authenticated = Extract<SessionState, { status: "authenticated" }>;
 type Message =
-  { type: "hello" } | { type: "session"; session: Authenticated } | { type: "signed-out" };
+  | { type: "hello" }
+  | { type: "session"; session: Authenticated }
+  | { type: "user"; user: User }
+  | { type: "signed-out" };
 
 const LOCK = "caseguard-auth";
 const CHANNEL = "caseguard-session";
@@ -76,6 +79,10 @@ channel?.addEventListener("message", (event: MessageEvent<Message>) => {
     const current = state;
     if (current.status !== "authenticated" || message.session.expiresAt > current.expiresAt) {
       set(message.session);
+    }
+  } else if (message.type === "user") {
+    if (state.status === "authenticated" && state.user.id === message.user.id) {
+      set({ ...state, user: message.user });
     }
   } else if (message.type === "signed-out") {
     set({ status: "anonymous" });
@@ -139,6 +146,14 @@ export function signIn(session: Schemas["Session"]): void {
   const next = fromSession(session);
   set(next);
   broadcast({ type: "session", session: next });
+}
+
+/** After the user changes their own settings, so the header shows them before the next refresh. */
+export function updateUser(patch: Partial<Pick<User, "name" | "locale">>): void {
+  if (state.status !== "authenticated") return;
+  const user = { ...state.user, ...patch };
+  set({ ...state, user });
+  broadcast({ type: "user", user });
 }
 
 /** Revokes the refresh cookie. Clears the session locally even if the API call fails. */

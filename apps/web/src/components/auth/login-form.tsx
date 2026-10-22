@@ -55,7 +55,7 @@ export function LoginForm() {
         required
         error={errors.fields.password}
         labelAction={
-          <Link href="/forgot-password" className="text-xs font-semibold text-primary">
+          <Link href="/forgot-password" className="text-xs font-semibold text-link">
             {t("login.forgot")}
           </Link>
         }
@@ -67,7 +67,7 @@ export function LoginForm() {
         {t("login.noAccount")}{" "}
         <Link
           href={next ? `/register?next=${encodeURIComponent(next)}` : "/register"}
-          className="font-semibold text-primary"
+          className="font-semibold text-link"
         >
           {t("login.register")}
         </Link>

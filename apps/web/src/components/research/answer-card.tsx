@@ -60,7 +60,7 @@ export function AnswerCard({
   return (
     <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
       <article className="rounded-md border bg-card p-6">
-        <p className="mb-5 flex items-center gap-2 text-xs font-bold text-primary uppercase">
+        <p className="mb-5 flex items-center gap-2 text-xs font-bold text-link uppercase">
           <Bot className="size-4" aria-hidden />
           {t("analysis")}
         </p>
