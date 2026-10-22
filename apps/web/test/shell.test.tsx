@@ -10,7 +10,7 @@ import { getSnapshot, signIn, signOut } from "@/lib/session";
 import en from "../messages/en.json";
 import ur from "../messages/ur.json";
 
-const nav = vi.hoisted(() => ({ pathname: "/" }));
+const nav = vi.hoisted(() => ({ pathname: "/", replace: vi.fn() }));
 // Installed before the imports: openapi-fetch keeps the fetch it finds when the client is created.
 const fetchMock = vi.hoisted(() => {
   const mock = vi.fn<typeof fetch>();
@@ -20,6 +20,7 @@ const fetchMock = vi.hoisted(() => {
 
 vi.mock("@/i18n/navigation", () => ({
   usePathname: () => nav.pathname,
+  useRouter: () => ({ replace: nav.replace }),
   Link: ({
     href,
     locale,
@@ -62,6 +63,7 @@ function renderShell(locale: Locale, messages: typeof en) {
 
 beforeEach(() => {
   nav.pathname = "/";
+  nav.replace.mockReset();
   // Session restore and sign-out: no API here, so the cookie is "rejected".
   fetchMock.mockImplementation(
     async () =>
@@ -156,6 +158,34 @@ describe("AppShell with a signed-in user", () => {
     expect(screen.getByRole("link", { name: ur.Nav.admin }).getAttribute("href")).toBe("/admin");
     act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "user" } }));
     expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
+  });
+
+  it("saves the language to the account before switching", async () => {
+    nav.pathname = "/research";
+    renderShell("ur", ur);
+    act(() => signIn(ayesha));
+    const order: string[] = [];
+    fetchMock.mockImplementation(async (input) => {
+      const request = input as Request;
+      order.push(`${request.method} ${new URL(request.url).pathname}`);
+      return new Response(JSON.stringify({ name: "Ayesha Khan", locale: "en", theme: "system" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    nav.replace.mockImplementation(() => order.push("navigate"));
+    fireEvent.click(screen.getByRole("link", { name: ur.Nav.switchLanguage }));
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith("/research", { locale: "en" }));
+    expect(order).toEqual(["PATCH /api/v1/me/settings", "navigate"]);
+    const patch = fetchMock.mock.calls.find(([r]) => (r as Request).method === "PATCH")!;
+    expect(await (patch[0] as Request).json()).toEqual({ locale: "en" });
+  });
+
+  it("still switches the language when the save fails", async () => {
+    renderShell("en", en);
+    act(() => signIn(ayesha));
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    fireEvent.click(screen.getByRole("link", { name: en.Nav.switchLanguage }));
+    await waitFor(() => expect(nav.replace).toHaveBeenCalledWith("/", { locale: "ur" }));
   });
 
   it("signs out from the account menu", async () => {

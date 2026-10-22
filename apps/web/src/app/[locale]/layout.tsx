@@ -5,6 +5,7 @@ import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Providers } from "@/components/providers";
 import { directionOf, routing } from "@/i18n/routing";
+import { themeScript } from "@/lib/theme";
 import "../globals.css";
 
 // Inter matches the prototype (ADR-0006).
@@ -36,7 +37,13 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
       lang={locale}
       dir={dir}
       className={`${inter.variable} ${nastaliq.variable} h-full antialiased`}
+      // The head script sets `data-theme` before React hydrates.
+      suppressHydrationWarning
     >
+      <head>
+        {/* Applies the cached theme before the first paint, so a dark page never flashes light. */}
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="min-h-full">
         <NextIntlClientProvider>
           <Providers dir={dir}>{children}</Providers>

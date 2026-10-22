@@ -78,7 +78,7 @@
     },
     "settings": {
       "title": "Settings",
-      "subtitle": "Manage your account, security, and verification preferences."
+      "subtitle": "Your name, language and theme."
     },
     "admin": {
       "title": "Admin console",
@@ -267,6 +267,44 @@
     },
     "errors": {
       "network": "Can't reach the server. Check your connection and try again.",
+      "generic": "The change wasn't saved. Try again."
+    }
+  },
+  "Settings": {
+    "loading": "Loading…",
+    "loadError": "Couldn't load your settings.",
+    "retry": "Try again",
+    "saved": "Saved",
+    "profile": {
+      "title": "Profile",
+      "body": "How your name appears in CaseGuard.",
+      "name": "Name",
+      "email": "Email",
+      "emailHint": "Your email can't be changed here.",
+      "save": "Save name",
+      "errors": {
+        "required": "Enter your name.",
+        "tooLong": "Use {max} characters or fewer."
+      }
+    },
+    "language": {
+      "title": "Language",
+      "body": "The language of menus and pages. It follows you to any device you sign in on.",
+      "names": {
+        "en": "English",
+        "ur": "اردو"
+      }
+    },
+    "theme": {
+      "title": "Theme",
+      "body": "Light or dark, or follow this device's setting.",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "errors": {
+      "network": "Can't reach the server. Check your connection and try again.",
+      "invalid": "That value wasn't accepted. Check it and try again.",
       "generic": "The change wasn't saved. Try again."
     }
   }
