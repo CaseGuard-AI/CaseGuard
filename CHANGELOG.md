@@ -31,3 +31,6 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - Settings page for the web (`/settings`): edit your name, language and theme (light, dark or system). The saved language and theme apply wherever you sign in. The header's language switch also saves to the account. The dark theme is back as a full token set, with a pre-paint script so a reload never flashes light (#90)
 - Model provider presets in `.env.example` (NVIDIA NIM, Gemini, Groq, OpenRouter, OpenAI, Anthropic, Ollama) and `pnpm llm:check` to test a configured provider and key
 - api.v1 contract: Admin endpoints for AI access, with `GET /admin/users`, `PATCH /admin/users/{userId}` (`aiEnabled`), and the provider allow-list `GET /admin/providers` and `PATCH /admin/providers/{providerId}` (#55)
+
+### Fixed
+- The theme script no longer logs React's "Encountered a script tag" error when switching language. The browser renders its copy as a `text/plain` data block, and the server copy still applies the theme before the first paint (#115)
