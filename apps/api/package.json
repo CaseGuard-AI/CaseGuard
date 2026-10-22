@@ -14,7 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts up",
     "db:migrate:down": "tsx src/db/migrate.ts down",
-    "db:create-admin": "tsx src/db/create-admin.ts"
+    "db:create-admin": "tsx src/db/create-admin.ts",
+    "mail:check": "tsx src/lib/mail-check.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

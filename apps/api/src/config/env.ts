@@ -46,6 +46,22 @@ export function parseDbEnv(source: NodeJS.ProcessEnv = process.env): z.infer<typ
   return parseWith(dbSchema, source);
 }
 
+// `pnpm mail:check` needs only the SMTP settings (#116).
+const mailSchema = schema.pick({
+  NODE_ENV: true,
+  LOG_LEVEL: true,
+  SMTP_HOST: true,
+  SMTP_PORT: true,
+  SMTP_SECURE: true,
+  SMTP_USER: true,
+  SMTP_PASSWORD: true,
+  MAIL_FROM: true,
+});
+
+export function parseMailEnv(source: NodeJS.ProcessEnv = process.env): z.infer<typeof mailSchema> {
+  return parseWith(mailSchema, source);
+}
+
 function parseWith<T extends z.ZodType>(s: T, source: NodeJS.ProcessEnv): z.infer<T> {
   const result = s.safeParse(source);
   if (!result.success) {
