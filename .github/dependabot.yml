@@ -1,0 +1,60 @@
+version: 2
+# All update PRs target `staging`, never `main`. Titles are Conventional Commits
+# (`build(deps): …`, `ci(deps): …`) so they pass the PR policy check.
+# Minor and patch updates are auto-merged once CI is green; majors wait for review
+# (.github/workflows/dependabot-automerge.yml).
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: staging
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "ci", include: scope }
+    groups:
+      actions-minor-and-patch: { patterns: ["*"], update-types: ["minor", "patch"] }
+
+  # pnpm workspace: apps/web, apps/api (one lockfile at the root).
+  - package-ecosystem: npm
+    directory: /
+    target-branch: staging
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "build", include: scope }
+    open-pull-requests-limit: 10
+    groups:
+      js-minor-and-patch: { update-types: ["minor", "patch"] }
+    ignore:
+      # Hold TypeScript below 7 until typescript-eslint supports it ("does not support TS 7.0").
+      - dependency-name: typescript
+        versions: [">=7"]
+      # Node types track the runtime (Node 24 LTS, .nvmrc). Lift with the Node hold below.
+      - dependency-name: "@types/node"
+        versions: [">=25"]
+
+  - package-ecosystem: uv
+    directories: ["/services/ai", "/services/collector"]
+    target-branch: staging
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "build", include: scope }
+    groups:
+      py-minor-and-patch: { update-types: ["minor", "patch"] }
+
+  - package-ecosystem: docker
+    directories: ["/apps/api", "/apps/web", "/services/ai"]
+    target-branch: staging
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "build", include: scope }
+    # Hold Node on 24 LTS (matches .nvmrc). Lift this when moving to 26 once it is LTS,
+    # and bump .nvmrc + package.json engines in the same PR.
+    ignore:
+      - dependency-name: node
+        versions: [">=25"]
+      # Hold services/ai on Python 3.12: pyproject pins requires-python <3.13, and a newer
+      # image makes uv fetch a private 3.12 the non-root user can't run. Lift together with
+      # requires-python and the ruff/mypy targets.
+      - dependency-name: python
+        versions: [">=3.13"]
+
+  - package-ecosystem: docker-compose
+    directory: /
+    target-branch: staging
+    schedule: { interval: weekly, day: monday }
+    commit-message: { prefix: "build", include: scope }

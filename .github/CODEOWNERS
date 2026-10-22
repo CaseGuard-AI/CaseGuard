@@ -1,0 +1,19 @@
+# Code owners: GitHub requests reviews from these owners automatically.
+#
+# Stream owners are not assigned yet (PRD §16.1). When they are, create GitHub
+# teams (or use usernames) and uncomment the lines below. Then enable
+# "Require review from Code Owners" on `staging` and `main`
+# (scripts/setup-branch-protection.sh, REQUIRE_CODEOWNERS=true).
+#
+# Later rules override earlier ones.
+
+# *                     @CaseGuard-AI/maintainers
+# /apps/web/            @CaseGuard-AI/stream-a-product
+# /apps/api/            @CaseGuard-AI/stream-a-product
+# /services/collector/  @CaseGuard-AI/stream-b-knowledge
+# /services/ai/         @CaseGuard-AI/stream-c-trust-ai
+# /packages/contracts/  @CaseGuard-AI/stream-a-product @CaseGuard-AI/stream-c-trust-ai
+# /docs/PRD.md          @CaseGuard-AI/maintainers
+# /docs/adr/            @CaseGuard-AI/maintainers
+# /.github/             @CaseGuard-AI/maintainers
+# /infra/               @CaseGuard-AI/maintainers

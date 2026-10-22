@@ -1,0 +1,311 @@
+{
+  "App": {
+    "name": "CaseGuard AI",
+    "tagline": "Legal research for Pakistani law, with every citation verified.",
+    "motto": "Trust every claim"
+  },
+  "Nav": {
+    "dashboard": "Dashboard",
+    "cases": "Cases",
+    "research": "Research Hub",
+    "precedents": "Precedent Intelligence",
+    "strategy": "Strategy Builder",
+    "drafting": "Drafting Studio",
+    "linter": "Procedural Linter",
+    "stressTest": "Opposition Stress-Test",
+    "documents": "Documents",
+    "evaluation": "Evaluation",
+    "settings": "Settings",
+    "admin": "Admin",
+    "main": "Main navigation",
+    "breadcrumb": "Breadcrumb",
+    "switchLanguage": "اردو",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "search": "Search cases, sources, documents…",
+    "notifications": "Notifications",
+    "account": "My account",
+    "profile": "Profile",
+    "help": "Help centre",
+    "signOut": "Sign out",
+    "roles": {
+      "user": "User",
+      "admin": "Admin"
+    }
+  },
+  "Pages": {
+    "dashboard": {
+      "title": "Dashboard",
+      "subtitle": "Here’s what needs your attention today."
+    },
+    "cases": {
+      "title": "Cases",
+      "subtitle": "Manage matters, evidence, and legal work in one place."
+    },
+    "research": {
+      "title": "Research Hub",
+      "subtitle": "Research Pakistani law with evidence you can inspect."
+    },
+    "precedents": {
+      "title": "Precedent Intelligence",
+      "subtitle": "Trace how authority has evolved, not just where it was cited."
+    },
+    "strategy": {
+      "title": "Strategy Builder",
+      "subtitle": "Build an evidence-backed litigation strategy."
+    },
+    "drafting": {
+      "title": "Drafting Studio",
+      "subtitle": "Draft pleadings and documents grounded in verified sources."
+    },
+    "linter": {
+      "title": "Procedural Linter",
+      "subtitle": "Check legal documents against filing and format requirements."
+    },
+    "stressTest": {
+      "title": "Opposition Stress-Test",
+      "subtitle": "Challenge your strategy before the opposing counsel does."
+    },
+    "documents": {
+      "title": "Documents",
+      "subtitle": "Securely organize and analyze your case record."
+    },
+    "evaluation": {
+      "title": "Evaluation Dashboard",
+      "subtitle": "Measure retrieval quality, answer grounding, and trust performance."
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Your name, language and theme."
+    },
+    "admin": {
+      "title": "Admin console",
+      "subtitle": "AI access for each user and the model providers this deployment may use."
+    }
+  },
+  "Common": {
+    "comingSoon": "This section is being built.",
+    "close": "Close"
+  },
+  "NotFound": {
+    "title": "Page not found",
+    "body": "The page you are looking for does not exist or has moved.",
+    "back": "Back to dashboard"
+  },
+  "Auth": {
+    "hero": {
+      "eyebrow": "Research. Verify. Strategize. Defend.",
+      "title": "Legal intelligence you can verify.",
+      "body": "Research, analyze, strategize and draft with evidence-backed legal intelligence for Pakistan.",
+      "sourceVerified": "Source verified",
+      "procedurallyChecked": "Procedurally checked",
+      "footer": "An all-in-one, verifiable legal workspace for Pakistan."
+    },
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to your legal workspace.",
+      "submit": "Sign in",
+      "noAccount": "New to CaseGuard?",
+      "register": "Create an account",
+      "forgot": "Forgot password?",
+      "resetDone": "Your password has been changed. Sign in with your new password."
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Start a verifiable legal workspace.",
+      "submit": "Create account",
+      "haveAccount": "Already have an account?",
+      "login": "Sign in",
+      "passwordHint": "At least 10 characters."
+    },
+    "forgot": {
+      "title": "Reset your password",
+      "subtitle": "Enter your account email and we'll send you a link to set a new password.",
+      "submit": "Send reset link",
+      "sentTitle": "Check your inbox",
+      "sentBody": "If an account exists for that email, a reset link is on its way. It expires in 30 minutes.",
+      "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "Set a new password",
+      "subtitle": "Choose a new password for your account.",
+      "submit": "Change password",
+      "invalidTitle": "This link is invalid or has expired",
+      "invalidBody": "Reset links work once and expire after 30 minutes. Request a new one to continue.",
+      "requestNew": "Request a new link"
+    },
+    "fields": {
+      "name": "Full name",
+      "email": "Email",
+      "password": "Password"
+    },
+    "errors": {
+      "invalidCredentials": "Incorrect email or password.",
+      "emailTaken": "An account with this email already exists.",
+      "tooMany": "Too many attempts. Wait a few minutes and try again.",
+      "network": "Can't reach the server. Check your connection and try again.",
+      "email": "Enter a valid email address.",
+      "password": "Use 10 to 128 characters.",
+      "name": "Enter your name.",
+      "generic": "Something went wrong. Try again."
+    },
+    "session": {
+      "checking": "Checking your session…",
+      "unavailable": "Can't reach the server right now. Your session is still saved.",
+      "retry": "Try again"
+    }
+  },
+  "Home": {
+    "heading": "Ask a legal question",
+    "placeholder": "e.g. What are the grounds for bail in a non-bailable offence?",
+    "comingSoon": "Research is being built. This shell is ready for the first feature."
+  },
+  "Trust": {
+    "verified": "Verified",
+    "needs_review": "Needs review",
+    "unverified": "Unverified",
+    "lastVerified": "Last verified {date}",
+    "chip": "Citation {n}: {status}",
+    "flags": {
+      "overruled": "Overruled",
+      "repealed": "Repealed",
+      "superseded_version": "Superseded version",
+      "conflict": "Conflicting authority",
+      "stale": "Stale",
+      "third_party_source": "Third-party source",
+      "headnote_only": "Head-note only",
+      "amended_since": "Amended since"
+    }
+  },
+  "Status": {
+    "api": "API",
+    "up": "up",
+    "down": "down"
+  },
+  "Research": {
+    "placeholder": "Ask a question about Pakistani law…",
+    "submit": "Research",
+    "shortcut": "Ctrl + Enter to send",
+    "asking": "Researching and verifying citations…",
+    "loading": "Loading the conversation…",
+    "analysis": "CaseGuard analysis",
+    "you": "You",
+    "sources": "Evidence & sources",
+    "unanswerable": "The sources don't support an answer to this question.",
+    "errors": {
+      "aiDisabled": "AI research is turned off for your account. Ask your administrator to enable it.",
+      "tooMany": "Too many questions. Wait a few minutes and try again.",
+      "unavailable": "The research service is unavailable right now. Try again shortly.",
+      "network": "Can't reach the server. Check your connection and try again.",
+      "generic": "Something went wrong. Try again."
+    },
+    "source": {
+      "title": "Evidence detail",
+      "description": "The stored verification, the source record and the cited passage.",
+      "claim": "Claim",
+      "quote": "Cited passage",
+      "excerpt": "Source text",
+      "openOfficial": "Open official source",
+      "loading": "Loading the source record…",
+      "unavailable": "The source record can't be loaded right now.",
+      "kindLabel": "Type",
+      "kind": {
+        "statute": "Statute",
+        "judgment": "Judgment",
+        "rule": "Rule",
+        "other": "Other"
+      },
+      "citation": "Citation",
+      "locator": "Locator",
+      "court": "Court",
+      "decidedOn": "Decided",
+      "tier": "Source tier",
+      "tierValue": "Tier {tier}",
+      "thirdParty": "Third-party source",
+      "headnoteOnly": "Head-note only"
+    }
+  },
+  "Admin": {
+    "tabs": {
+      "users": "Users",
+      "providers": "Model providers"
+    },
+    "forbidden": "Admins only",
+    "forbiddenBody": "This page is for Admins. Ask an Admin if you need AI access changed.",
+    "retry": "Try again",
+    "loading": "Loading…",
+    "loadError": "Couldn't load this list.",
+    "users": {
+      "aiAccess": "AI access",
+      "aiFor": "AI access for {name}",
+      "you": "You",
+      "joined": "Joined {date}",
+      "language": "Language: {locale}",
+      "locales": {
+        "en": "English",
+        "ur": "Urdu"
+      },
+      "loadMore": "Load more",
+      "empty": "No users yet.",
+      "intro": "Turn AI research on or off for each user. With AI off, their questions are refused."
+    },
+    "providers": {
+      "intro": "Questions and case data go only to the providers turned on here, or to a key the user supplied.",
+      "local": "Local",
+      "localBody": "Data stays on this machine.",
+      "cloud": "Cloud",
+      "cloudBody": "Sends questions and case data to a third party.",
+      "enabledFor": "{name} enabled",
+      "confirmTitle": "Turn on {name}?",
+      "confirmBody": "{name} is a cloud provider. Once it's on, questions and case data may be sent to {name}.",
+      "confirm": "Turn on",
+      "cancel": "Cancel",
+      "noneEnabled": "No provider is turned on. Every question will fail until one is.",
+      "empty": "This deployment has no model providers configured."
+    },
+    "errors": {
+      "network": "Can't reach the server. Check your connection and try again.",
+      "generic": "The change wasn't saved. Try again."
+    }
+  },
+  "Settings": {
+    "loading": "Loading…",
+    "loadError": "Couldn't load your settings.",
+    "retry": "Try again",
+    "saved": "Saved",
+    "profile": {
+      "title": "Profile",
+      "body": "How your name appears in CaseGuard.",
+      "name": "Name",
+      "email": "Email",
+      "emailHint": "Your email can't be changed here.",
+      "save": "Save name",
+      "errors": {
+        "required": "Enter your name.",
+        "tooLong": "Use {max} characters or fewer."
+      }
+    },
+    "language": {
+      "title": "Language",
+      "body": "The language of menus and pages. It follows you to any device you sign in on.",
+      "names": {
+        "en": "English",
+        "ur": "اردو"
+      }
+    },
+    "theme": {
+      "title": "Theme",
+      "body": "Light or dark, or follow this device's setting.",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "errors": {
+      "network": "Can't reach the server. Check your connection and try again.",
+      "invalid": "That value wasn't accepted. Check it and try again.",
+      "generic": "The change wasn't saved. Try again."
+    }
+  }
+}

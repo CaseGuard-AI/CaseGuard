@@ -1,0 +1,245 @@
+name: CI
+
+# Path-filtered monorepo CI. Each area's job runs only when that area changed
+# AND has been scaffolded (manifest present), so the pipeline stays green while
+# services are still being created. Branch protection requires the single
+# aggregate check `CI / ci-ok`, which stays stable as jobs are added.
+
+on:
+  pull_request:
+    branches: [staging, main]
+  push:
+    branches: [staging, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter lists PR files via the API (required on private repos)
+    outputs:
+      web: ${{ steps.filter.outputs.web == 'true' && steps.ready.outputs.web == 'true' }}
+      api: ${{ steps.filter.outputs.api == 'true' && steps.ready.outputs.api == 'true' }}
+      ai: ${{ steps.filter.outputs.ai == 'true' && steps.ready.outputs.ai == 'true' }}
+      collector: ${{ steps.filter.outputs.collector == 'true' && steps.ready.outputs.collector == 'true' }}
+      contracts: ${{ steps.filter.outputs.contracts == 'true' && steps.ready.outputs.contracts == 'true' }}
+      stack: ${{ steps.filter.outputs.stack }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            shared_js: &shared_js
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'packages/contracts/**'
+            web:
+              - *shared_js
+              - 'apps/web/**'
+            api:
+              - *shared_js
+              - 'apps/api/**'
+              - 'infra/db/**'
+            ai:
+              - 'services/ai/**'
+              - 'packages/contracts/**'
+            collector:
+              - 'services/collector/**'
+            contracts:
+              - 'packages/contracts/**'
+            stack:
+              - 'docker-compose.yml'
+              - '**/Dockerfile'
+              - '**/.dockerignore'
+              - 'infra/**'
+              - '.env.example'
+      - name: Check which areas are scaffolded
+        id: ready
+        run: |
+          check() { [ -f "$2" ] && echo "$1=true" || echo "$1=false"; }
+          {
+            check web       apps/web/package.json
+            check api       apps/api/package.json
+            check ai        services/ai/pyproject.toml
+            check collector services/collector/pyproject.toml
+            if ls packages/contracts/openapi/*.yaml >/dev/null 2>&1; then echo "contracts=true"; else echo "contracts=false"; fi
+          } >> "$GITHUB_OUTPUT"
+
+  web:
+    name: web · lint, typecheck, test, build
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter ./apps/web run --if-present lint
+      - run: pnpm --filter ./apps/web run --if-present typecheck
+      - run: pnpm --filter ./apps/web run --if-present test
+      - run: pnpm --filter ./apps/web run --if-present build
+
+  api:
+    name: api · lint, typecheck, test
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: caseguard
+          POSTGRES_PASSWORD: caseguard
+          POSTGRES_DB: caseguard_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U caseguard" --health-interval 5s --health-timeout 5s --health-retries 10
+      # Catches the mail the api sends; tests read it back over Mailpit's HTTP API (#61).
+      mailpit:
+        image: axllent/mailpit:v1.31.3
+        ports: ["1025:1025", "8025:8025"]
+    env:
+      DATABASE_URL: postgresql://caseguard:caseguard@localhost:5432/caseguard_test
+      # Migration tests connect as the app role, created by bootstrap.sql below (#9).
+      APP_TEST_DATABASE_URL: postgresql://caseguard_app:caseguard_app@localhost:5432/caseguard_test
+      MAILPIT_URL: http://localhost:8025
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Bootstrap roles and schemas
+        run: psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -v app_pw=caseguard_app -v ai_pw=caseguard_ai -f infra/db/sql/bootstrap.sql
+      - run: pnpm --filter ./apps/api run --if-present lint
+      - run: pnpm --filter ./apps/api run --if-present typecheck
+      - run: pnpm --filter ./apps/api run --if-present test
+
+  python:
+    name: ${{ matrix.service }} · ruff, mypy, pytest
+    needs: changes
+    if: needs.changes.outputs.ai == 'true' || needs.changes.outputs.collector == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [ai, collector]
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: caseguard
+          POSTGRES_PASSWORD: caseguard
+          POSTGRES_DB: caseguard_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U caseguard" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://caseguard:caseguard@localhost:5432/caseguard_test
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - name: Skip if this service did not change
+        id: gate
+        working-directory: .
+        run: echo "run=${{ (matrix.service == 'ai' && needs.changes.outputs.ai == 'true') || (matrix.service == 'collector' && needs.changes.outputs.collector == 'true') }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.run == 'true'
+      - uses: astral-sh/setup-uv@v7
+        if: steps.gate.outputs.run == 'true'
+        with:
+          enable-cache: true
+      - if: steps.gate.outputs.run == 'true'
+        run: uv sync --frozen --all-extras --dev
+      - if: steps.gate.outputs.run == 'true'
+        run: uv run ruff check .
+      - if: steps.gate.outputs.run == 'true'
+        run: uv run ruff format --check .
+      - if: steps.gate.outputs.run == 'true'
+        run: uv run --with mypy mypy . || echo "::warning::mypy reported issues"
+      - if: steps.gate.outputs.run == 'true'
+        run: uv run pytest -q
+
+  contracts:
+    name: contracts · OpenAPI lint
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: npx --yes @redocly/cli@latest lint packages/contracts/openapi/*.yaml
+      - uses: pnpm/action-setup@v6
+      - run: pnpm install --frozen-lockfile --filter @caseguard/contracts
+      - name: Generated types match the specs
+        run: |
+          pnpm gen:contracts
+          git diff --exit-code packages/contracts/generated ||
+            { echo "::error::packages/contracts/generated is stale. Run 'pnpm gen:contracts' and commit the result."; exit 1; }
+
+  compose:
+    name: docker compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: cp .env.example .env && docker compose config --quiet
+
+  compose-smoke:
+    name: docker compose · full stack boots healthy
+    needs: changes
+    if: needs.changes.outputs.stack == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - run: cp .env.example .env
+      - name: Build and start the stack
+        run: docker compose up --build --detach --wait --wait-timeout 300
+      - name: api is ready (database + ai reachable with the service token)
+        run: curl -fsS http://localhost:4000/api/v1/ready
+      - name: web serves pages
+        run: curl -fsSL -o /dev/null http://localhost:3000/
+      - name: ai is not reachable from the host (SEC-14)
+        run: |
+          if curl -fsS -m 5 http://localhost:8000/health; then
+            echo "::error::ai service is reachable from the host"; exit 1
+          fi
+      - name: ai is not reachable from web (SEC-14)
+        run: |
+          docker compose exec -T web node -e "fetch('http://ai:8000/health',{signal:AbortSignal.timeout(5000)}).then(()=>{console.error('ai reachable from web');process.exit(1)}).catch(()=>process.exit(0))"
+      - name: Logs on failure
+        if: failure()
+        run: docker compose ps && docker compose logs --no-color
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  ci-ok:
+    name: ci-ok
+    if: always()
+    needs: [changes, web, api, python, contracts, compose, compose-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        run: |
+          echo '${{ toJSON(needs) }}' | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")'

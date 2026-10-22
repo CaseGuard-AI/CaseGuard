@@ -1,0 +1,121 @@
+# Local development stack.
+#   cp .env.example .env
+#   docker compose up -d db          # database only (run the apps natively)
+#   docker compose up --build        # full stack: db + ai + api + web
+# No Docker? See docs/engineering/local-setup.md (native Postgres + pnpm db:bootstrap).
+#
+# Networks (ADR-0002, SEC-14):
+#   edge       web, api, db,      normal bridge;
+#              mailpit the only network with published ports
+#   internal   api, ai, db        no outside access; api reaches ai and db here
+#   ai-egress  ai only            outbound internet for model providers (Gemini, OpenAI,
+#                                 OpenRouter, Anthropic, user keys) and model downloads
+# ai publishes no port and never shares a network with web, so only api can reach it.
+#
+# .env hostnames (localhost:5432/8000) are for native runs. Below they are overridden
+# with container hostnames (db:5432, ai:8000) no matter which host port POSTGRES_PORT picks.
+
+name: caseguard
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      AI_DB_PASSWORD: ${AI_DB_PASSWORD}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/db/init:/docker-entrypoint-initdb.d:ro
+      - ./infra/db/sql:/caseguard-sql:ro
+    networks: [edge, internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ai: # services/ai: FastAPI, internal only. No published ports (ADR-0002, SEC-14)
+    build: ./services/ai
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      AI_DATABASE_URL: postgresql+psycopg://caseguard_ai:${AI_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal, ai-egress]
+    # HEALTHCHECK on /health is defined in services/ai/Dockerfile
+
+  api: # apps/api: Express (Stream A). The Dockerfile builds from the repo root (pnpm workspace)
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      API_PORT: 4000 # container port is fixed; the host side follows .env API_PORT
+      API_DATABASE_URL: postgresql://caseguard_app:${APP_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+      AI_SERVICE_URL: http://ai:8000
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+    depends_on:
+      db: { condition: service_healthy }
+      ai: { condition: service_healthy }
+      mailpit: { condition: service_started }
+    ports:
+      - "127.0.0.1:${API_PORT:-4000}:4000"
+    networks: [edge, internal]
+    # HEALTHCHECK on /api/v1/health is defined in apps/api/Dockerfile
+
+  mailpit: # dev mail catcher (#61). api sends here; read mail at http://localhost:8025
+    image: axllent/mailpit:v1.31.3
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025" # web UI and API
+      - "127.0.0.1:1025:1025" # SMTP, for an api run natively (SMTP_HOST=localhost)
+    networks: [edge]
+
+  web: # apps/web: Next.js (Stream A). NEXT_PUBLIC_* is baked in at build time
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000/api/v1}
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [edge]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ollama:         # optional local models (ADR-0005). Lands with the model gateway (#21)
+  #   image: ollama/ollama
+  #   profiles: [local-llm]
+  #   volumes: [ollama:/root/.ollama]
+  #   networks: [internal, ai-egress]   # reachable by ai; egress to pull models
+
+volumes:
+  pgdata:
+  # ollama:
+
+networks:
+  edge:
+  internal:
+    internal: true
+  ai-egress:

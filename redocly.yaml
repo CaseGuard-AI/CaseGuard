@@ -1,0 +1,7 @@
+# Redocly CLI config for packages/contracts (CI: contracts · OpenAPI lint).
+# Single, reviewed exceptions live in .redocly.lint-ignore.yaml.
+extends:
+  - recommended
+rules:
+  # Specs list local/compose servers on purpose: no public deployment exists yet.
+  no-server-example.com: off

@@ -1,0 +1,704 @@
+openapi: 3.1.0
+info:
+  title: CaseGuard public API
+  version: 1.0.0-draft
+  summary: REST API served by apps/api and consumed by apps/web.
+  description: |
+    M1 vertical slice: auth, ask a question, an answer with verified citations, and opening a cited source.
+
+    - **Auth.** A short-lived access token (JWT) is sent as `Authorization: Bearer`. The refresh
+      token lives only in an HttpOnly, Secure, SameSite=Strict cookie scoped to `/api/v1/auth`.
+    - **Errors** use RFC 9457 `application/problem+json`.
+    - **Trust shapes** (Citation, Verification, Source) are shared with the internal AI contract,
+      so a status means the same thing on both sides (FR-TRUST-10).
+  license:
+    name: Proprietary (FYP)
+    identifier: LicenseRef-CaseGuard-FYP
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Local development
+security:
+  - bearerAuth: []
+tags:
+  - name: ops
+    description: Liveness
+  - name: auth
+    description: Accounts and sessions (FR-AUTH)
+  - name: settings
+    description: The signed-in user's own preferences (FR-SET)
+  - name: research
+    description: Conversations and answers (FR-RES)
+  - name: sources
+    description: Citations and source records (FR-RES-7, FR-TRUST)
+  - name: admin
+    description: AI access and model providers. Admin role only; Users get 403 (FR-AUTH-2, FR-AUTH-3)
+
+paths:
+  /health:
+    get:
+      tags: [ops]
+      operationId: getHealth
+      summary: Liveness
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { type: string, enum: [ok] }
+
+  /auth/register:
+    post:
+      tags: [auth]
+      operationId: register
+      summary: Create an account (FR-AUTH-1)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Account created and signed in
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/RefreshCookie" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Sign in (FR-AUTH-1)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Signed in
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/RefreshCookie" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshSession
+      summary: Rotate the refresh cookie and issue a new access token
+      security:
+        - refreshCookie: []
+      responses:
+        "200":
+          description: New session
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/RefreshCookie" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoke the refresh token and clear the cookie
+      security:
+        - refreshCookie: []
+      responses:
+        "204": { description: Signed out }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: The signed-in user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/password-reset:
+    post:
+      tags: [auth]
+      operationId: requestPasswordReset
+      summary: Request a password reset (FR-AUTH-1)
+      description: |
+        Always answers 202, whether or not the email has an account, so the response doesn't
+        reveal which emails are registered. If it does, a single-use reset token that expires
+        after a short time is sent to that address out of band. The token never appears in an
+        API response.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetRequest" }
+      responses:
+        "202": { description: "Accepted. If the account exists, a reset link is on its way." }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /auth/password-reset/confirm:
+    post:
+      tags: [auth]
+      operationId: confirmPasswordReset
+      summary: Set a new password with a reset token (FR-AUTH-1)
+      description: |
+        Spends the token and sets the new password. Every existing session of the user is
+        revoked, so the user signs in again with the new password. An unknown, used or expired
+        token gives 400.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetConfirm" }
+      responses:
+        "204": { description: "Password changed. Existing sessions are revoked." }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /me/settings:
+    get:
+      tags: [settings]
+      operationId: getMySettings
+      summary: The signed-in user's settings (FR-SET-1)
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSettings" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [settings]
+      operationId: updateMySettings
+      summary: Change some of the signed-in user's settings (FR-SET-1)
+      description: |
+        Partial update: send only the fields that change. Always the caller's own settings
+        (FR-AUTH-4). The change applies from the next request. `User` (from `getMe` and the
+        session) shows a new `name` or `locale` after the next refresh.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserSettingsUpdate" }
+      responses:
+        "200":
+          description: The settings after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /conversations:
+    get:
+      tags: [research]
+      operationId: listConversations
+      summary: The user's conversations, newest first (FR-RES-8)
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/ConversationSummary" }
+                  nextCursor: { type: [string, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [research]
+      operationId: createConversation
+      summary: Start a conversation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, maxLength: 200 }
+                caseId:
+                  description: P1. Scope this conversation to one of the user's cases (FR-CASE-6).
+                  type: string
+                  format: uuid
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Conversation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /conversations/{conversationId}:
+    get:
+      tags: [research]
+      operationId: getConversation
+      summary: A conversation with its messages
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      responses:
+        "200":
+          description: Conversation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Conversation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /conversations/{conversationId}/messages:
+    post:
+      tags: [research]
+      operationId: askQuestion
+      summary: Ask a question and get an answer with verified citations
+      description: |
+        Responds only after every citation has a stored verification (FR-RES-6). Returns 403 if
+        AI features are disabled for the user (FR-AUTH-3).
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AskRequest" }
+      responses:
+        "201":
+          description: The assistant's answer message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /citations/{citationId}:
+    get:
+      tags: [sources]
+      operationId: getCitation
+      summary: A citation with its current stored verification (FR-TRUST-5, FR-TRUST-10)
+      parameters:
+        - name: citationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Citation
+          content:
+            application/json:
+              schema: { $ref: "./ai.v1.yaml#/components/schemas/Citation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /sources/{sourceId}:
+    get:
+      tags: [sources]
+      operationId: getSource
+      summary: A source record with its official public URL (FR-RES-7)
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Source
+          content:
+            application/json:
+              schema: { $ref: "./ai.v1.yaml#/components/schemas/Source" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /admin/users:
+    get:
+      tags: [admin]
+      operationId: adminListUsers
+      summary: Every user in the deployment, oldest first (FR-AUTH-3)
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of users
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/AdminUser" }
+                  nextCursor: { type: [string, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /admin/users/{userId}:
+    patch:
+      tags: [admin]
+      operationId: adminUpdateUser
+      summary: Enable or disable AI features for a user (FR-AUTH-3)
+      description: |
+        With `aiEnabled: false`, every AI endpoint returns 403 for that user (for example
+        `askQuestion`). The change applies from the user's next request.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminUserUpdate" }
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminUser" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /admin/providers:
+    get:
+      tags: [admin]
+      operationId: adminListProviders
+      summary: The model providers this deployment knows, and which are enabled (FR-AUTH-3, SEC-11)
+      description: |
+        The provider allow-list. Case data goes only to enabled providers or to a key the
+        user supplied (SEC-11). The catalog comes from the deployment's model configuration
+        (ADR-0005); this API only switches entries on or off.
+      responses:
+        "200":
+          description: Providers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Provider" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /admin/providers/{providerId}:
+    patch:
+      tags: [admin]
+      operationId: adminUpdateProvider
+      summary: Enable or disable a model provider (FR-AUTH-3, SEC-11)
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/ProviderId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProviderUpdate" }
+      responses:
+        "200":
+          description: Updated provider
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Provider" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: cg_refresh
+
+  headers:
+    RefreshCookie:
+      description: "`cg_refresh=<token>; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`"
+      schema: { type: string }
+
+  parameters:
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    BadRequest:
+      description: Validation failed
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/ValidationProblem" }
+    Unauthorized:
+      description: Not signed in, or the token is invalid or expired
+      content:
+        application/problem+json:
+          schema: { $ref: "./ai.v1.yaml#/components/schemas/Problem" }
+    Forbidden:
+      description: Signed in but not allowed (role, or AI disabled for this user)
+      content:
+        application/problem+json:
+          schema: { $ref: "./ai.v1.yaml#/components/schemas/Problem" }
+    NotFound:
+      description: Not found, or not visible to this user (FR-AUTH-4)
+      content:
+        application/problem+json:
+          schema: { $ref: "./ai.v1.yaml#/components/schemas/Problem" }
+    Conflict:
+      description: Already exists
+      content:
+        application/problem+json:
+          schema: { $ref: "./ai.v1.yaml#/components/schemas/Problem" }
+    TooManyRequests:
+      description: Rate limited
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/problem+json:
+          schema: { $ref: "./ai.v1.yaml#/components/schemas/Problem" }
+    Unavailable:
+      description: The AI service or a model provider is unavailable
+      content:
+        application/problem+json:
+          schema: { $ref: "./ai.v1.yaml#/components/schemas/Problem" }
+
+  schemas:
+    ValidationProblem:
+      allOf:
+        - $ref: "./ai.v1.yaml#/components/schemas/Problem"
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                required: [path, message]
+                properties:
+                  path: { type: string, examples: ["email"] }
+                  message: { type: string }
+
+    Role:
+      type: string
+      enum: [user, admin]
+
+    User:
+      type: object
+      required: [id, email, name, role, locale, aiEnabled]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        locale: { type: string, enum: [en, ur] }
+        aiEnabled:
+          description: Set by an admin (FR-AUTH-3).
+          type: boolean
+
+    Theme:
+      description: "`system` follows the device's light or dark preference."
+      type: string
+      enum: [light, dark, system]
+
+    UserSettings:
+      description: FR-SET-1. Users who never chose a theme get `system`.
+      type: object
+      required: [name, locale, theme]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        locale: { type: string, enum: [en, ur] }
+        theme: { $ref: "#/components/schemas/Theme" }
+
+    UserSettingsUpdate:
+      description: At least one field. Unknown fields are rejected with 400.
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        locale: { type: string, enum: [en, ur] }
+        theme: { $ref: "#/components/schemas/Theme" }
+
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 10, maxLength: 128 }
+        name: { type: string, minLength: 1, maxLength: 120 }
+        locale: { type: string, enum: [en, ur], default: en }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+
+    PasswordResetConfirm:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          description: The reset token from the out-of-band message.
+          type: string
+          minLength: 1
+          maxLength: 512
+        password: { type: string, minLength: 10, maxLength: 128 }
+
+    Session:
+      type: object
+      required: [accessToken, expiresIn, user]
+      properties:
+        accessToken: { type: string }
+        expiresIn:
+          description: Seconds until the access token expires.
+          type: integer
+        user: { $ref: "#/components/schemas/User" }
+
+    ConversationSummary:
+      type: object
+      required: [id, title, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        caseId: { type: [string, "null"], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Conversation:
+      allOf:
+        - $ref: "#/components/schemas/ConversationSummary"
+        - type: object
+          required: [messages]
+          properties:
+            messages:
+              type: array
+              items: { $ref: "#/components/schemas/Message" }
+
+    AskRequest:
+      type: object
+      required: [question]
+      properties:
+        question: { type: string, minLength: 1, maxLength: 4000 }
+        language:
+          description: Omit to auto-detect.
+          allOf: [{ $ref: "./ai.v1.yaml#/components/schemas/Language" }]
+        lawAsOf:
+          description: '"Law as of date D" (FR-RES-11).'
+          type: string
+          format: date
+
+    Message:
+      type: object
+      required: [id, role, text, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        role: { type: string, enum: [user, assistant] }
+        text:
+          description: For assistant messages, citation markers appear as `[[c:<citationId>]]`.
+          type: string
+        language: { $ref: "./ai.v1.yaml#/components/schemas/Language" }
+        answerable:
+          description: Assistant messages only (FR-RES-9).
+          type: boolean
+        citations:
+          type: array
+          items: { $ref: "./ai.v1.yaml#/components/schemas/Citation" }
+        createdAt: { type: string, format: date-time }
+
+    AdminUser:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [createdAt]
+          properties:
+            createdAt: { type: string, format: date-time }
+
+    AdminUserUpdate:
+      type: object
+      required: [aiEnabled]
+      additionalProperties: false
+      properties:
+        aiEnabled: { type: boolean }
+
+    ProviderId:
+      $ref: "./ai.v1.yaml#/components/schemas/ProviderId"
+
+    Provider:
+      type: object
+      required: [id, name, kind, enabled]
+      properties:
+        id: { $ref: "#/components/schemas/ProviderId" }
+        name: { type: string, examples: ["Google Gemini"] }
+        kind:
+          description: "`local` keeps data on the machine (for example Ollama); `cloud` sends it to a third party (SEC-11)."
+          type: string
+          enum: [cloud, local]
+        enabled: { type: boolean }
+
+    ProviderUpdate:
+      type: object
+      required: [enabled]
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
