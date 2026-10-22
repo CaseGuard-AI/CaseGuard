@@ -51,6 +51,10 @@ export const users = app.table(
       .notNull()
       .default("en"),
     aiEnabled: boolean("ai_enabled").notNull().default(true),
+    // FR-SET-1. `system` follows the device's light or dark preference.
+    theme: text("theme", { enum: ["light", "dark", "system"] })
+      .notNull()
+      .default("system"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -59,6 +63,7 @@ export const users = app.table(
     index("users_account_id_idx").on(t.accountId),
     check("users_role_check", sql`role in ('user', 'admin')`),
     check("users_locale_check", sql`locale in ('en', 'ur')`),
+    check("users_theme_check", sql`theme in ('light', 'dark', 'system')`),
   ],
 );
 

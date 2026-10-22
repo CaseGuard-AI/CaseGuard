@@ -14,6 +14,7 @@ import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { conversationsRouter } from "./routes/conversations.js";
 import { healthRouter } from "./routes/health.js";
+import { settingsRouter } from "./routes/settings.js";
 import { sourcesRouter } from "./routes/sources.js";
 
 export interface AppDeps {
@@ -47,6 +48,7 @@ export function createApp(deps: AppDeps) {
       resetUrlBase: deps.env.RESET_URL_BASE,
     }),
   );
+  v1.use(settingsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
   v1.use(adminRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
   v1.use(conversationsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
   v1.use(sourcesRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
