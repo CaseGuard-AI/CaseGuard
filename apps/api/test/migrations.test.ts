@@ -98,6 +98,12 @@ describe.skipIf(!url)("app schema migrations", () => {
     ).rejects.toMatchObject({ code: "23514" });
   });
 
+  it("rejects a theme outside light/dark/system (FR-SET-1)", async () => {
+    await expect(
+      insertUser(await newAccount(), { email: "t@example.com", theme: "blue" }),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+
   it("rejects an unknown locale and account kind", async () => {
     await expect(
       insertUser(await newAccount(), { email: "l@example.com", locale: "fr" }),
@@ -109,13 +115,13 @@ describe.skipIf(!url)("app schema migrations", () => {
     });
   });
 
-  it("applies defaults: role user, locale en, AI enabled", async () => {
+  it("applies defaults: role user, locale en, AI enabled, theme system", async () => {
     const accountId = await newAccount();
     await insertUser(accountId, { email: "d@example.com" });
     const { rows } = await pool.query(
-      "SELECT role, locale, ai_enabled FROM app.users WHERE email = 'd@example.com'",
+      "SELECT role, locale, ai_enabled, theme FROM app.users WHERE email = 'd@example.com'",
     );
-    expect(rows[0]).toEqual({ role: "user", locale: "en", ai_enabled: true });
+    expect(rows[0]).toEqual({ role: "user", locale: "en", ai_enabled: true, theme: "system" });
   });
 
   it("deleting an account deletes its users", async () => {
@@ -129,6 +135,15 @@ describe.skipIf(!url)("app schema migrations", () => {
   });
 
   it("is reversible: down drops the tables, up recreates them", async () => {
+    const hasTheme = async () =>
+      (
+        await pool.query(
+          "SELECT 1 FROM information_schema.columns WHERE table_schema = 'app' AND table_name = 'users' AND column_name = 'theme'",
+        )
+      ).rowCount === 1;
+    expect(await hasTheme()).toBe(true);
+    expect(await migrateDown(pool)).toBe("0007_user_theme");
+    expect(await hasTheme()).toBe(false);
     expect(await migrateDown(pool)).toBe("0006_audit_allowed_providers");
     expect(await migrateDown(pool)).toBe("0005_messages_citations_idx");
     expect(await migrateDown(pool)).toBe("0004_conversations");
@@ -164,6 +179,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0004_conversations",
       "0005_messages_citations_idx",
       "0006_audit_allowed_providers",
+      "0007_user_theme",
     ]);
     expect((await tables()).map((t) => t.tablename)).toEqual([
       "__drizzle_migrations",

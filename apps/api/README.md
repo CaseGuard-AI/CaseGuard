@@ -33,6 +33,8 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 | `GET /api/v1/auth/me`                      | The signed-in user                                                                  |
 | `POST /api/v1/auth/password-reset`         | Email a reset link (always 202)                                                     |
 | `POST /api/v1/auth/password-reset/confirm` | Set a new password with the emailed token; ends every session                       |
+| `GET /api/v1/me/settings`                  | Your own settings: name, language, theme                                            |
+| `PATCH /api/v1/me/settings`                | Change some of your own settings (strict, partial)                                  |
 | `GET /api/v1/conversations`                | The user's conversations, most recently active first (`cursor`, `limit`)            |
 | `POST /api/v1/conversations`               | Start a conversation (`title`; `caseId` waits for cases, P1)                        |
 | `GET /api/v1/conversations/{id}`           | A conversation with its messages (404 if it isn't yours)                            |
@@ -87,6 +89,13 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 
 `services/ai` doesn't serve `research/answer` yet (#20), so in the running stack an ask returns 503 for now. The tests use a fake that follows ai.v1.
 
+## Settings
+
+- `GET`/`PATCH /api/v1/me/settings` (FR-SET-1) read and change the signed-in user's `name`, `locale` and `theme`. There's no user id in the path, so a user can only ever reach their own (FR-AUTH-4).
+- `PATCH` is **strict and partial**. Send only what changes. An empty body, or any field the contract doesn't list (`role`, `email`, `aiEnabled`), is a 400 with `errors[]`, and nothing is saved. `name` follows the same rules as at registration (trimmed, 1–120).
+- `theme` is `light`, `dark` or `system`, stored on `app.users` (migration `0007`). Users who never chose one have `system`.
+- `/auth/me` and `/auth/refresh` read the user from the database, so a changed `name` or `locale` shows there straight away. The web picks it up on its next refresh. The access token carries neither.
+
 ## Admin
 
 - Everything under `/api/v1/admin` requires `requireAuth` and `requireRole("admin")`, so Users get 403. Create the first admin with `pnpm db:create-admin` (see Auth).
@@ -115,8 +124,9 @@ src/
   app.ts               createApp(deps): middleware + /api/v1 router (dependencies injected, so it's testable)
   config/env.ts        Zod-validated environment
   clients/ai.ts        /ai/v1 client (bearer service token)
-  routes/              one router per contract tag (health, auth; conversations, citations, sources next)
+  routes/              one router per contract tag (health, auth, settings, admin, conversations, sources)
   auth/                passwords (argon2id), tokens (JWT + refresh), store, requireAuth/requireRole
+  settings/            store for the user's own settings (FR-SET-1)
   middleware/          errors (RFC 9457 problem+json), rate limits
   lib/                 logger (secrets redacted), HttpProblem, mailer (SMTP)
   db/                  Drizzle schema, client and migration runner (up/down)
