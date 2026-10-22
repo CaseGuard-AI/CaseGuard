@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#116](https://github.com/CaseGuard-AI/CaseGuard/issues/116) · **PR:** [#118](https://github.com/CaseGuard-AI/CaseGuard/pull/118)
+> **Status:** In progress · **Issue:** [#116](https://github.com/CaseGuard-AI/CaseGuard/issues/116) · **PR:** [#119](https://github.com/CaseGuard-AI/CaseGuard/pull/119)
 
 # #116: Real email via Gmail SMTP and `pnpm mail:check`
 
