@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#115](https://github.com/CaseGuard-AI/CaseGuard/issues/115) · **PR:** TBD
+> **Status:** In progress · **Issue:** [#115](https://github.com/CaseGuard-AI/CaseGuard/issues/115) · **PR:** [#117](https://github.com/CaseGuard-AI/CaseGuard/pull/117)
 
 # #115: Theme script logs "Encountered a script tag"
 
