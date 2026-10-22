@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Providers } from "@/components/providers";
+import { ThemeScript } from "@/components/theme-script";
 import { directionOf, routing } from "@/i18n/routing";
-import { themeScript } from "@/lib/theme";
 import "../globals.css";
 
 // Inter matches the prototype (ADR-0006).
@@ -42,7 +42,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     >
       <head>
         {/* Applies the cached theme before the first paint, so a dark page never flashes light. */}
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <ThemeScript />
       </head>
       <body className="min-h-full">
         <NextIntlClientProvider>
