@@ -18,7 +18,7 @@ psycopg[binary]==3.2.3        # only needed when PKLEGAL_DATABASE_URL is set
 #   macOS         : brew install tesseract
 #   Windows       : https://github.com/UB-Mannheim/tesseract/wiki
 pytesseract==0.3.13
-Pillow==12.3.0
+Pillow==13.0.0
 
 # --- tests ----------------------------------------------------------------
 pytest==9.2.0
