@@ -17,7 +17,12 @@ import type { Db } from "../db/client.js";
 import type { User } from "../db/schema.js";
 import type { Mailer } from "../lib/mailer.js";
 import { HttpProblem } from "../lib/problem.js";
-import { authLimiter, loginLimiter, resetLimiter } from "../middleware/rate-limit.js";
+import {
+  authLimiter,
+  loginLimiter,
+  refreshLimiter,
+  resetLimiter,
+} from "../middleware/rate-limit.js";
 
 // packages/contracts: RegisterRequest, LoginRequest. Unknown fields (such as `role`) are dropped.
 const registerBody = z.object({
@@ -134,7 +139,7 @@ export function authRouter(deps: {
     res.json(await session(res, user, await issueRefresh(db, user)));
   });
 
-  router.post("/auth/refresh", limitAuth, async (req, res) => {
+  router.post("/auth/refresh", refreshLimiter(), async (req, res) => {
     const token: unknown = req.cookies?.[REFRESH_COOKIE];
     const rotated = typeof token === "string" && token ? await rotateRefresh(db, token) : null;
     const user = rotated ? await findUserById(db, rotated.userId) : undefined;

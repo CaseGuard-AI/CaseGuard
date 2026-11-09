@@ -1,6 +1,6 @@
 # Stream A roadmap: what's done and what's left
 
-> **Status:** Living document, updated 2026-10-22 · **Owner:** Stream A (`apps/web`, `apps/api`) · Source of scope: [PRD §16.1](../PRD.md#161-workstreams)
+> **Status:** Living document, updated 2026-11-09 · **Owner:** Stream A (`apps/web`, `apps/api`) · Source of scope: [PRD §16.1](../PRD.md#161-workstreams)
 
 The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 are still open. **But the PRD gives Stream A more than those issues cover:** "`apps/web` (… all screens), `apps/api` (auth, roles, cases, documents, uploads, settings, keys, notifications, audit writes, jobs)". This page compares that scope with what is merged and puts the rest in order. Each item has one or more issues (§4), and each issue gets one plan (`plans/NNNN-<issue#>-<slug>.md`), and a dependency gets its own issue first, as usual.
 
@@ -21,6 +21,7 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | Research Hub answer view (web) | #14 | FR-RES-5, FR-RES-7, FR-RES-10, FR-TRUST-5, FR-TRUST-10 |
 | Admin console: per-user AI access and the provider allow-list (web), item A4 | #91 | FR-AUTH-2, FR-AUTH-3, SEC-11 |
 | User settings: name, language and theme (contract, API, web, dark tokens), item A2 | #88, #89, #90 | FR-SET-1, FR-I18N-1 |
+| Refresh has its own rate limit (120 per IP per 15 minutes), item A1 | #83 | SEC-15 |
 
 **Not blocked on Stream A, but it limits what's verifiable:** before #20 (services/ai `research/answer`, Stream C), every question gets 503. M1's definition of done ("Research Hub answers in English with citations") is met on Stream A's side, and the end-to-end demo waits for #20, #18, #19 and #16.
 
@@ -30,7 +31,6 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 
 | # | Item | Requirements | Exists today | Missing |
 |---|---|---|---|---|
-| A1 | **Refresh gets its own rate limit** | SEC-15 | Issue #83 | It shares 20 per 15 minutes with register and reset, so busy tabs can lock out a reset. |
 | A3 | **Default model, user API keys and model choice** | FR-SET-1 (model), FR-SET-2, SEC-4, SEC-11 | Admin provider allow-list | No key storage (AES-256-GCM), no key endpoints, no model list, and **ai.v1 has no field for the model or a user's credential.** This needs Stream C (#21). |
 | A5 | **"Law as of date" in the ask box** | FR-RES-11 | The API passes `lawAsOf` through (#13) | No date control in the Research Hub. It only means something once temporal curation (Streams B and C, M2) exists. |
 
@@ -62,8 +62,6 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 
 ```text
 P0 ─ now
-  A1  #83 refresh rate limit (api)                         independent, small
-  A2  settings: contract → api → web                       independent
   A3  ADR + contract (with Stream C, #21) → api keys → web settings "Models & keys"
   A5  "law as of" control (web)                            after temporal curation (M2)
 P1 ─ M3
@@ -78,7 +76,7 @@ P2 ─ M4
   A13, A14
 ```
 
-A4 (the admin console, #91) and A2 (settings, #88 → #89 → #90) are done. A1 (#83) is small and can go in at any time. A3 (keys and models) waits on the ADR (#92) and Stream C (#21).
+A4 (the admin console, #91), A2 (settings, #88 → #89 → #90) and A1 (the refresh rate limit, #83) are done. A3 (keys and models) waits on the ADR (#92) and Stream C (#21).
 
 ## 4. Issues (filed 2026-10-21)
 
