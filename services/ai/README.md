@@ -91,6 +91,24 @@ cd services/ai && uv run alembic revision --autogenerate -m "<what>"   # then re
 - `ai.citations` has no foreign key into `corpus`, on purpose: a dump restore truncates `corpus`.
 - Migration tests need `AI_TEST_DATABASE_URL` (and `APP_TEST_DATABASE_URL` for the grant test) pointing at a **separate**, bootstrapped test database. They migrate it down and up. CI sets both.
 
+## Loading the corpus (#16)
+
+```bash
+pnpm data:load -- <collector output dir | records.jsonl[.gz]>... [--snapshot <partition>@<date>] [--dry-run]
+```
+
+It reads the collector's `documents/<source>.jsonl` (the dated per-run copies are skipped) and upserts into `corpus.documents` as `caseguard_ai`. A run prints what happened: `inserted`, `updated`, `unchanged`, `duplicate text`, `kept full text`, and skipped records with a reason.
+
+- **Idempotent:** keyed on the collector's id, so a re-run changes nothing. The same text under another id (one judgment listed under two judges) is stored once.
+- **Provenance (NFR-1):**
+  - `official_url`, `retrieved_at` and `snapshot` are kept;
+  - `third_party` (and `source_tier = 2`) for `hf_*` records;
+  - `headnote_only` from the collector's `raw.headnote_only` flag (#147), or its note for older records.
+- **Never a downgrade:** a head-note-only record (e.g. from a later metadata-only pass) never replaces a stored full judgment.
+- **Skipped, never half-loaded:** records with under 40 characters of text, or no source URL.
+- `kind`: Acts, Ordinances, Codes and the Constitution load as `statute`, and so does an `order` from a legislation source (a President's Order). Rules and regulations load as `rule`; court judgments and orders as `judgment`.
+- The taxonomy columns (`area`, `subcategory`, `proceeding_type`) stay empty until the taxonomy is agreed (`docs/engineering/case-taxonomy.md`).
+
 ## Checks
 
 ```bash
