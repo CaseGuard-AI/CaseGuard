@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#147](https://github.com/CaseGuard-AI/CaseGuard/issues/147) · **PR:** _TBD_
+> **Status:** In progress · **Issue:** [#147](https://github.com/CaseGuard-AI/CaseGuard/issues/147) · **PR:** [#159](https://github.com/CaseGuard-AI/CaseGuard/pull/159)
 
 # #147: collector live-site fix (TLS chain, relative links, non-PDF downloads)
 
