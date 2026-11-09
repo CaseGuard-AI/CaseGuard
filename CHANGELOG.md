@@ -6,6 +6,8 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 
 ### Added
 - api.v1 contract: `refreshSession` (`POST /auth/refresh`) declares `429 Too Many Requests`, which the api already returns when the limit is hit (#83)
+- Model gateway for services/ai (#21): `ModelGateway.chat(role, messages, allowed_providers)` over any OpenAI-compatible endpoint (NVIDIA NIM, Gemini, Groq, OpenRouter, OpenAI, Anthropic, Ollama); one endpoint per role plus local Ollama as the fallback; only providers in `allowedProviders` are used (omitted = local only, no match = 503); one retry on 429/5xx; keys never logged. New settings `LLM_<ROLE>_PROVIDER` and `OLLAMA_MODEL`
+- ADR-0008: embeddings and the reranker run in-process; LLM calls go through the gateway
 
 ### Changed
 - `POST /auth/refresh` has its own rate limit: 120 per IP per 15 minutes, apart from register and password reset's shared 20, so page reloads behind one NAT no longer lock out sign-ups or each other (#83)
