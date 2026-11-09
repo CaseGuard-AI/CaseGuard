@@ -42,7 +42,7 @@ Do these in order. Each one unblocks the next. The arrows show what blocks what 
 
 | Action | Why | Who |
 |---|---|---|
-| **Case taxonomy proposal** for the supervisor. Two labels per case: area of law (e.g. offences against the person, property, family) and proceeding type (bail, quashment, suit, revision…). *No issue yet: open one.* | The supervisor asked for sub-categories. The labels decide filters, linter rules and test-set balance. | Anyone, then the supervisor |
+| **Case taxonomy proposal** for the supervisor. Two labels per case: area of law (e.g. offences against the person, property, family) and proceeding type (bail, quashment, suit, revision…). **Proposal written: [`case-taxonomy.md`](case-taxonomy.md)** (with measured SHC numbers and 7 decisions for the supervisor). | The supervisor asked for sub-categories. The labels decide filters, linter rules and test-set balance. | Anyone, then the supervisor |
 | **#148**: are there enough civil judgments? | SHC's civil share is tiny. The answer may be a lower target, extra sources (SCP, IHC), or accepting an imbalance. | Team + supervisor |
 | **LHC permission letter** | LHC is off-limits without permission, and replies take weeks (PRD §15) | Team lead |
 | **Real contact address in `PKLEGAL_USER_AGENT`** (a team email) | Court admins then email us instead of blocking us. Set it before any full crawl. | Whoever crawls first |
