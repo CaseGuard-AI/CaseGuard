@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#21](https://github.com/CaseGuard-AI/CaseGuard/issues/21) · **PR:** _TBD_
+> **Status:** In progress · **Issue:** [#21](https://github.com/CaseGuard-AI/CaseGuard/issues/21) · **PR:** [#162](https://github.com/CaseGuard-AI/CaseGuard/pull/162)
 
 # #21: model gateway (OpenAI-compatible; NIM, free-tier clouds, Ollama)
 
