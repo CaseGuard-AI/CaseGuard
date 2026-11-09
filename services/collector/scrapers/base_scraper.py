@@ -22,7 +22,7 @@ from typing import Any
 
 from config import Settings, SourceConfig
 from extractors.pdf_extractor import extract_pdf
-from models.legal_document import ExtractionStatus, LegalDocument
+from models.legal_document import ExtractionStatus, FileStatus, LegalDocument
 from storage.file_storage import FileStorage
 from storage.jsonl_storage import JsonlStorage
 from storage.state_store import StateStore
@@ -311,6 +311,7 @@ class BaseScraper(abc.ABC):
         document.document_file_url = pdf_url
         if not self.settings.download_pdfs:
             document.extraction_status = ExtractionStatus.NOT_ATTEMPTED.value
+            document.raw["file_status"] = FileStatus.NOT_DOWNLOADED.value
             document.notes.append("PDF download disabled (--no-pdfs)")
             return document
 
@@ -318,28 +319,37 @@ class BaseScraper(abc.ABC):
         name = name_hint or document.title or document.case_number or "document"
         target = self.files.raw_path(self.source_key, name, pdf_url, year)
 
-        if target.exists() and not self.settings.force:
-            data = target.read_bytes()
+        cached = target.read_bytes() if target.exists() and not self.settings.force else None
+        if cached is not None and cached.startswith(b"%PDF-"):
+            data = cached
             self.log.debug("PDF already on disk: %s", target.name)
         else:
             response = self._fetch(pdf_url)
             if response is None:
                 document.extraction_status = ExtractionStatus.FAILED.value
                 document.extraction_error = f"could not download {pdf_url}"
+                document.raw["file_status"] = FileStatus.DOWNLOAD_FAILED.value
                 self.stats.pdf_extract_failed += 1
                 return document
             data = response.content
+            # Trust the bytes, not the Content-Type header. About 1 in 10 SHC downloads is an
+            # empty body or another format (#147): flag it and never save it as a PDF.
             if not data.startswith(b"%PDF-"):
+                status = FileStatus.EMPTY if not data.strip() else FileStatus.NOT_PDF
                 document.extraction_status = ExtractionStatus.FAILED.value
                 document.extraction_error = (
                     f"URL did not return a PDF (content-type="
                     f"{response.content_type!r}, {len(data)} bytes)"
                 )
+                document.raw["file_status"] = status.value
                 self.stats.pdf_extract_failed += 1
-                self.events.emit("pdf_not_a_pdf", source=self.source_key, url=pdf_url)
+                self.events.emit(
+                    "pdf_not_a_pdf", source=self.source_key, url=pdf_url, file_status=status.value
+                )
                 return document
             target = self.files.save_binary(data, self.source_key, name, pdf_url, year)
 
+        document.raw["file_status"] = FileStatus.OK.value
         self.stats.pdfs += 1
         document.file_path = str(target)
         document.mime_type = "application/pdf"

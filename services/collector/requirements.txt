@@ -1,5 +1,6 @@
 # --- core ingestion -------------------------------------------------------
 httpx==0.28.1                 # HTTP client (sync API used; async available)
+certifi>=2024.2.2             # CA roots; certs/extra-intermediates.pem is added on top (#147)
 beautifulsoup4==4.15.0        # HTML parsing
 lxml==6.1.3                   # fast parser backend for BeautifulSoup
 python-dotenv==1.2.4          # .env loading

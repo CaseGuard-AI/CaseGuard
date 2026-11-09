@@ -33,7 +33,7 @@ from __future__ import annotations
 import re
 import string
 from collections.abc import Iterator
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from extractors.html_extractor import make_soup
 from extractors.metadata_extractor import (
@@ -43,14 +43,18 @@ from extractors.metadata_extractor import (
 from models.legal_document import DocumentType, LegalDocument
 from scrapers.base_scraper import BaseScraper, Discovered
 from utils.dates import extract_year, normalise_date
+from utils.links import resolve, strip_comments
 
 INDEX_ALPHABETICAL = "/english/LGu0xAD"
 INDEX_CHRONOLOGICAL = "/english/LGu0xBD.php"
 INDEX_CATEGORY = "/english/LGu0xVD.php"
 
 # Detail pages: opaque token, always ending "-sg-" + a run of 'j'.
-DETAIL_HREF = re.compile(r"/english/[A-Za-z0-9%._+-]{8,}-sg-j+\s*$")
-PDF_HREF = re.compile(r"/pdffiles/[^\"'?#]+\.pdf", re.I)
+# Matched against the *resolved* URL's path: the index now links detail pages relatively
+# ("UY2F...-sg-jjj", no "/english/"), and only resolution puts them under /english/ (#147).
+DETAIL_HREF = re.compile(r"/english/[A-Za-z0-9%._+-]{8,}-sg-j+$")
+# Absolute, root-relative or relative ("../pdffiles/x.pdf", "pdffiles/x.pdf").
+PDF_HREF = re.compile(r"(?:^|[/#])(?:\.\./)*pdffiles/[^\"'?#\s]+\.pdf", re.I)
 
 # Sections the index renders, in order. `action` selects which group is
 # highlighted; all groups are present in the markup either way.
@@ -97,10 +101,9 @@ class PakistanCodeScraper(BaseScraper):
         seen_on_page: set[str] = set()
 
         for anchor in soup.find_all("a", href=True):
-            href = anchor["href"].strip()
-            if not DETAIL_HREF.search(href):
+            url = resolve(soup, base_url, anchor["href"])
+            if not DETAIL_HREF.search(urlparse(url).path):
                 continue
-            url = urljoin(base_url, href)
             if url in seen_on_page:
                 continue
             seen_on_page.add(url)
@@ -142,6 +145,13 @@ class PakistanCodeScraper(BaseScraper):
                 tail = text.split(anchor_text, 1)[1]
                 if "|" in tail:
                     return " ".join(tail.split())
+            # The live accordion (2026-11) puts the title in .accordion-section-title and the
+            # metadata in the next sibling block, .accordion-section-content (#147).
+            following = block.find_next_sibling()
+            if following is not None:
+                line = " ".join(following.get_text(" ", strip=True).split())
+                if "|" in line:
+                    return line[:400]
         parts: list[str] = []
         for sibling in anchor.next_siblings:
             chunk = getattr(sibling, "get_text", lambda *a, **k: str(sibling))(" ", strip=True)  # noqa: B023 (lambda is called immediately)
@@ -232,17 +242,20 @@ class PakistanCodeScraper(BaseScraper):
     # ------------------------------------------------------------------
     @staticmethod
     def _find_pdf(soup, base_url: str) -> str | None:
+        strip_comments(soup)  # a commented-out link is not a link
         for anchor in soup.find_all("a", href=True):
-            if PDF_HREF.search(anchor["href"]):
-                return urljoin(base_url, anchor["href"].strip())
-        # ViewerJS embeds the path in the fragment: /ViewerJS/#../pdffiles/x.pdf
+            href = anchor["href"].strip()
+            if PDF_HREF.search(href) and "#" not in href:
+                return resolve(soup, base_url, href)
+        # ViewerJS embeds the path in the fragment: /ViewerJS/#../pdffiles/x.pdf. The fragment
+        # is relative to the viewer page, and every variant lives under the site's /pdffiles/.
         for attribute in ("src", "data", "href"):
             for tag in soup.find_all(attrs={attribute: True}):
                 match = PDF_HREF.search(str(tag.get(attribute)))
                 if match:
-                    return urljoin(base_url, match.group(0))
+                    return urljoin(base_url, "/" + match.group(0).lstrip("#/.").lstrip("/"))
         match = PDF_HREF.search(str(soup))
-        return urljoin(base_url, match.group(0)) if match else None
+        return urljoin(base_url, "/" + match.group(0).lstrip("#/.").lstrip("/")) if match else None
 
     @staticmethod
     def _page_title(soup) -> str | None:

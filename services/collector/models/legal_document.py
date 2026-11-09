@@ -40,6 +40,17 @@ class ExtractionStatus(str, Enum):
     NOT_ATTEMPTED = "not_attempted"
 
 
+class FileStatus(str, Enum):
+    """What happened to a record's linked source file. Stored as raw["file_status"] (#147)."""
+
+    OK = "ok"  # a real PDF was saved
+    NOT_DOWNLOADED = "not_downloaded"  # --no-pdfs
+    DOWNLOAD_FAILED = "download_failed"  # the request failed
+    EMPTY = "empty"  # the server sent an empty body
+    NOT_PDF = "not_pdf"  # the server sent something that isn't a PDF
+    MISSING_LINK = "missing_link"  # the listing linked no file
+
+
 @dataclass
 class Party:
     name: str

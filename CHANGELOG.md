@@ -4,6 +4,9 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Fixed
+- Collector works on the live sites again (#147): Pakistan Code's broken TLS chain is fixed by bundling the missing GoGetSSL intermediate next to certifi (verification stays on, and a robots.txt certificate failure now skips the host); relative detail links, `<base href>` and `../pdffiles/` links are resolved like a browser; SHC's relative `download-file.php` links are found and commented-out `view-file` links ignored; empty and non-PDF downloads are flagged in `raw.file_status` and never saved; SHC records carry an explicit `raw.headnote_only`
+
 ## [0.1.0-alpha.1] - 2026-10-23
 
 First pre-release from `staging`: the foundation (M0) and the Stream A work towards the M1 vertical slice. The research UI and api are in place, but services/ai does not answer questions yet (no `/ai/v1/research/answer`), so the Research Hub shows "service unavailable".
