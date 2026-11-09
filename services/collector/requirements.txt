@@ -9,8 +9,8 @@ PyMuPDF>=1.25.1             # primary text extraction (fast, accurate)
 pdfplumber==0.11.10            # fallback extractor, better on odd layouts
 
 # --- optional: PostgreSQL loading ----------------------------------------
-SQLAlchemy==2.1.6
-psycopg[binary]==3.2.3        # only needed when PKLEGAL_DATABASE_URL is set
+SQLAlchemy==2.1.8
+psycopg[binary]==3.3.8        # only needed when PKLEGAL_DATABASE_URL is set
 
 # --- optional: OCR for scanned judgments ---------------------------------
 # Needs the tesseract binary too:
