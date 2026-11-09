@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#83](https://github.com/CaseGuard-AI/CaseGuard/issues/83) · **PR:** _TBD_
+> **Status:** In progress · **Issue:** [#83](https://github.com/CaseGuard-AI/CaseGuard/issues/83) · **PR:** [#158](https://github.com/CaseGuard-AI/CaseGuard/pull/158)
 
 # #83: give `/auth/refresh` its own rate limit
 
