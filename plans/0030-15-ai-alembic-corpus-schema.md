@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#15](https://github.com/CaseGuard-AI/CaseGuard/issues/15) · **PR:** _TBD_
+> **Status:** In progress · **Issue:** [#15](https://github.com/CaseGuard-AI/CaseGuard/issues/15) · **PR:** [#160](https://github.com/CaseGuard-AI/CaseGuard/pull/160)
 
 # #15: Alembic + `corpus`/`ai` schemas
 
