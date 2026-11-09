@@ -1,6 +1,6 @@
 # Handoff: start here
 
-> **Status:** Living document, updated 2026-11-09 (#15 done). **Whoever finishes an item below updates this page in the same PR**, so the next person always starts from the truth.
+> **Status:** Living document, updated 2026-11-09 (#147, #15, #16, #21 done). **Whoever finishes an item below updates this page in the same PR**, so the next person always starts from the truth.
 
 This page tells whoever picks up work next where the project stands and what to do first. Owners aren't fixed: pick the next free item, assign yourself, and go.
 
@@ -10,8 +10,8 @@ This page tells whoever picks up work next where the project stands and what to 
 |---|---|---|
 | **Stream A** (`apps/web`, `apps/api`) | **Mostly done:** auth, settings, admin console, Research Hub UI, email. The P1 screens remain (#97–#108). | [Stream A roadmap](stream-a-roadmap.md) |
 | **Data storage** | **Decided, not built.** Hugging Face corpus repo, partitions, snapshot and dump formats, user-upload storage. | [Data-storage spec](data-storage.md), [`CONTEXT.md`](../../CONTEXT.md) |
-| **Collector** (`services/collector`) | **Broken on the live sites:** it stores 0 statutes and 0 judgment files (#147). | [Collector README](../../services/collector/README.md) |
-| **M1 data/AI path** (#15–#20, #22) | **Schemas done (#15), loader done (#16);** embed, retrieve and answer (#18–#20) are next, and the model gateway (#21) is in review. The Research Hub has no corpus to answer from yet, so every question gets a 503. | [PRD §16.2](../PRD.md#162-milestones) |
+| **Collector** (`services/collector`) | **Works on the live sites again** (#147). A `--limit 5` run stores 5 statutes with PDFs and 4 of 5 SHC judgments with files; the fifth answered with a non-PDF and is flagged. Next: partitions (#153). | [Collector README](../../services/collector/README.md) |
+| **M1 data/AI path** (#15–#20, #22) | **Schemas done (#15), loader done (#16);** model gateway done (#21); embed, retrieve and answer (#18–#20) are next. The Research Hub has no corpus to answer from yet, so every question gets a 503. | [PRD §16.2](../PRD.md#162-milestones) |
 | **Corpus collected so far** | Only a small sample on one laptop (git-ignored `services/collector/data_sample*/`). **Nothing is shared yet.** | #139 (measurements) |
 
 **Measured facts that shape the work (from #139):**
@@ -25,7 +25,7 @@ Do these in order. Each one unblocks the next. The arrows show what blocks what 
 
 | # | Issue | What | How to begin | Done when | Blocked by |
 |---|---|---|---|---|---|
-| 1 | **#147** Collector live-site fix | Make the collector work against the live sites again. **Recommended first task.** | The issue has the four fixes. In short: (a) bundle the `GoGetSSL RSA DV CA` intermediate for pakistancode.gov.pk, and **never disable TLS verification**; (b) match relative detail/PDF links; (c) resolve SHC `download-file.php` links against `<base href="/caselaw/">` and ignore the commented-out `view-file` links; (d) flag non-PDF downloads. Add fixture tests for each. | A `--limit 5` live run stores statutes with PDFs and SHC judgments with files | — |
+| 1 | ~~**#147** Collector live-site fix~~ **Done** | Make the collector work against the live sites again. | The issue has the four fixes. In short: (a) bundle the `GoGetSSL RSA DV CA` intermediate for pakistancode.gov.pk, and **never disable TLS verification**; (b) match relative detail/PDF links; (c) resolve SHC `download-file.php` links against `<base href="/caselaw/">` and ignore the commented-out `view-file` links; (d) flag non-PDF downloads. Add fixture tests for each. | A `--limit 5` live run stores statutes with PDFs and SHC judgments with files | — |
 | 2 | **#151** HF org + corpus repo | Create the shared storage | Manual work for the repo lead: create the free HF org and the private `corpus` dataset, invite members, and add `HF_TOKEN=` to `.env.example` | Members can read and write the repo | — |
 | 3 | ~~**#15** Alembic + `corpus`/`ai` schemas~~ **Done** | The tables everything else writes to | Also include what the storage decisions need: a **corpus metadata table** for embedding and chunker settings (#143); **user-upload chunks live in `ai`, never in `corpus`** (#145); nullable taxonomy columns (`area`, `subcategory`, `proceeding_type`) for the coming case taxonomy | Migrations run on the Docker DB, with ADR-0002 roles | — |
 | 4 | **#153** Partition support | Crawl one partition on its own | Full-scope SHC pass, the selection-file generator and "fetch only this selection", plus `services/collector/PARTITIONS.md`. Then crawl **`pk-code-seed`** and **`shc-meta`**. | Both partitions crawled locally | #147 |
@@ -42,7 +42,7 @@ Do these in order. Each one unblocks the next. The arrows show what blocks what 
 
 | Action | Why | Who |
 |---|---|---|
-| **Case taxonomy proposal** for the supervisor. Two labels per case: area of law (e.g. offences against the person, property, family) and proceeding type (bail, quashment, suit, revision…). *No issue yet: open one.* | The supervisor asked for sub-categories. The labels decide filters, linter rules and test-set balance. | Anyone, then the supervisor |
+| **Case taxonomy proposal** for the supervisor. Two labels per case: area of law (e.g. offences against the person, property, family) and proceeding type (bail, quashment, suit, revision…). **Proposal written: [`case-taxonomy.md`](case-taxonomy.md)** (with measured SHC numbers and 7 decisions for the supervisor). | The supervisor asked for sub-categories. The labels decide filters, linter rules and test-set balance. | Anyone, then the supervisor |
 | **#148**: are there enough civil judgments? | SHC's civil share is tiny. The answer may be a lower target, extra sources (SCP, IHC), or accepting an imbalance. | Team + supervisor |
 | **LHC permission letter** | LHC is off-limits without permission, and replies take weeks (PRD §15) | Team lead |
 | **Real contact address in `PKLEGAL_USER_AGENT`** (a team email) | Court admins then email us instead of blocking us. Set it before any full crawl. | Whoever crawls first |
@@ -65,15 +65,9 @@ Full rules: [Contributing](../../CONTRIBUTING.md), [Branching & release](branchi
 - **After pulling #15, run `pnpm db:rebootstrap` once, then `pnpm db:migrate:ai`.** Bootstrap only runs when a Docker volume is first created, and #15 added a grant (`caseguard_ai` needs USAGE on `public` to see pgvector's `vector` type). Without it the migration fails with `type "vector" does not exist`.
 - **`localhost` is slow for Python on Windows:** psycopg tries IPv6 `::1` first, and Docker publishes Postgres on `127.0.0.1` only, so every connection can stall 10 s or more (a migration took over 2 minutes). Use `127.0.0.1` in `AI_DATABASE_URL` and test URLs.
 - **pgvector on Windows:** a natively installed Postgres often lacks pgvector. Use the Docker DB (`pnpm db:up`). If a native Postgres already holds port 5432, map Docker to another port (e.g. 5433) and update the `*_DATABASE_URL`s in `.env`. See [Local setup](local-setup.md).
-- **Pakistan Code TLS until #147 lands:** append the intermediate to certifi's bundle and point `SSL_CERT_FILE` at the result. Never disable verification.
-
-  ```bash
-  curl -s http://crt.usertrust.com/GoGetSSLRSADVCA.crt | openssl x509 -inform DER > gogetssl.pem
-  cat "$(uv run python -c 'import certifi;print(certifi.where())')" gogetssl.pem > bundle.pem
-  SSL_CERT_FILE=$PWD/bundle.pem uv run python main.py --source pakistan_code --limit 5
-  ```
+- **Pakistan Code TLS:** fixed in #147. The collector trusts certifi plus `services/collector/certs/extra-intermediates.pem`. Never disable verification; if another host sends a broken chain, add its missing intermediate (from the leaf's AIA URL) to that file.
 - **Collector output is git-ignored** (`services/collector/data/`, `data_*/`). Never commit corpus data. It is shared through snapshots (#152) only.
-- **Head-note-only records:** where SHC links no judgment file, the record holds only the table row. Its `notes` say so. Never index it as a full judgment.
+- **Head-note-only records:** where SHC links no judgment file (or the file is unusable), the record holds only the table row, with `raw.headnote_only: true` and a note saying why (#147). Never index it as a full judgment.
 - **Third-party data** (`hf_*` bootstrap datasets) is never cited as official, and gets its own partition (spec §3).
 - **PowerShell 5.1** mangles quoted `git commit -m` here-strings. Use `git commit -F <file>` from Git Bash.
 

@@ -48,11 +48,30 @@ export function resetLimiter() {
   });
 }
 
-/** Register, refresh and password reset: 20 requests per IP per 15 minutes. */
+/** Register and password reset: 20 requests per IP per 15 minutes. */
 export function authLimiter() {
   return rateLimit({
     windowMs: WINDOW_MS,
     limit: 20,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    keyGenerator: ip,
+    handler: tooMany,
+  });
+}
+
+/**
+ * Session refreshes per IP: 120 per 15 minutes, a budget of its own (#83). The web refreshes on
+ * every page load, so one office behind a NAT can't share the 20 that register and reset get.
+ *
+ * Keyed by IP alone, on purpose. The refresh token rotates on every call, so a per-token key would
+ * reset itself, and an attacker could send a new random cookie each time to get a fresh budget.
+ * The family and user aren't known until the token has been looked up.
+ */
+export function refreshLimiter() {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit: 120,
     standardHeaders: "draft-8",
     legacyHeaders: false,
     keyGenerator: ip,
