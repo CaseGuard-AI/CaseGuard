@@ -4,6 +4,10 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Added
+- Model gateway for services/ai (#21): `ModelGateway.chat(role, messages, allowed_providers)` over any OpenAI-compatible endpoint (NVIDIA NIM, Gemini, Groq, OpenRouter, OpenAI, Anthropic, Ollama); one endpoint per role plus local Ollama as the fallback; only providers in `allowedProviders` are used (omitted = local only, no match = 503); one retry on 429/5xx; keys never logged. New settings `LLM_<ROLE>_PROVIDER` and `OLLAMA_MODEL`
+- ADR-0008: embeddings and the reranker run in-process; LLM calls go through the gateway
+
 ## [0.1.0-alpha.1] - 2026-10-23
 
 First pre-release from `staging`: the foundation (M0) and the Stream A work towards the M1 vertical slice. The research UI and api are in place, but services/ai does not answer questions yet (no `/ai/v1/research/answer`), so the Research Hub shows "service unavailable".
