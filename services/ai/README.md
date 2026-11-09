@@ -57,6 +57,27 @@ Things we hit with NVIDIA NIM (October 2026):
 
 This is only a connectivity check. The real gateway (per-user keys, fallbacks, Admin allow-list) is #21.
 
+## Database: `corpus` and `ai` schemas (Alembic)
+
+services/ai owns two schemas (ADR-0002) and migrates them with Alembic, as `caseguard_ai`:
+
+| Schema | Tables | Shared? |
+|---|---|---|
+| `corpus` | `documents` (one per statute or judgment, with provenance and `headnote_only` / `third_party`), `chunks` (bge-m3 `vector(1024)` + HNSW, generated `tsvector` + GIN), `corpus_meta` (one row: the embedding and chunker settings the corpus was built with) | Yes, through corpus dumps (#154) |
+| `ai` | `answer_traces` (ranked lists per question, never the question), `citations`, `verifications` (**the single trust store**, one row per citation), `case_chunks` (users' case files, #101) | Never |
+
+```bash
+pnpm db:migrate:ai          # alembic upgrade head (also run by the image on start)
+pnpm db:migrate:ai:down     # back one revision
+cd services/ai && uv run alembic revision --autogenerate -m "<what>"   # then review the file
+```
+
+- The tables are defined once in `src/caseguard_ai/db/tables.py`. `tests/test_migrations.py` runs `alembic check`, so the code and the migrations can't drift.
+- The version table is `ai.alembic_version`. A corpus dump records it, and a restore refuses a mismatch (#154).
+- Roles, schemas and the `vector` extension come from `infra/db/sql/bootstrap.sql`. **An existing Docker volume needs `pnpm db:rebootstrap` once**: #15 grants `caseguard_ai` USAGE on `public`, without which the `vector` type is invisible to it.
+- `ai.citations` has no foreign key into `corpus`, on purpose: a dump restore truncates `corpus`.
+- Migration tests need `AI_TEST_DATABASE_URL` (and `APP_TEST_DATABASE_URL` for the grant test) pointing at a **separate**, bootstrapped test database. They migrate it down and up. CI sets both.
+
 ## Checks
 
 ```bash
@@ -72,8 +93,10 @@ src/caseguard_ai/
   security.py    service-token guard for /ai/v1
   api/v1.py      /ai/v1 router: add feature routers here
   gateway/       model gateway (ADR-0005); check.py = provider connectivity check
+  db/            tables.py (corpus + ai), engine.py
+migrations/      Alembic revisions (alembic.ini beside it)
 tests/
 Dockerfile       production image (uv, non-root, healthcheck)
 ```
 
-Add new capabilities as modules beside `api/` (for example `retrieval/`, `trust/`, `graph/`, `temporal/`, `gateway/`), each with its own tests. Dependencies such as LangGraph, embeddings or Alembic are added with `uv add` in the PR that first needs them.
+Add new capabilities as modules beside `api/` (for example `retrieval/`, `trust/`, `graph/`, `temporal/`, `gateway/`), each with its own tests. Dependencies such as LangGraph or embeddings are added with `uv add` in the PR that first needs them.

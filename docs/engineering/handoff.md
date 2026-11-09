@@ -1,6 +1,6 @@
 # Handoff: start here
 
-> **Status:** Living document, updated 2026-11-09. **Whoever finishes an item below updates this page in the same PR**, so the next person always starts from the truth.
+> **Status:** Living document, updated 2026-11-09 (#15 done). **Whoever finishes an item below updates this page in the same PR**, so the next person always starts from the truth.
 
 This page tells whoever picks up work next where the project stands and what to do first. Owners aren't fixed: pick the next free item, assign yourself, and go.
 
@@ -11,7 +11,7 @@ This page tells whoever picks up work next where the project stands and what to 
 | **Stream A** (`apps/web`, `apps/api`) | **Mostly done:** auth, settings, admin console, Research Hub UI, email. The P1 screens remain (#97–#108). | [Stream A roadmap](stream-a-roadmap.md) |
 | **Data storage** | **Decided, not built.** Hugging Face corpus repo, partitions, snapshot and dump formats, user-upload storage. | [Data-storage spec](data-storage.md), [`CONTEXT.md`](../../CONTEXT.md) |
 | **Collector** (`services/collector`) | **Broken on the live sites:** it stores 0 statutes and 0 judgment files (#147). | [Collector README](../../services/collector/README.md) |
-| **M1 data/AI path** (#15–#20, #22) | **Not started.** The Research Hub has no corpus to answer from, so every question gets a 503. | [PRD §16.2](../PRD.md#162-milestones) |
+| **M1 data/AI path** (#15–#20, #22) | **Schemas done (#15);** load, embed, retrieve and answer (#16–#20) are next. The Research Hub has no corpus to answer from yet, so every question gets a 503. | [PRD §16.2](../PRD.md#162-milestones) |
 | **Corpus collected so far** | Only a small sample on one laptop (git-ignored `services/collector/data_sample*/`). **Nothing is shared yet.** | #139 (measurements) |
 
 **Measured facts that shape the work (from #139):**
@@ -27,7 +27,7 @@ Do these in order. Each one unblocks the next. The arrows show what blocks what 
 |---|---|---|---|---|---|
 | 1 | **#147** Collector live-site fix | Make the collector work against the live sites again. **Recommended first task.** | The issue has the four fixes. In short: (a) bundle the `GoGetSSL RSA DV CA` intermediate for pakistancode.gov.pk, and **never disable TLS verification**; (b) match relative detail/PDF links; (c) resolve SHC `download-file.php` links against `<base href="/caselaw/">` and ignore the commented-out `view-file` links; (d) flag non-PDF downloads. Add fixture tests for each. | A `--limit 5` live run stores statutes with PDFs and SHC judgments with files | — |
 | 2 | **#151** HF org + corpus repo | Create the shared storage | Manual work for the repo lead: create the free HF org and the private `corpus` dataset, invite members, and add `HF_TOKEN=` to `.env.example` | Members can read and write the repo | — |
-| 3 | **#15** Alembic + `corpus`/`ai` schemas | The tables everything else writes to | Also include what the storage decisions need: a **corpus metadata table** for embedding and chunker settings (#143); **user-upload chunks live in `ai`, never in `corpus`** (#145); nullable taxonomy columns (`area`, `subcategory`, `proceeding_type`) for the coming case taxonomy | Migrations run on the Docker DB, with ADR-0002 roles | — |
+| 3 | ~~**#15** Alembic + `corpus`/`ai` schemas~~ **Done** | The tables everything else writes to | Also include what the storage decisions need: a **corpus metadata table** for embedding and chunker settings (#143); **user-upload chunks live in `ai`, never in `corpus`** (#145); nullable taxonomy columns (`area`, `subcategory`, `proceeding_type`) for the coming case taxonomy | Migrations run on the Docker DB, with ADR-0002 roles | — |
 | 4 | **#153** Partition support | Crawl one partition on its own | Full-scope SHC pass, the selection-file generator and "fetch only this selection", plus `services/collector/PARTITIONS.md`. Then crawl **`pk-code-seed`** and **`shc-meta`**. | Both partitions crawled locally | #147 |
 | 5 | **#152** Snapshot push/pull/status | Share the crawls | Python in `services/collector` (`huggingface_hub`, stdlib `tarfile`), exposed as `pnpm data:*`. Follow spec §3 exactly, including the publish checks. | The first snapshots are published, and a teammate pulls them | #151 |
 | 6 | **#16 → #18 → #19 → #20** | Load, embed, retrieve, answer | Load JSONL into `corpus`. Chunk and embed with bge-m3 (statutes by section; judgments in windows of about 500 tokens, PRD §8.2). Hybrid retrieval with RRF. Answers with citations and the existence check. **Head-note-only SHC records must stay labelled** (collector README §10.4). | **M1's end-to-end demo works:** an English question gets a cited answer with a status | #15, and the previous item in the chain |
@@ -62,6 +62,8 @@ Full rules: [Contributing](../../CONTRIBUTING.md), [Branching & release](branchi
 
 ## 5. Gotchas
 
+- **After pulling #15, run `pnpm db:rebootstrap` once, then `pnpm db:migrate:ai`.** Bootstrap only runs when a Docker volume is first created, and #15 added a grant (`caseguard_ai` needs USAGE on `public` to see pgvector's `vector` type). Without it the migration fails with `type "vector" does not exist`.
+- **`localhost` is slow for Python on Windows:** psycopg tries IPv6 `::1` first, and Docker publishes Postgres on `127.0.0.1` only, so every connection can stall 10 s or more (a migration took over 2 minutes). Use `127.0.0.1` in `AI_DATABASE_URL` and test URLs.
 - **pgvector on Windows:** a natively installed Postgres often lacks pgvector. Use the Docker DB (`pnpm db:up`). If a native Postgres already holds port 5432, map Docker to another port (e.g. 5433) and update the `*_DATABASE_URL`s in `.env`. See [Local setup](local-setup.md).
 - **Pakistan Code TLS until #147 lands:** append the intermediate to certifi's bundle and point `SSL_CERT_FILE` at the result. Never disable verification.
 

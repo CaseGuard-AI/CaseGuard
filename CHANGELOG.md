@@ -4,6 +4,12 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Added
+- Alembic for services/ai and the `corpus` and `ai` schemas (#15): `corpus.documents` (provenance, `headnote_only`, `third_party`, nullable taxonomy columns), `corpus.chunks` (bge-m3 `vector(1024)` with HNSW, generated `tsvector` with GIN), `corpus.corpus_meta` (embedding and chunker settings), `ai.answer_traces`, `ai.citations`, `ai.verifications` (the single trust store) and `ai.case_chunks`; `pnpm db:migrate:ai`, `db:migrate:ai:down` and `db:rebootstrap`; the ai image migrates on start; CI runs the migration tests against a bootstrapped Postgres
+
+### Changed
+- `bootstrap.sql` grants `caseguard_ai` USAGE (not CREATE) on schema `public`, so it can use the `vector` type. Existing Docker volumes need `pnpm db:rebootstrap` once (#15)
+
 ## [0.1.0-alpha.1] - 2026-10-23
 
 First pre-release from `staging`: the foundation (M0) and the Stream A work towards the M1 vertical slice. The research UI and api are in place, but services/ai does not answer questions yet (no `/ai/v1/research/answer`), so the Research Hub shows "service unavailable".
