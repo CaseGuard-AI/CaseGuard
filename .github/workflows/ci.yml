@@ -153,6 +153,9 @@ jobs:
           --health-cmd "pg_isready -U caseguard" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://caseguard:caseguard@localhost:5432/caseguard_test
+      # services/ai migration tests run as the roles bootstrap.sql creates (#15).
+      AI_TEST_DATABASE_URL: postgresql://caseguard_ai:caseguard_ai@localhost:5432/caseguard_test
+      APP_TEST_DATABASE_URL: postgresql://caseguard_app:caseguard_app@localhost:5432/caseguard_test
     defaults:
       run:
         working-directory: services/${{ matrix.service }}
@@ -169,6 +172,10 @@ jobs:
           enable-cache: true
       - if: steps.gate.outputs.run == 'true'
         run: uv sync --frozen --all-extras --dev
+      - name: Bootstrap roles and schemas (ADR-0002)
+        if: steps.gate.outputs.run == 'true' && matrix.service == 'ai'
+        working-directory: .
+        run: psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -v app_pw=caseguard_app -v ai_pw=caseguard_ai -f infra/db/sql/bootstrap.sql
       - if: steps.gate.outputs.run == 'true'
         run: uv run ruff check .
       - if: steps.gate.outputs.run == 'true'

@@ -11,12 +11,34 @@ _SERVICE_DIR = Path(__file__).resolve().parents[2]
 _REPO_ROOT = _SERVICE_DIR.parents[1] if len(_SERVICE_DIR.parents) > 1 else _SERVICE_DIR
 
 
+_ENV = SettingsConfigDict(
+    # Later files win, and real environment variables beat both.
+    env_file=(_REPO_ROOT / ".env", _SERVICE_DIR / ".env"),
+    extra="ignore",
+)
+
+
+def _sqlalchemy_url(url: str) -> str:
+    """SQLAlchemy needs the psycopg (v3) driver named; a plain postgresql:// would pick psycopg2."""
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgresql://")
+    return url
+
+
+class DatabaseSettings(BaseSettings):
+    """Only the database URL, for tools that run without the service token (Alembic, loaders)."""
+
+    model_config = _ENV
+
+    ai_database_url: str = "postgresql://caseguard_ai@localhost:5432/caseguard"
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        return _sqlalchemy_url(self.ai_database_url)
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        # Later files win, and real environment variables beat both.
-        env_file=(_REPO_ROOT / ".env", _SERVICE_DIR / ".env"),
-        extra="ignore",
-    )
+    model_config = _ENV
 
     ai_service_token: SecretStr
     ai_database_url: str = "postgresql://caseguard_ai@localhost:5432/caseguard"
@@ -38,6 +60,10 @@ class Settings(BaseSettings):
     # Local fallback, reachable under every allow-list that includes "ollama" (and the default).
     ollama_base_url: str = ""
     ollama_model: str = ""
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        return _sqlalchemy_url(self.ai_database_url)
 
     @property
     def psycopg_dsn(self) -> str:

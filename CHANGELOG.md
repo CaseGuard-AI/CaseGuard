@@ -8,9 +8,11 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - api.v1 contract: `refreshSession` (`POST /auth/refresh`) declares `429 Too Many Requests`, which the api already returns when the limit is hit (#83)
 - Model gateway for services/ai (#21): `ModelGateway.chat(role, messages, allowed_providers)` over any OpenAI-compatible endpoint (NVIDIA NIM, Gemini, Groq, OpenRouter, OpenAI, Anthropic, Ollama); one endpoint per role plus local Ollama as the fallback; only providers in `allowedProviders` are used (omitted = local only, no match = 503); one retry on 429/5xx; keys never logged. New settings `LLM_<ROLE>_PROVIDER` and `OLLAMA_MODEL`
 - ADR-0008: embeddings and the reranker run in-process; LLM calls go through the gateway
+- Alembic for services/ai and the `corpus` and `ai` schemas (#15): `corpus.documents` (provenance, `headnote_only`, `third_party`, nullable taxonomy columns), `corpus.chunks` (bge-m3 `vector(1024)` with HNSW, generated `tsvector` with GIN), `corpus.corpus_meta` (embedding and chunker settings), `ai.answer_traces`, `ai.citations`, `ai.verifications` (the single trust store) and `ai.case_chunks`; `pnpm db:migrate:ai`, `db:migrate:ai:down` and `db:rebootstrap`; the ai image migrates on start; CI runs the migration tests against a bootstrapped Postgres
 
 ### Changed
 - `POST /auth/refresh` has its own rate limit: 120 per IP per 15 minutes, apart from register and password reset's shared 20, so page reloads behind one NAT no longer lock out sign-ups or each other (#83)
+- `bootstrap.sql` grants `caseguard_ai` USAGE (not CREATE) on schema `public`, so it can use the `vector` type. Existing Docker volumes need `pnpm db:rebootstrap` once (#15)
 
 ### Fixed
 - Collector works on the live sites again (#147): Pakistan Code's broken TLS chain is fixed by bundling the missing GoGetSSL intermediate next to certifi (verification stays on, and a robots.txt certificate failure now skips the host); relative detail links, `<base href>` and `../pdffiles/` links are resolved like a browser; SHC's relative `download-file.php` links are found and commented-out `view-file` links ignored; empty and non-PDF downloads are flagged in `raw.file_status` and never saved; SHC records carry an explicit `raw.headnote_only`
