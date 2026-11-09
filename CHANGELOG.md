@@ -4,6 +4,12 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 
 ## [Unreleased]
 
+### Added
+- api.v1 contract: `refreshSession` (`POST /auth/refresh`) declares `429 Too Many Requests`, which the api already returns when the limit is hit (#83)
+
+### Changed
+- `POST /auth/refresh` has its own rate limit: 120 per IP per 15 minutes, apart from register and password reset's shared 20, so page reloads behind one NAT no longer lock out sign-ups or each other (#83)
+
 ### Fixed
 - Collector works on the live sites again (#147): Pakistan Code's broken TLS chain is fixed by bundling the missing GoGetSSL intermediate next to certifi (verification stays on, and a robots.txt certificate failure now skips the host); relative detail links, `<base href>` and `../pdffiles/` links are resolved like a browser; SHC's relative `download-file.php` links are found and commented-out `view-file` links ignored; empty and non-PDF downloads are flagged in `raw.file_status` and never saved; SHC records carry an explicit `raw.headnote_only`
 
