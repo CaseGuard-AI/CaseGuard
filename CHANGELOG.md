@@ -7,6 +7,9 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 ### Added
 - api.v1 contract: `refreshSession` (`POST /auth/refresh`) declares `429 Too Many Requests`, which the api already returns when the limit is hit (#83)
 
+### Changed
+- `POST /auth/refresh` has its own rate limit: 120 per IP per 15 minutes, apart from register and password reset's shared 20, so page reloads behind one NAT no longer lock out sign-ups or each other (#83)
+
 ## [0.1.0-alpha.1] - 2026-10-23
 
 First pre-release from `staging`: the foundation (M0) and the Stream A work towards the M1 vertical slice. The research UI and api are in place, but services/ai does not answer questions yet (no `/ai/v1/research/answer`), so the Research Hub shows "service unavailable".

@@ -157,6 +157,28 @@ describe.skipIf(!url)("auth (api.v1 /auth/*)", () => {
       expect(res.status).toBe(401);
       expectContract(res, "post", "/auth/refresh");
     });
+
+    // #83: refresh used to share register's 20 per IP, so page reloads could lock out a sign-up.
+    it("has its own budget: 25 refreshes from one IP succeed, and register still works", async () => {
+      let cookie = refreshCookie(await register());
+      for (let i = 0; i < 25; i++) {
+        const res = await refresh(cookie);
+        expect(res.status, `refresh ${i + 1}`).toBe(200);
+        cookie = refreshCookie(res);
+      }
+      const bob = { email: "bob@example.com", password: "another long password", name: "Bob" };
+      expect((await register(bob)).status).toBe(201);
+    });
+
+    it("429 with Retry-After after 120 refreshes from one IP (SEC-15)", async () => {
+      for (let i = 0; i < 120; i++) {
+        expect((await refresh()).status).toBe(401);
+      }
+      const res = await refresh();
+      expect(res.status).toBe(429);
+      expectContract(res, "post", "/auth/refresh");
+      expect(Number(res.headers["retry-after"])).toBeGreaterThan(0);
+    });
   });
 
   describe("logout", () => {
