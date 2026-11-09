@@ -11,7 +11,7 @@ The public legal material CaseGuard answers from: statutes and court judgments c
 _Avoid_: dataset, database (when meaning the content)
 
 **Partition**:
-A slice of the crawl that exactly one team member owns and collects, such as one source or a range of SHC judges.
+A slice of the crawl, such as one source or one area of law within a source, that one team member owns and collects at a time.
 _Avoid_: shard, chunk, batch
 
 **Partition owner**:
