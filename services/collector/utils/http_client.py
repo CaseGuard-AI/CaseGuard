@@ -27,6 +27,7 @@ import httpx
 from utils.logging_config import get_logger
 from utils.rate_limiter import RateLimiter
 from utils.robots import RobotsCache
+from utils.tls import ssl_context
 
 log = get_logger("http")
 
@@ -123,7 +124,8 @@ class HttpClient:
             },
             timeout=httpx.Timeout(timeout, connect=min(timeout, 20.0)),
             follow_redirects=True,
-            verify=verify_tls,
+            # certifi + bundled intermediates for hosts with broken chains (#147).
+            verify=ssl_context() if verify_tls else False,
             # Some PK government hosts run older TLS stacks and dislike HTTP/2.
             http2=False,
         )

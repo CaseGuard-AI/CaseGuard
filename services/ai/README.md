@@ -55,7 +55,20 @@ Things we hit with NVIDIA NIM (October 2026):
 - **`--list-models` is not a guarantee.** It lists the whole catalog, and some listed models return 404 for a free key or never respond. `nvidia/nemotron-3-super-120b-a12b` and `openai/gpt-oss-20b` answered in about 1 s.
 - Slow models: raise the wait with `--timeout 90`.
 
-This is only a connectivity check. The real gateway (per-user keys, fallbacks, Admin allow-list) is #21.
+This is only a connectivity check.
+
+## The model gateway (#21)
+
+Every LLM call goes through `gateway/client.py::ModelGateway.chat(role, messages, allowed_providers)`. Pipelines never call a provider SDK.
+
+- **Which provider:** each role (`generation`, `judge`) has one endpoint, `LLM_<ROLE>_*`. Its ai.v1 `ProviderId` is `LLM_<ROLE>_PROVIDER`, or is inferred from the base URL (the presets above).
+  - Local Ollama (`OLLAMA_BASE_URL` + `OLLAMA_MODEL`) is the fallback for both roles.
+  - An endpoint whose provider can't be named is never used, because it couldn't be checked against the allow-list.
+- **Allow-list (SEC-11):** a request may use only the ids in `allowedProviders`, which the api fills from the Admin's provider list. **Omitted means local only.** With no match, `NoProviderError` (→ 503); there is never a silent fallback to another cloud.
+- **Failures:** one retry on 429/5xx/timeout (honouring `Retry-After`, up to 10 s), then `GatewayError` (→ 503).
+  - An empty answer (a reasoning model out of budget) is an error, not an empty reply.
+  - Keys are never logged, printed or included in errors.
+- **Not here yet:** user API keys (#92, #93). Embeddings and the reranker run in-process, not through the gateway (ADR-0008).
 
 ## Database: `corpus` and `ai` schemas (Alembic)
 

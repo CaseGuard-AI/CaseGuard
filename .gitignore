@@ -3,6 +3,8 @@
 .env.*
 !.env.example
 *.pem
+# Public CA certificates only (never keys): intermediates bundled for broken server chains (#147).
+!services/collector/certs/*.pem
 *.key
 
 # ── Node / Next.js ────────────────────

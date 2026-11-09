@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     llm_judge_base_url: str = ""
     llm_judge_model: str = ""
     llm_judge_api_key: SecretStr = SecretStr("")
+    # The ai.v1 ProviderId of each role's endpoint (nvidia-nim, gemini, groq, openrouter, openai,
+    # anthropic, ollama). Empty = inferred from the base URL. A request may only use a provider
+    # that the api lists in allowedProviders (SEC-11).
+    llm_generation_provider: str = ""
+    llm_judge_provider: str = ""
+    # Local fallback, reachable under every allow-list that includes "ollama" (and the default).
+    ollama_base_url: str = ""
+    ollama_model: str = ""
 
     @property
     def sqlalchemy_url(self) -> str:
