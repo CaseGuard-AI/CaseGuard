@@ -11,6 +11,7 @@ Final Year Project, Department of Computer Science, FAST-NUCES Lahore. Superviso
 | Document | Purpose |
 |---|---|
 | [**PRD**](docs/PRD.md) | What we're building, priorities, requirements and the delivery plan. **Start here.** |
+| [**Handoff: start here**](docs/engineering/handoff.md) | Where the work stands and what to pick up next |
 | [Contributing](CONTRIBUTING.md) | How to work in this repo |
 | [Branching & release](docs/engineering/branching-and-release.md) | `main` / `staging` / feature-branch model, PR rules, releases, hotfixes |
 | [ADRs](docs/adr/) | Architecture decision records |
