@@ -477,6 +477,8 @@ Writing them caught seven real bugs, which is the main argument for keeping them
 
 ---
 
+> **Loading into the database:** `--load-db` (SQLAlchemy `create_all`) predates the monorepo's `corpus` schema. Use `pnpm data:load` (services/ai, #16) instead. It writes the Alembic-managed `corpus.documents` and keeps the head-note-only and third-party labels.
+
 ## 13. Where this fits in the RAG pipeline
 
 ```

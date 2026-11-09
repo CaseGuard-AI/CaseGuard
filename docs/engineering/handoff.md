@@ -11,7 +11,7 @@ This page tells whoever picks up work next where the project stands and what to 
 | **Stream A** (`apps/web`, `apps/api`) | **Mostly done:** auth, settings, admin console, Research Hub UI, email. The P1 screens remain (#97–#108). | [Stream A roadmap](stream-a-roadmap.md) |
 | **Data storage** | **Decided, not built.** Hugging Face corpus repo, partitions, snapshot and dump formats, user-upload storage. | [Data-storage spec](data-storage.md), [`CONTEXT.md`](../../CONTEXT.md) |
 | **Collector** (`services/collector`) | **Broken on the live sites:** it stores 0 statutes and 0 judgment files (#147). | [Collector README](../../services/collector/README.md) |
-| **M1 data/AI path** (#15–#20, #22) | **Schemas done (#15);** load, embed, retrieve and answer (#16–#20) are next. The Research Hub has no corpus to answer from yet, so every question gets a 503. | [PRD §16.2](../PRD.md#162-milestones) |
+| **M1 data/AI path** (#15–#20, #22) | **Schemas done (#15), loader done (#16);** embed, retrieve and answer (#18–#20) are next, and the model gateway (#21) is in review. The Research Hub has no corpus to answer from yet, so every question gets a 503. | [PRD §16.2](../PRD.md#162-milestones) |
 | **Corpus collected so far** | Only a small sample on one laptop (git-ignored `services/collector/data_sample*/`). **Nothing is shared yet.** | #139 (measurements) |
 
 **Measured facts that shape the work (from #139):**
