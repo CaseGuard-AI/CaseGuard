@@ -1,6 +1,6 @@
 # Case taxonomy: proposal
 
-> **Status:** Proposal for supervisor review, 2026-11-10. **Owner:** team. Source of the request: handoff §3 ("the supervisor asked for sub-categories"). Related: #148 (enough civil judgments?), #153 (selection files), #22 (test set).
+> **Status:** Proposal for supervisor review, 2026-11-10. **Issue:** [#164](https://github.com/CaseGuard-AI/CaseGuard/issues/164). **Owner:** team. Source of the request: handoff §3 ("the supervisor asked for sub-categories"). Related: #148 (enough civil judgments?), #153 (selection files), #22 (test set).
 
 ## In one paragraph
 
