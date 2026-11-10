@@ -46,4 +46,4 @@ Handoff critical-path item 6, the "embed" step of load → embed → retrieve �
   - CrPC: up to s. 565, and the gaps are the 1972 repeals (e.g. ss. 266–336);
   - Contract Act: all 238 sections except ss. 76–123, which were repealed by the Sale of Goods Act;
   - the largest chunk is 600 estimated tokens.
-- **Real bge-m3 run:** see the PR.
+- **Real bge-m3 run:** still to do; the team runs it on the live crawls (see the PR).
