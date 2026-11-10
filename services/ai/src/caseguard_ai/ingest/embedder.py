@@ -75,7 +75,7 @@ class BgeM3Embedder:
         self.revision = revision
         self.batch_size = batch_size
         self._model: Any = SentenceTransformer(
-            model_id, revision=revision, device=device or _default_device()
+            model_id, revision=revision, device=device or default_device()
         )
         # Chunks are about 500 estimated tokens (chunker.py); 1,024 leaves room for subwords
         # and keeps CPU memory and time in check. bge-m3 itself reads up to 8,192.
@@ -98,7 +98,7 @@ class BgeM3Embedder:
         return [list(map(float, v)) for v in vectors]
 
 
-def _default_device() -> str:
+def default_device() -> str:
     import torch
 
     return "cuda" if torch.cuda.is_available() else "cpu"

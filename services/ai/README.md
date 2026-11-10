@@ -130,6 +130,18 @@ This turns `corpus.documents` into `corpus.chunks`, embedding with **BAAI/bge-m3
 - **The first run downloads bge-m3** (about 2.3 GB) into the Hugging Face cache.
 - **Tests use `HashEmbedder`** (bag-of-words feature hashing), so nothing is downloaded. `--embedder hash` exists for trying the job, never for a real corpus.
 
+## Retrieval (#19)
+
+`retrieval.hybrid.retrieve(conn, question, scope, embedder, reranker)` returns the best 8 passages for a question, best first. The pipeline: dense (pgvector cosine) top 50 + sparse (Postgres FTS, the question's words ORed) top 50 → RRF, k = 60 → top 20 → bge-reranker-v2-m3 → top 8.
+
+- **Scope (FR-CASE-6):**
+  - the public corpus, plus `ai.case_chunks` only where `user_id` is the caller's **and** `case_id` is in `allowedCaseIds`;
+  - it's in every SQL statement that can touch case chunks, and an empty list means the public corpus only;
+  - `tests/test_retrieval.py` holds the release-blocking marker-document test.
+- **Trace:** `Retrieval.trace()` gives the dense, sparse, fused and reranked lists (ids and scores, no text), for `ai.answer_traces`.
+- **Guard:** search refuses a corpus that was never embedded, or one embedded with a different model or revision than the query embedder.
+- **The reranker** loads in-process like the embedder (pinned by `RERANKER_MODEL` / `RERANKER_REVISION`; about 2.3 GB on first use). Tests use `OverlapReranker`.
+
 ## Checks
 
 ```bash
