@@ -38,7 +38,12 @@ uv run python tools/make_selection.py --from data/partitions/shc-meta \
   - Only codes on the partition's branch are eligible.
   - Constitutional petitions (`either`: the branch depends on the subject) and codes missing from the map are left out and counted, never guessed.
   - `confirmed = no` marks the codes whose reading the taxonomy asks the supervisor to confirm (#164). They're kept, and the selection notes them.
+- `--exclude <proceeding type>` (repeatable) leaves a proceeding type out. For `shc-civil`, the taxonomy proposal recommends leaving out the civil areas outside the M1 seed statutes (case-taxonomy.md §9, decision 3). Otherwise 42% of a proportional sample is tax references:
+  ```bash
+  uv run python tools/make_selection.py --from data/partitions/shc-meta --partition shc-civil --n 3000 --source-snapshot shc-meta@<date> --exclude tax_reference --exclude company_insolvency --exclude statutory_appeal --exclude succession_petition
+  ```
+  On the full 2026-11-10 catalogue that leaves 4,684 eligible civil judgments (suits, appeals, revisions, intra-court appeals). The `#` header records what was excluded.
 - Judgments without a linked file are left out.
 - The sample is stratified by case type × year, with seats in proportion to each stratum's size. The same input, map, `--n` and `--seed` always give the same file.
 - The `#` lines at the top record the source snapshot, map checksum, seed and counts. The collector reads `source_snapshot` back into the run metadata.
-- The default size is 3,000 per branch (PRD §15.3 says "start with about 3–5k"). How many civil judgments SHC really has is tracked in #148. The taxonomy sample found 1,987 eligible civil judgments among 18,027.
+- The default size is 3,000 per branch (PRD §15.3 says "start with about 3–5k"). How many civil judgments SHC really has is tracked in #148. The full `shc-meta` crawl (2026-11-10) has 56,649 judgments: 9,491 civil, 19,090 criminal and 27,947 constitutional petitions by case type, so the civil target can be met.

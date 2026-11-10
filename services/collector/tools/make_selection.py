@@ -108,9 +108,16 @@ def year_of(record: dict) -> str:
 
 
 def candidates(
-    records: Iterable[dict], codes: dict[str, Code], branch: str
+    records: Iterable[dict],
+    codes: dict[str, Code],
+    branch: str,
+    exclude: Iterable[str] = (),
 ) -> tuple[list[Candidate], Counter[str]]:
-    """Eligible records for ``branch`` plus a count of why the others were left out."""
+    """Eligible records for ``branch`` plus a count of why the others were left out.
+
+    ``exclude`` names proceeding types to leave out, e.g. the tax references, which are civil
+    but outside the M1 civil seed statutes (case-taxonomy.md §9, decision 3)."""
+    excluded = set(exclude)
     out: dict[str, Candidate] = {}
     left_out: Counter[str] = Counter()
     for record in records:
@@ -126,6 +133,9 @@ def candidates(
             continue
         if code.branch != branch:
             left_out[f"{code.branch}, not {branch}"] += 1
+            continue
+        if code.proceeding_type in excluded:
+            left_out[f"excluded: {code.proceeding_type}"] += 1
             continue
         raw = record.get("raw") or {}
         if raw.get("file_status") == "missing_link" or not record.get("document_file_url"):
@@ -211,12 +221,25 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="the shc-meta snapshot read, e.g. shc-meta@2026-11-10 (recorded in the file)",
     )
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="PROCEEDING_TYPE",
+        help="leave out a proceeding type (repeatable), e.g. --exclude tax_reference",
+    )
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args(argv)
 
     codes = read_map(args.map)
+    known = {c.proceeding_type for c in codes.values()}
+    unknown = sorted(set(args.exclude) - known)
+    if unknown:
+        parser.error(
+            f"unknown proceeding type(s): {', '.join(unknown)}. Known: {', '.join(sorted(known))}"
+        )
     branch = BRANCH_OF_PARTITION[args.partition]
-    pool, left_out = candidates(read_records(input_files(args.source)), codes, branch)
+    pool, left_out = candidates(read_records(input_files(args.source)), codes, branch, args.exclude)
     chosen = stratified_sample(pool, args.n, args.seed)
     out = args.out or SELECTIONS_DIR / f"{args.partition}.csv"
     map_sha = hashlib.sha256(args.map.read_bytes()).hexdigest()
@@ -229,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
             "source_snapshot": args.source_snapshot or "unpublished local crawl",
             "map": f"{args.map.name} sha256={map_sha[:16]}",
             "seed": str(args.seed),
+            "excluded": ", ".join(sorted(args.exclude)) or "none",
             "selected": f"{len(chosen)} of {len(pool)} eligible",
         },
     )

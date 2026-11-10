@@ -282,3 +282,20 @@ def test_a_generated_file_is_read_back_by_the_collector(tmp_path: Path) -> None:
     assert len(selection.ids) == 3
     assert selection.source_snapshot == "shc-meta@2026-11-10"
     assert "civil: suit" in out.read_text(encoding="utf-8")
+
+
+def test_proceeding_types_can_be_excluded() -> None:
+    records = [
+        shc(1, "Suit"),
+        shc(2, "I.T.R.A"),
+        shc(3, "Spl. Cus. Ref. A"),
+        shc(4, "Election Appeal"),
+    ]
+    pool, left_out = ms.candidates(records, CODES, "civil", ["tax_reference"])
+    assert [c.matter_type for c in pool] == ["Suit", "Election Appeal"]
+    assert left_out == {"excluded: tax_reference": 2}
+
+
+def test_an_unknown_proceeding_type_to_exclude_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit):
+        ms.main(["--from", str(tmp_path), "--partition", "shc-civil", "--exclude", "taxes"])
