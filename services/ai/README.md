@@ -142,6 +142,27 @@ This turns `corpus.documents` into `corpus.chunks`, embedding with **BAAI/bge-m3
 - **Guard:** search refuses a corpus that was never embedded, or one embedded with a different model or revision than the query embedder.
 - **The reranker** loads in-process like the embedder (pinned by `RERANKER_MODEL` / `RERANKER_REVISION`; about 2.3 GB on first use). Tests use `OverlapReranker`.
 
+## Answering questions (#20)
+
+`POST /ai/v1/research/answer` (contract: `packages/contracts/openapi/ai.v1.yaml`):
+
+1. **Allow-list first:** with no configured generation provider in `allowedProviders`, the answer is 503 before any work (SEC-11).
+2. **Retrieve** the best 8 passages (#19).
+3. **Generate** with prompt `answer-v1` (`research/prompts/`). The model cites with `[[p:N]]` and gives one verbatim quote per passage, or replies `NOT_ANSWERABLE`.
+4. **Check existence** (`trust/existence.py`): the passage was retrieved, its document exists, and the quote is a verbatim span. Only whitespace is forgiven, because PDF line breaks fall mid-sentence. The stored quote is the source's own text.
+5. **Decide the status** (`trust/status.py`, PRD §7.2). M1 has no support check, so citations are `needs_review` (existence passed) or `unverified` (it failed), never `verified`. `headnote_only` and `third_party_source` are flagged.
+6. **Store** the trace, citations and verifications in one transaction, then build the response from what was read back. Markers become `[[c:<citationId>]]`.
+
+- **Unanswerable** (nothing retrieved, `NOT_ANSWERABLE`, or no valid citation): `answerable: false`, no citations.
+- **Errors:** 503 problem+json when no provider is allowed, the provider fails, or the corpus isn't embedded. 400 for an invalid request (fields named, the question never echoed).
+- `GET /ai/v1/citations/{id}` returns the stored verification; `GET /ai/v1/sources/{id}` returns the corpus record.
+- **To try it end to end:**
+  - load and embed the corpus;
+  - set a generation provider in `.env` (or `OLLAMA_MODEL`);
+  - `pnpm stack:up`, sign in, enable that provider in the admin console, and ask in the Research Hub.
+  
+  The first question loads bge-m3 and the reranker, which takes a while.
+
 ## Checks
 
 ```bash
