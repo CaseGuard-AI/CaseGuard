@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#153](https://github.com/CaseGuard-AI/CaseGuard/issues/153)
+> **Status:** In review · **Issue:** [#153](https://github.com/CaseGuard-AI/CaseGuard/issues/153) · **PR:** [#165](https://github.com/CaseGuard-AI/CaseGuard/pull/165)
 
 # #153: collector partitions, selection files and PARTITIONS.md
 
