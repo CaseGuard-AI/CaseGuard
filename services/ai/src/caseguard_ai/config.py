@@ -25,6 +25,20 @@ def _sqlalchemy_url(url: str) -> str:
     return url
 
 
+class EmbeddingSettings(BaseSettings):
+    """The in-process models (ADR-0008), pinned to a revision so every machine builds and queries
+    the same corpus. corpus.corpus_meta records what a corpus was built with (#18)."""
+
+    model_config = _ENV
+
+    embedding_model: str = "BAAI/bge-m3"
+    embedding_revision: str = "5617a9f61b028005a4858fdac845db406aefb181"
+    embedding_device: str = ""  # empty = CUDA if torch has a GPU, else CPU
+    embedding_batch_size: int = 16
+    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_revision: str = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
+
+
 class DatabaseSettings(BaseSettings):
     """Only the database URL, for tools that run without the service token (Alembic, loaders)."""
 
@@ -37,7 +51,11 @@ class DatabaseSettings(BaseSettings):
         return _sqlalchemy_url(self.ai_database_url)
 
 
-class Settings(BaseSettings):
+class IngestSettings(EmbeddingSettings, DatabaseSettings):
+    """For the ingestion jobs: the database and the embedding model, no service token."""
+
+
+class Settings(EmbeddingSettings):
     model_config = _ENV
 
     ai_service_token: SecretStr
