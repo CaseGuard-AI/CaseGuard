@@ -122,7 +122,7 @@ class SindhHighCourtScraper(BaseScraper):
 
     @property
     def scope(self) -> str:
-        value = os.getenv("PKLEGAL_SHC_SCOPE", "afr").strip().lower()
+        value = (self.settings.shc_scope or os.getenv("PKLEGAL_SHC_SCOPE", "afr")).strip().lower()
         return value if value in {"afr", "all"} else "afr"
 
     # ------------------------------------------------------------------

@@ -1,0 +1,17 @@
+# pk-code-seed: the Pakistan Code titles this partition fetches (PRD §15.3).
+# One case-insensitive regex per line, matched against the index title. Each statute's own
+# amendment acts match too, e.g. "Code of Criminal Procedure (Amendment) Act, 2021".
+#
+# Criminal
+pakistan penal code
+code of criminal procedure
+qan(u|oo)n-?e-?shahadat
+criminal laws? \(amendment\)
+# Civil
+code of civil procedure
+\bcontract (\(amendment\) )?act\b
+specific relief (\(amendment\) )?act
+\blimitation (\(amendment\) )?act
+# Shared
+constitution of (the )?islamic republic of pakistan
+constitution \(.*amendment\) act

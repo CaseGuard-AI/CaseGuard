@@ -114,6 +114,11 @@ python main.py --source all --start-year 2020 --end-year 2026
 python main.py --source shc_caselaw --no-pdfs           # fast metadata pass
 PKLEGAL_SHC_SCOPE=all python main.py --source shc_caselaw --no-pdfs
 
+# the team's crawl is split into partitions, each in data/partitions/<name>/ (PARTITIONS.md)
+python main.py --list-partitions
+python main.py --partition shc-meta                     # all SHC metadata, no PDFs
+python main.py --partition shc-criminal --limit 200     # PDFs for the committed selection only
+
 # re-attempt only what failed, without re-walking the site
 python main.py --retry-failed --source pakistan_code
 

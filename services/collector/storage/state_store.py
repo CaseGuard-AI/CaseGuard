@@ -62,6 +62,9 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 """
 
+# What a partition run records for the snapshot manifest (#152, #153).
+RUN_PARTITION_COLUMNS = ("partition", "selection_file", "selection_sha256", "source_snapshot")
+
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
@@ -74,6 +77,11 @@ class StateStore:
         self._local = threading.local()
         with self._connect() as conn:
             conn.executescript(SCHEMA)
+            # Columns added after the first release; older state.db files gain them here.
+            have = {r["name"] for r in conn.execute("PRAGMA table_info(runs)")}
+            for column in RUN_PARTITION_COLUMNS:
+                if column not in have:
+                    conn.execute(f"ALTER TABLE runs ADD COLUMN {column} TEXT")
 
     # -----------------------------------------------------------------
     def _conn(self) -> sqlite3.Connection:
@@ -226,12 +234,34 @@ class StateStore:
         return [dict(r) for r in self._conn().execute(sql, params).fetchall()]
 
     # --- runs ---------------------------------------------------------
-    def start_run(self, run_id: str, sources: str) -> None:
+    def start_run(
+        self,
+        run_id: str,
+        sources: str,
+        *,
+        partition: str | None = None,
+        selection_file: str | None = None,
+        selection_sha256: str | None = None,
+        source_snapshot: str | None = None,
+    ) -> None:
         with self._connect() as conn:
             conn.execute(
-                "INSERT OR REPLACE INTO runs (run_id, started_at, sources) VALUES (?,?,?)",
-                (run_id, _now(), sources),
+                "INSERT OR REPLACE INTO runs (run_id, started_at, sources, partition,"
+                " selection_file, selection_sha256, source_snapshot) VALUES (?,?,?,?,?,?,?)",
+                (
+                    run_id,
+                    _now(),
+                    sources,
+                    partition,
+                    selection_file,
+                    selection_sha256,
+                    source_snapshot,
+                ),
             )
+
+    def runs(self) -> list[dict]:
+        rows = self._conn().execute("SELECT * FROM runs ORDER BY started_at").fetchall()
+        return [dict(r) for r in rows]
 
     def finish_run(self, run_id: str, summary: str) -> None:
         with self._connect() as conn:
