@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
-from config import SOURCES, Settings, SourceConfig
+from config import PROJECT_ROOT, SOURCES, Settings, SourceConfig
 from models.legal_document import new_run_id
 from pipeline.report import RunReport
 from scrapers.base_scraper import BaseScraper, ScraperError
@@ -59,7 +60,15 @@ class Runner:
 
     # ------------------------------------------------------------------
     def run(self, source_keys: list[str]) -> RunReport:
-        self.state.start_run(self.run_id, ",".join(source_keys))
+        selection = self.settings.selection
+        self.state.start_run(
+            self.run_id,
+            ",".join(source_keys),
+            partition=self.settings.partition,
+            selection_file=_relative(selection.path) if selection else None,
+            selection_sha256=selection.sha256 if selection else None,
+            source_snapshot=selection.source_snapshot if selection else None,
+        )
         self.log.info("Run %s over: %s", self.run_id, ", ".join(source_keys))
 
         for key in source_keys:
@@ -79,6 +88,16 @@ class Runner:
                 self.log.exception("%s crashed: %s", key, exc)
                 self.report.add_source(key, {"crashed": 1})
                 self.events.emit("source_crashed", source=key, error=str(exc))
+
+        if selection is not None:
+            missing = selection.missing()
+            if missing:
+                self.log.warning(
+                    "%d selected item(s) were not found, e.g. %s",
+                    len(missing),
+                    ", ".join(missing[:3]),
+                )
+                self.events.emit("selection_missing", count=len(missing), sample=missing[:20])
 
         self.report.errors = RunReport.from_events(self.run_id, self.started_at, self.events).errors
         self.report.finished_at = datetime.now(UTC).isoformat()
@@ -114,3 +133,11 @@ class Runner:
     def __exit__(self, *exc) -> bool:
         self.close()
         return False
+
+
+def _relative(path: Path) -> str:
+    """The selection file as recorded in run metadata: relative to the collector when inside it."""
+    try:
+        return path.resolve().relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return str(path)
