@@ -66,6 +66,7 @@ class ScrapeStats:
     pdf_extract_failed: int = 0
     scanned_pdfs: int = 0
     missing_metadata: int = 0
+    not_selected: int = 0
 
     def as_dict(self) -> dict[str, int]:
         return dict(self.__dict__)
@@ -132,12 +133,16 @@ class BaseScraper(abc.ABC):
             )
 
         limit = self.settings.limit
+        selection = self.settings.selection
         for item in self.discover():
             self.stats.discovered += 1
             if limit is not None and self.stats.stored >= limit:
                 self.log.info("Reached --limit %d; stopping discovery.", limit)
                 break
             if not in_year_range(item.year, self.settings.start_year, self.settings.end_year):
+                continue
+            if selection is not None and not selection.wants(item):
+                self.stats.not_selected += 1
                 continue
             try:
                 self._process(item)
@@ -155,6 +160,10 @@ class BaseScraper(abc.ABC):
                 self.events.emit(
                     "document_failed", source=self.source_key, url=item.url, error=str(exc)
                 )
+
+            if selection is not None and selection.exhausted():
+                self.log.info("Every selected item was found; stopping discovery.")
+                break
 
         self.log.info("Finished %s: %s", self.source_key, self.stats.as_dict())
         return self.stats
