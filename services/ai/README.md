@@ -130,6 +130,32 @@ This turns `corpus.documents` into `corpus.chunks`, embedding with **BAAI/bge-m3
 - **The first run downloads bge-m3** (about 2.3 GB) into the Hugging Face cache.
 - **Tests use `HashEmbedder`** (bag-of-words feature hashing), so nothing is downloaded. `--embedder hash` exists for trying the job, never for a real corpus.
 
+## Corpus dumps (#154)
+
+One person embeds and everyone else pulls, so nobody re-embeds for hours (data-storage spec §4).
+
+```bash
+pnpm data:dump [-- --no-upload] [--out DIR] [--freeze eval-frozen-N] [--yes]   # integrator
+pnpm data:pull -- --dump latest|<date>[-N]|eval-frozen-N [--from DIR] [--yes]  # everyone
+```
+
+- **What's in it:**
+  - `corpus.dump`: a tar of binary `COPY`s of `corpus_meta`, `documents` and `chunks`. `chunks.tsv` is regenerated on restore;
+  - `manifest.json`: the Alembic revision, the embedding and chunker settings, input snapshots, row counts, SHA-256 and the git commit.
+  - **Only `corpus`**; `app` and `ai` are never dumped. No `pg_dump` is needed: it uses `COPY` through psycopg as `caseguard_ai`.
+- **`data:dump` refuses** an empty corpus, an unfinished `data:embed`, or chunks without vectors. It builds into `services/ai/.dumps/<today>/` (git-ignored), then asks before publishing to `HF_CORPUS_REPO`:
+  - a new `dumps/<date>[-N]/` (never overwritten), with `dumps/LATEST` moved in the same commit;
+  - tagged `dump/<folder>`, and `dump/eval-frozen-<n>` with `--freeze`.
+- **`data:pull --dump`:**
+  - downloads into the Hugging Face cache (`HF_HOME`), pinned to the dump's tag, and checks the SHA-256;
+  - **refuses another Alembic revision** (run `pnpm db:migrate:ai` first);
+  - shows the corpus loaded now and the incoming one, asks, then replaces `corpus` in one transaction.
+
+  `--from` takes a local folder with both files (give a full path: `pnpm` runs it from `services/ai`).
+- **Settings:** `HF_TOKEN` (a fine-grained token; empty uses `hf auth login`) and `HF_CORPUS_REPO` (default `caseguard/corpus`). The token is never printed.
+- **After a restore**, retrieval still refuses a query model that differs from the dump's (`EMBEDDING_MODEL` / `EMBEDDING_REVISION`).
+- Dumps made by hand with `pg_dump` can't be restored this way.
+
 ## Retrieval (#19)
 
 `retrieval.hybrid.retrieve(conn, question, scope, embedder, reranker)` returns the best 8 passages for a question, best first. The pipeline: dense (pgvector cosine) top 50 + sparse (Postgres FTS, the question's words ORed) top 50 → RRF, k = 60 → top 20 → bge-reranker-v2-m3 → top 8.

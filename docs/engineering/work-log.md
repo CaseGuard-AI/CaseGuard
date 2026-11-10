@@ -129,3 +129,10 @@ The ≤2% worry came from the small "reported only" listings. The full catalogue
 - the `caseguard` Hugging Face org: setup, what to upload and how (fast options for `shc-meta`), and downloading;
 - a small corpus (the 8 laws, about 15 minutes) for the demo, so nobody has to wait for the 8-hour full embedding;
 - who does what while the embedding runs.
+
+### Corpus dumps: `data:dump` and `data:pull --dump` (#154)
+The embedded corpus can now be shared, so teammates restore it instead of embedding for 8 hours:
+- `pnpm data:dump` checks the embed run finished, writes `corpus.dump` and `manifest.json`, and publishes them to a new `dumps/<date>[-N]/` on Hugging Face. It never overwrites, and it moves `LATEST` and tags the dump (`--freeze` for evaluation dumps).
+- `pnpm data:pull -- --dump latest` checks the checksum and the migration revision, shows what you have, asks, and replaces only `corpus`.
+
+It uses `COPY` through psycopg, not `pg_dump`, so it needs no matching Postgres client on Windows or in CI. Plan: `plans/0038`.

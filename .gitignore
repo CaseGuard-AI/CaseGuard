@@ -37,6 +37,8 @@ services/collector/data_*/
 !services/collector/data_demo/
 /uploads/
 /storage/
+services/ai/.dumps/
+corpus.dump
 *.sqlite
 # (anchored with a leading / on purpose: services/collector has Python packages named models/ and storage/)
 
