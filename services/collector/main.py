@@ -107,6 +107,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--retry-failed", action="store_true", help="re-attempt URLs that failed in earlier runs"
     )
     tools.add_argument(
+        "--requeue-failed-downloads",
+        action="store_true",
+        help="let the next run re-download files that failed in earlier runs (download_failed)",
+    )
+    tools.add_argument(
         "--bootstrap",
         metavar="DATASET",
         help="load a third-party HF dataset (see --list-bootstrap)",
@@ -362,6 +367,41 @@ def cmd_bootstrap_compare(settings: Settings, key: str, sources: list[str]) -> i
     return 0
 
 
+def failed_download_urls(path: Path) -> list[str]:
+    """URLs of records whose latest version in a combined JSONL is still ``download_failed``."""
+    latest: dict[str, dict] = {}
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            if line.strip():
+                record = json.loads(line)
+                latest[record["id"]] = record  # a later line is a later run
+    urls: list[str] = []
+    for record in latest.values():
+        if (record.get("raw") or {}).get("file_status") == "download_failed":
+            # The crawl state is keyed on the URL that was discovered: the document URL for
+            # inline sources (SHC), the detail page (source_url) for the others.
+            urls += [u for u in (record.get("document_url"), record.get("source_url")) if u]
+    return urls
+
+
+def cmd_requeue_failed_downloads(settings: Settings, sources: list[str]) -> int:
+    """For records stored before failed downloads were retried automatically."""
+    from storage.state_store import StateStore
+
+    state = StateStore(settings.state_db)
+    total = 0
+    for key in sources:
+        path = settings.jsonl_dir / f"{key}.jsonl"
+        if not path.exists():
+            continue
+        count = state.requeue(failed_download_urls(path))
+        total += count
+        print(f"  {key}: {count} failed download(s) will be retried on the next run")
+    state.close()
+    print(f"{total} requeued. Run the same crawl again (e.g. the same --partition) to fetch them.")
+    return 0
+
+
 def cmd_retry_failed(settings: Settings, sources: list[str]) -> int:
     """Re-attempt URLs recorded as failures, without re-walking the site."""
     from pipeline.runner import Runner
@@ -436,6 +476,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_bootstrap_compare(settings, args.bootstrap_compare, sources)
     if args.retry_failed:
         return cmd_retry_failed(settings, sources)
+    if args.requeue_failed_downloads:
+        return cmd_requeue_failed_downloads(settings, sources)
     if args.load_db:
         return cmd_load_db(settings, sources)
     if args.sample:
