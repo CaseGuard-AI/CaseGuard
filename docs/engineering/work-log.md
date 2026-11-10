@@ -123,3 +123,9 @@ The ≤2% worry came from the small "reported only" listings. The full catalogue
 
 ### Session handoff on GitHub (PR #171)
 [`session-handoff.md`](session-handoff.md), this log and [`handoff-plan.md`](handoff-plan.md) were added to the repo, so a teammate can pull `staging` and continue. The crawled data itself isn't shared until the Hugging Face repo exists (#151). Until then, the handoff gives the commands to rebuild it.
+
+### Forward-only session handoff, with the Hugging Face steps
+[`session-handoff.md`](session-handoff.md) now covers only what comes next. Done work lives in this log. New in it:
+- the `caseguard` Hugging Face org: setup, what to upload and how (fast options for `shc-meta`), and downloading;
+- a small corpus (the 8 laws, about 15 minutes) for the demo, so nobody has to wait for the 8-hour full embedding;
+- who does what while the embedding runs.
