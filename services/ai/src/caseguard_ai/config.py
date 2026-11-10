@@ -51,6 +51,15 @@ class DatabaseSettings(BaseSettings):
         return _sqlalchemy_url(self.ai_database_url)
 
 
+class HubSettings(BaseSettings):
+    """The private Hugging Face dataset that holds corpus dumps (#154). Never log the token."""
+
+    model_config = _ENV
+
+    hf_token: SecretStr = SecretStr("")  # empty: use the `hf auth login` token
+    hf_corpus_repo: str = "caseguard/corpus"
+
+
 class IngestSettings(EmbeddingSettings, DatabaseSettings):
     """For the ingestion jobs: the database and the embedding model, no service token."""
 

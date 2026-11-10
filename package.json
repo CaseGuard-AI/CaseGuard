@@ -16,6 +16,8 @@
     "db:migrate:ai:down": "uv run --directory services/ai alembic downgrade -1",
     "data:load": "uv run --directory services/ai python -m caseguard_ai.ingest.load",
     "data:embed": "uv run --directory services/ai python -m caseguard_ai.ingest.embed",
+    "data:dump": "uv run --directory services/ai python -m caseguard_ai.ingest.dump",
+    "data:pull": "uv run --directory services/ai python -m caseguard_ai.ingest.pull",
     "db:rebootstrap": "docker compose exec -T db bash /docker-entrypoint-initdb.d/01-schemas-and-roles.sh",
     "db:create-admin": "pnpm --filter ./apps/api run db:create-admin",
     "mail:check": "pnpm --filter ./apps/api run mail:check",

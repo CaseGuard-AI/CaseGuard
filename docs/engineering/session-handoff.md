@@ -64,19 +64,22 @@ Code goes to GitHub. `.env` and tokens go nowhere. The models download themselve
   ```
   Do the same for `shc-criminal` and `pk-code-seed`. Keep `raw\` in these: the PDFs are there.
 
-**Uploading the database** (only after `pnpm data:embed` has finished):
-```powershell
-docker compose exec db pg_dump -U caseguard -d caseguard --schema=corpus --data-only -Fc -f /tmp/corpus.dump
-docker compose cp db:/tmp/corpus.dump ./corpus.dump
-hf upload caseguard/corpus ./corpus.dump dumps/2026-11-10/corpus.dump --repo-type dataset
-```
+**Uploading the database** (#154; only after `pnpm data:embed` has finished): run `pnpm data:dump`.
+- It refuses an unfinished embed, and builds `corpus.dump` + `manifest.json` in `services/ai/.dumps/<today>/`.
+- It asks before publishing to a new `dumps/<date>[-N]/`, and moves `dumps/LATEST` and tags it.
+- Use `-- --freeze eval-frozen-1` for the dump behind an evaluation.
+- Don't upload a `pg_dump` by hand: `data:pull` can't restore it.
 
-**Downloading:**
+**Downloading the database:** run `pnpm db:migrate:ai`, then `pnpm data:pull -- --dump latest`.
+- It checks the checksum and the migration revision, shows what you have, and asks before replacing your local `corpus`.
+- Your `app` and `ai` data are untouched.
+
+**Downloading the crawls:**
 ```powershell
-hf download caseguard/corpus --repo-type dataset --include "snapshots/*" "dumps/*" --local-dir hf-corpus
+hf download caseguard/corpus --repo-type dataset --include "snapshots/*" --local-dir hf-corpus
 ```
 - To use a crawl, unpack it into `services/collector/data/partitions/` (`tar -xf <file>.tar -C services\collector\data\partitions`).
-- Restoring the dump by hand is fiddly: the tables must be emptied first, and the database migrations must match. #154 builds `pnpm data:pull --dump` for this. Until it exists, build your own small corpus (next section).
+- Until the first dump is published, build your own small corpus (next section).
 
 ## Building a corpus on your own machine
 
@@ -115,7 +118,7 @@ The reranker downloads on first use (about 2.3 GB). How well a 7–8B model foll
 ## Open items
 
 - **#152, crawl snapshots:** `pnpm data:push`, `pull` and `status`, which do the Hugging Face steps above automatically. Ready to build now that the org exists.
-- **#154, database dumps:** `pnpm data:dump`, plus `data:pull --dump` to restore.
+- **#154, database dumps:** `pnpm data:dump` and `data:pull --dump` are built (plan 0038). Next: publish the first real dump once the full embed finishes.
 - **`--full-text-first` for `data:embed`** (not built): embed the laws and full judgments before the 56k short head-notes, so the demo works within minutes.
 - **Small follow-ups:**
   - add the 10 unmapped SHC case-type codes to `selections/matter_type_map.csv`, marked `confirmed=no`;
@@ -130,7 +133,7 @@ The reranker downloads on first use (about 2.3 GB). How well a 7–8B model foll
   - work off `staging`, one concern per PR, PR base `staging` (never `main`);
   - squash-merge with `--match-head-commit`, and never delete branches;
   - the repo lead normally approves merges.
-- **Plans** go in `plans/NNNN-<issue>-<slug>.md`. 0037 is the latest.
+- **Plans** go in `plans/NNNN-<issue>-<slug>.md`. 0038 is the latest.
 - **Test databases:** the services/ai tests need `AI_TEST_DATABASE_URL`, pointing at a bootstrapped scratch database, never the dev one (see `services/ai/README.md`).
   - Use `127.0.0.1`, not `localhost`: on Windows, Python stalls on IPv6.
 - **Existing Docker volumes** need `pnpm db:rebootstrap` once, then `pnpm db:migrate:ai`.
