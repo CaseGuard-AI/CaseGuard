@@ -77,6 +77,7 @@ class Report:
     unchanged: int = 0
     duplicates: int = 0
     kept_full_text: int = 0
+    repeated_ids: int = 0
     skipped: Counter[str] = field(default_factory=Counter)
 
     def line(self) -> str:
@@ -84,7 +85,8 @@ class Report:
         return (
             f"read {self.read}: inserted {self.inserted}, updated {self.updated}, "
             f"unchanged {self.unchanged}, duplicate text {self.duplicates}, "
-            f"kept full text {self.kept_full_text}; skipped: {skipped}"
+            f"kept full text {self.kept_full_text}, same id again {self.repeated_ids}; "
+            f"skipped: {skipped}"
         )
 
 
@@ -235,7 +237,29 @@ _CHANGED = text(
 )
 
 
+def _one_per_id(rows: list[dict[str, Any]], report: Report) -> list[dict[str, Any]]:
+    """One row per collector id. The same id comes twice when two partitions hold one judgment:
+    the head-note row from shc-meta and the full judgment from shc-criminal / shc-civil (#153).
+    The full judgment wins whichever comes first; otherwise the later record wins. Postgres
+    refuses an upsert that touches one row twice, so this must happen before it."""
+    by_id: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        seen = by_id.get(row["collector_id"])
+        if seen is None:
+            by_id[row["collector_id"]] = row
+        elif row["headnote_only"] and not seen["headnote_only"]:
+            report.kept_full_text += 1
+        else:
+            if seen["headnote_only"] and not row["headnote_only"]:
+                report.kept_full_text += 1
+            else:
+                report.repeated_ids += 1
+            by_id[row["collector_id"]] = row
+    return list(by_id.values())
+
+
 def _write_batch(engine: Engine, rows: list[dict[str, Any]], report: Report) -> None:
+    rows = _one_per_id(rows, report)
     # Same text under two collector ids (e.g. one judgment listed under two judges) is stored once.
     unique: dict[str, dict[str, Any]] = {}
     for row in rows:

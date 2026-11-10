@@ -227,6 +227,32 @@ def test_a_metadata_pass_never_replaces_a_full_judgment(engine: Engine) -> None:
 
 
 @db
+@pytest.mark.parametrize("full_first", [True, False])
+def test_one_judgment_from_two_partitions_in_one_batch(engine: Engine, full_first: bool) -> None:
+    # `data:load shc-meta shc-civil`: the head-note row and the full judgment share an id.
+    headnote = judgment(
+        1,
+        full_text="A (Appellant) VS The State. Bail granted. Bench: X.",
+        content_hash="h-row",
+        raw={"file_status": "not_downloaded", "headnote_only": True},
+    )
+    batch = [judgment(1), headnote] if full_first else [headnote, judgment(1)]
+    report = load(engine, batch, None)
+    assert (report.inserted, report.kept_full_text) == (1, 1)
+    stored = _rows(engine)[judgment(1)["id"]]
+    assert (stored["headnote_only"], stored["full_text"][:11]) == (False, "Judgment 1.")
+
+
+@db
+def test_the_same_record_listed_twice_is_loaded_once(engine: Engine) -> None:
+    report = load(engine, [judgment(1), judgment(1, title="Retitled")], None)
+    assert (report.inserted, report.repeated_ids, report.duplicates) == (1, 1, 0)
+    with engine.connect() as conn:
+        title = conn.execute(text("SELECT title FROM corpus.documents")).scalar_one()
+    assert title == "Retitled"  # the later record wins
+
+
+@db
 def test_skipped_records_are_counted_not_written(engine: Engine) -> None:
     report = load(
         engine, [record(full_text="short"), record(id="pakistan_code-b", source_url=None)], None
