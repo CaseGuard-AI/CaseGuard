@@ -65,6 +65,10 @@ CREATE TABLE IF NOT EXISTS runs (
 # What a partition run records for the snapshot manifest (#152, #153).
 RUN_PARTITION_COLUMNS = ("partition", "selection_file", "selection_sha256", "source_snapshot")
 
+# A seen URL whose file download failed for a passing reason: the next run processes it again
+# (should_process treats every status but "ok" as not done).
+RETRY = "retry"
+
 
 def _now() -> str:
     return datetime.now(UTC).isoformat()
@@ -172,6 +176,14 @@ class StateStore:
                 ),
             )
         return "changed" if changed else "unchanged"
+
+    def requeue(self, urls: list[str]) -> int:
+        """Mark seen URLs for another try on the next run. Returns how many were found."""
+        with self._connect() as conn:
+            return sum(
+                conn.execute("UPDATE seen SET status=? WHERE url=?", (RETRY, url)).rowcount
+                for url in dict.fromkeys(urls)
+            )
 
     def should_process(self, url: str, *, force: bool = False) -> bool:
         if force:

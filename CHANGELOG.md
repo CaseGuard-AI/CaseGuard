@@ -20,6 +20,7 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 - `bootstrap.sql` grants `caseguard_ai` USAGE (not CREATE) on schema `public`, so it can use the `vector` type. Existing Docker volumes need `pnpm db:rebootstrap` once (#15)
 
 ### Fixed
+- The collector retries a file whose download failed (a timeout, or the site answering 5xx, as SHC did with HTTP 521/525 on 2026-11-10): the record is still stored, but the next run of the same crawl fetches the file again instead of treating it as done. Empty and non-PDF files are not retried. `--requeue-failed-downloads` requeues records stored before this fix
 - `pnpm data:load` no longer fails with "ON CONFLICT DO UPDATE command cannot affect row a second time" when one batch holds the same collector id twice, as `data:load shc-meta shc-civil` does for every selected judgment. The full judgment is kept over its head-note row in either order (#16)
 - Collector works on the live sites again (#147): Pakistan Code's broken TLS chain is fixed by bundling the missing GoGetSSL intermediate next to certifi (verification stays on, and a robots.txt certificate failure now skips the host); relative detail links, `<base href>` and `../pdffiles/` links are resolved like a browser; SHC's relative `download-file.php` links are found and commented-out `view-file` links ignored; empty and non-PDF downloads are flagged in `raw.file_status` and never saved; SHC records carry an explicit `raw.headnote_only`
 
