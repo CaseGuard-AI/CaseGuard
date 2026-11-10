@@ -7,6 +7,16 @@
   - [`handoff-plan.md`](handoff-plan.md) is the plan for implementing all of it;
   - [`work-log.md`](work-log.md) is the history of what was done, one heading per piece of work.
 
+## Start here (for a teammate picking this up)
+
+1. **Get the code:** `git switch staging`, then `git pull`. Everything below is merged there.
+2. **Set up** with [`local-setup.md`](local-setup.md): Docker, `pnpm install`, then `uv sync` in `services/ai` and in `services/collector`.
+   - Copy `.env.example` to `.env`, and set `PKLEGAL_USER_AGENT` to the team contact address.
+   - Put your model provider key in `.env` too, if you use a cloud provider.
+3. **Build your own copy of the corpus.** It isn't shared yet; see "The corpus data is not shared yet" below for the commands. It takes about an hour, mostly the PDF downloads and the embedding.
+4. **Run the M1 demo:** step 1 of "Next steps" below.
+5. **Then pick the next item** from "Next steps", and add a heading for each important piece of work to [`work-log.md`](work-log.md).
+
 ## Where things stand
 
 **Merged into `staging`** (CI green each time, branches kept, `main` untouched):
