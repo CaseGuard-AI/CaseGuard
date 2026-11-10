@@ -11,7 +11,7 @@ This page tells whoever picks up work next where the project stands and what to 
 | **Stream A** (`apps/web`, `apps/api`) | **Mostly done:** auth, settings, admin console, Research Hub UI, email. The P1 screens remain (#97–#108). | [Stream A roadmap](stream-a-roadmap.md) |
 | **Data storage** | **Decided, not built.** Hugging Face corpus repo, partitions, snapshot and dump formats, user-upload storage. | [Data-storage spec](data-storage.md), [`CONTEXT.md`](../../CONTEXT.md) |
 | **Collector** (`services/collector`) | **Works on the live sites again** (#147). A `--limit 5` run stores 5 statutes with PDFs and 4 of 5 SHC judgments with files; the fifth answered with a non-PDF and is flagged. Partitions are in (#153). Next: the full `pk-code-seed` and `shc-meta` crawls. | [Collector README](../../services/collector/README.md) |
-| **M1 data/AI path** (#15–#20, #22) | **Schemas done (#15), loader done (#16);** model gateway done (#21); embed, retrieve and answer (#18–#20) are next. The Research Hub has no corpus to answer from yet, so every question gets a 503. | [PRD §16.2](../PRD.md#162-milestones) |
+| **M1 data/AI path** (#15–#20, #22) | **Schemas done (#15), loader done (#16), chunking and bge-m3 embeddings done (#18);** model gateway done (#21); retrieve and answer (#19, #20) are next. The Research Hub has no corpus to answer from yet, so every question gets a 503. | [PRD §16.2](../PRD.md#162-milestones) |
 | **Corpus collected so far** | Only a small sample on one laptop (git-ignored `services/collector/data_sample*/`). **Nothing is shared yet.** | #139 (measurements) |
 
 **Measured facts that shape the work (from #139):**
