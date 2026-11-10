@@ -4,7 +4,7 @@ The registry of crawl partitions ([data-storage.md §2](../../docs/engineering/d
 
 | Partition | Source | Bounds | Selection file | Owner | Latest snapshot |
 |---|---|---|---|---|---|
-| `pk-code-seed` | `pakistan_code` | Seed statutes (PRD §15.3), their amendment acts, the Constitution and its amendment acts; with PDFs | [`selections/pk-code-seed.txt`](selections/pk-code-seed.txt) (title patterns) | — | — |
+| `pk-code-seed` | `pakistan_code` | The 7 seed statutes (PRD §15.3) and the Constitution, as consolidated texts with every amendment marked; with PDFs | [`selections/pk-code-seed.txt`](selections/pk-code-seed.txt) (title patterns) | — | — |
 | `shc-meta` | `shc_caselaw` | Every judgment on every judge's full listing (`scope=all`), **metadata only** | — | — | — |
 | `shc-criminal` | `shc_caselaw` | Files for the criminal judgments in the selection | `selections/shc-criminal.csv` (not generated yet) | — | — |
 | `shc-civil` | `shc_caselaw` | Files for the civil judgments in the selection | `selections/shc-civil.csv` (not generated yet) | — | — |

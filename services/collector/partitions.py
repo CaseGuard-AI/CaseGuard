@@ -186,7 +186,7 @@ PARTITIONS: dict[str, Partition] = {
     "pk-code-seed": Partition(
         name="pk-code-seed",
         source="pakistan_code",
-        covers="Seed statutes (PRD §15.3), their amendment acts and the Constitution",
+        covers="The 7 seed statutes (PRD §15.3) and the Constitution, consolidated texts",
         title_selection="pk-code-seed.txt",
     ),
     "shc-meta": Partition(

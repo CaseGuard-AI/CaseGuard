@@ -15,7 +15,7 @@ Handoff critical-path item 4. The crawl is split into partitions (data-storage.m
   - non-matching items are counted as `not_selected` and never fetched;
   - discovery stops once every selected id has been found;
   - ids that never turned up are logged and emitted as `selection_missing`.
-- **`pk-code-seed`** uses a committed list of title regexes (`selections/pk-code-seed.txt`) that also match each seed statute's amendment acts.
+- **`pk-code-seed`** uses a committed list of title regexes (`selections/pk-code-seed.txt`) that match the 7 seed statutes and the Constitution. Pakistan Code lists no separate amendment acts: each text is the consolidated version with amendments marked.
 - **SHC selections are keyed on the collector document id.**
   - It's `make_id()` over the discovered URL (the `doc=` download link), so it's known before any fetch.
   - It's identical to the id stored by `shc-meta`, so #16's loader upgrades the head-note-only row to the full judgment.

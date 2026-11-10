@@ -31,18 +31,15 @@ SEED = load_title_selection(SELECTIONS_DIR / "pk-code-seed.txt")
 @pytest.mark.parametrize(
     "title",
     [
-        "The Pakistan Penal Code, 1860",
-        "The Code of Criminal Procedure, 1898",
-        "Code of Criminal Procedure (Amendment) Act, 2021",
-        "Qanun-e-Shahadat Order, 1984",
-        "The Criminal Laws (Amendment) Act, 2016",
-        "The Code of Civil Procedure, 1908",
-        "The Contract Act, 1872",
-        "The Specific Relief Act, 1877",
-        "The Specific Relief (Amendment) Act, 2025",
-        "The Limitation Act, 1908",
-        "The Constitution of the Islamic Republic of Pakistan",
-        "The Constitution (Twenty-sixth Amendment) Act, 2024",
+        # As the live index writes them (2026-11-10), double spaces included.
+        "Pakistan Penal Code (PPC),1860 (Under Review) ",
+        "Code of Criminal Procedure (CrPC), 1898 (Under Review) ",
+        "Qanun-e-Shahadat Order, 1984 (QSO)",
+        "Code of Civil Procedure (CPC) , 1908 (Under Review)",
+        "Contract Act, 1872",
+        "Specific Relief Act, 1877",
+        "Limitation Act, 1908",
+        "Constitution of the Islamic  Republic of Pakistan",
     ],
 )
 def test_the_seed_list_matches_the_seed_statutes(title: str) -> None:
@@ -51,7 +48,14 @@ def test_the_seed_list_matches_the_seed_statutes(title: str) -> None:
 
 @pytest.mark.parametrize(
     "title",
-    ["The Pakistan Army Act, 1952", "The Companies Act, 2017", "Income Tax Ordinance, 2001"],
+    [
+        "The Pakistan Army Act, 1952",
+        "Income Tax Ordinance, 2001",
+        # Matched by an unanchored "limitation act" in the first live run:
+        "Fiscal Responsibility and Debt Limitation Act, 2005",
+        "Professions Tax Limitation Act, 1941",
+        "Government Contract Act, 1950",
+    ],
 )
 def test_the_seed_list_leaves_other_statutes_out(title: str) -> None:
     assert not SEED.wants(Discovered(url="u", hints={"title": title}))
