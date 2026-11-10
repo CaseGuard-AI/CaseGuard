@@ -11,6 +11,9 @@ Examples
     python main.py --source supreme_court --probe
     python main.py --source supreme_court --ingest-dir ./manual_pdfs
     python main.py --source shc_caselaw --no-pdfs --limit 500 # metadata-first pass
+    python main.py --list-partitions
+    python main.py --partition shc-meta                       # all SHC metadata, own dir
+    python main.py --partition shc-criminal --limit 200       # files for the selection
     python main.py --retry-failed --source pakistan_code      # re-attempt failures
     python main.py --list-bootstrap
     python main.py --bootstrap pakistan_laws --limit 50       # third-party corpus
@@ -44,6 +47,15 @@ def build_parser() -> argparse.ArgumentParser:
     what.add_argument("--end-year", type=int)
     what.add_argument("--limit", type=int, help="stop after N stored documents (test mode)")
     what.add_argument("--max-pages", type=int, help="cap listing pages per index")
+    what.add_argument(
+        "--partition",
+        help="crawl one named partition into its own output dir (see --list-partitions)",
+    )
+    what.add_argument(
+        "--selection",
+        type=Path,
+        help="process only the items in this selection file (default: the partition's own)",
+    )
 
     how = parser.add_argument_group("how to behave")
     how.add_argument(
@@ -76,6 +88,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     tools = parser.add_argument_group("tools")
     tools.add_argument("--list-sources", action="store_true")
+    tools.add_argument("--list-partitions", action="store_true")
     tools.add_argument(
         "--probe", action="store_true", help="save what a source's endpoints return, for inspection"
     )
@@ -175,6 +188,10 @@ def settings_from_args(args: argparse.Namespace) -> Settings:
         settings.dry_run = True
     if args.i_have_permission:
         settings.i_have_permission = True
+    if args.partition:
+        apply_partition(settings, args)
+    elif args.selection:
+        raise SystemExit("--selection needs --partition (it says which source the ids belong to)")
     if args.ignore_robots:
         print(
             "Refusing --ignore-robots. If a site disallows crawling, ask its "
@@ -183,6 +200,46 @@ def settings_from_args(args: argparse.Namespace) -> Settings:
         )
         raise SystemExit(2)
     return settings
+
+
+def apply_partition(settings: Settings, args: argparse.Namespace) -> None:
+    """Point the run at one partition: its source, scope, selection and output dir."""
+    from partitions import get_partition
+
+    partition = get_partition(args.partition)
+    if args.source and args.source != partition.source:
+        raise SystemExit(
+            f"--partition {partition.name} crawls {partition.source}; drop --source {args.source}"
+        )
+    args.source = partition.source
+    settings.partition = partition.name
+    settings.shc_scope = partition.shc_scope
+    if not partition.download_pdfs:
+        settings.download_pdfs = False
+    if args.output_dir is None:
+        settings.output_dir = settings.output_dir / "partitions" / partition.name
+    try:
+        settings.selection = partition.load_selection(args.selection)
+    except (FileNotFoundError, ValueError) as exc:
+        raise SystemExit(str(exc)) from None
+
+
+def print_partitions() -> None:
+    from partitions import PARTITIONS
+
+    print("\nPartitions (docs/engineering/data-storage.md §2; owners in PARTITIONS.md)")
+    print("-" * 78)
+    for p in PARTITIONS.values():
+        extra = []
+        if p.shc_scope:
+            extra.append(f"scope={p.shc_scope}")
+        if not p.download_pdfs:
+            extra.append("no PDFs")
+        if p.selection_path():
+            extra.append(f"selection=selections/{p.selection_path().name}")
+        print(f"  {p.name:<14} {p.source:<14} {', '.join(extra)}")
+        print(f"  {'':<14} {p.covers}")
+    print()
 
 
 # ----------------------------------------------------------------------
@@ -358,6 +415,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.list_bootstrap:
         return cmd_list_bootstrap()
+    if args.list_partitions:
+        print_partitions()
+        return 0
 
     settings = settings_from_args(args)
     settings.ensure_dirs()

@@ -1,0 +1,18 @@
+# pk-code-seed: the Pakistan Code titles this partition fetches (PRD §15.3).
+# One case-insensitive regex per line, matched against the index title. Use \s+ between words:
+# the site's titles have double spaces ("Constitution of the Islamic  Republic of Pakistan").
+#
+# Amendment acts are not listed separately on Pakistan Code: each statute's text is the
+# consolidated version, with every amendment marked in brackets and footnoted.
+#
+# Criminal
+pakistan\s+penal\s+code
+code\s+of\s+criminal\s+procedure
+qan(u|oo)n-?e-?shahadat
+# Civil (anchored: "Fiscal Responsibility and Debt Limitation Act" is not the Limitation Act)
+code\s+of\s+civil\s+procedure
+^\s*(the\s+)?contract\s+act\b
+^\s*(the\s+)?specific\s+relief\s+act\b
+^\s*(the\s+)?limitation\s+act\b
+# Shared
+constitution\s+of\s+(the\s+)?islamic\s+republic\s+of\s+pakistan

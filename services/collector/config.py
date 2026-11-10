@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any
 
 try:  # optional convenience
     from dotenv import load_dotenv
@@ -197,6 +198,11 @@ class Settings:
     force: bool = False  # re-fetch even if already seen
     dry_run: bool = False  # discover + log, write nothing
     i_have_permission: bool = False
+
+    # partitions (#153): set by --partition, see partitions.py
+    partition: str | None = None
+    shc_scope: str | None = None  # overrides PKLEGAL_SHC_SCOPE
+    selection: Any = None  # partitions.Selection: only these discovered items are processed
 
     # storage
     database_url: str | None = os.getenv("PKLEGAL_DATABASE_URL")  # postgresql+psycopg://...

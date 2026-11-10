@@ -1,0 +1,58 @@
+matter_type,proceeding_type,branch,confirmed
+Const. P,constitutional_petition,either,yes
+Cr.Bail,bail,criminal,yes
+Spl.Cr.Bail,bail,criminal,yes
+Criminal Appeal,criminal_appeal,criminal,yes
+Cr.Appeal,criminal_appeal,criminal,yes
+Spl. Cr. A,criminal_appeal,criminal,yes
+Spl.Cr.A.T.A,criminal_appeal,criminal,yes
+Spl.Anti.Ter.A,criminal_appeal,criminal,yes
+Cr.Acctt.A,criminal_appeal,criminal,yes
+Cr.J.A,criminal_appeal,criminal,yes
+Spl.Cr.J.A,criminal_appeal,criminal,yes
+Spl.Anti.Ter.J.A,criminal_appeal,criminal,yes
+Cr.Acq.A,acquittal_appeal,criminal,yes
+Spl.Anti.T.Acq.A,acquittal_appeal,criminal,yes
+Cr.Acctt..Acq. A,acquittal_appeal,criminal,yes
+Cr.Rev,criminal_revision,criminal,yes
+Criminal Miscelleneous,criminal_misc,criminal,yes
+Cr.Misc,criminal_misc,criminal,yes
+Cr.Org.Misc,criminal_misc,criminal,yes
+Spl.Cr.Misc,criminal_misc,criminal,yes
+Cr.Tran,transfer,criminal,yes
+Civil Tran,transfer,civil,yes
+Conf.Case,confirmation_reference,criminal,yes
+Conf.Case (A.T.A),confirmation_reference,criminal,yes
+Cr.Ref,confirmation_reference,criminal,yes
+Suit,suit,civil,yes
+Suit.B,suit,civil,yes
+Adm. Suit,suit,civil,yes
+I. A,first_appeal,civil,no
+Civil Appeal,first_appeal,civil,yes
+First Appeal Against Order,first_appeal,civil,yes
+Adm.A,first_appeal,civil,yes
+II.A,second_appeal,civil,yes
+R.A (Civil Revision),civil_revision,civil,yes
+Civil Revision,civil_revision,civil,yes
+H.C.A,intra_court_appeal,civil,yes
+Spl.H.C.A,intra_court_appeal,civil,yes
+Intra Court Appeal,intra_court_appeal,civil,yes
+F.R.A,statutory_appeal,civil,yes
+Election Appeal,statutory_appeal,civil,yes
+Family Appeal,statutory_appeal,civil,yes
+Succession Appeal,statutory_appeal,civil,yes
+W.T.A,statutory_appeal,civil,yes
+S.M.A,succession_petition,civil,no
+Execution,execution,civil,yes
+E.P,execution,civil,yes
+Execution First Appeal,execution,civil,yes
+I.T.R.A,tax_reference,civil,yes
+I.T.R,tax_reference,civil,yes
+I.T.C,tax_reference,civil,yes
+Spl. Cus. Ref. A,tax_reference,civil,yes
+Spl:Sales Tax Ref: A,tax_reference,civil,yes
+Civil Ref,tax_reference,civil,yes
+Judicial Companies Misc,company_insolvency,civil,yes
+Insolvency,company_insolvency,civil,yes
+M.A,civil_misc,civil,no
+J.M,civil_misc,civil,no
