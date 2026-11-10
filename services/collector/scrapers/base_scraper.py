@@ -25,7 +25,7 @@ from extractors.pdf_extractor import extract_pdf
 from models.legal_document import ExtractionStatus, FileStatus, LegalDocument
 from storage.file_storage import FileStorage
 from storage.jsonl_storage import JsonlStorage
-from storage.state_store import StateStore
+from storage.state_store import RETRY, StateStore
 from utils.dates import extract_year, in_year_range
 from utils.hashing import sha256_bytes
 from utils.http_client import FetchError, HttpClient, RobotsDisallowed
@@ -291,6 +291,11 @@ class BaseScraper(abc.ABC):
         self.storage.write(document)
         self.stats.stored += 1
         self.state.register_hash(document.content_hash, document.id, self.source_key, state_url)
+        # A file that could not be downloaded (a timeout, the site answering 5xx) is a passing
+        # problem: the record is stored so its metadata isn't lost, but marked RETRY so the next
+        # run fetches the file again. An empty or non-PDF answer is the file itself and is not
+        # retried; --force re-fetches those.
+        download_failed = document.raw.get("file_status") == FileStatus.DOWNLOAD_FAILED.value
         status_change = self.state.mark_seen(
             state_url,
             self.source_key,
@@ -298,12 +303,13 @@ class BaseScraper(abc.ABC):
             content_hash=document.content_hash,
             etag=getattr(response, "etag", None),
             last_modified=getattr(response, "last_modified", None),
-            status="invalid" if problems else "ok",
+            status=RETRY if download_failed else ("invalid" if problems else "ok"),
         )
         if status_change == "changed":
             self.stats.changed += 1
             document.notes.append("content changed since previous run")
-        self.state.clear_failure(state_url)
+        if not download_failed:
+            self.state.clear_failure(state_url)
         return status_change
 
     # ==================================================================

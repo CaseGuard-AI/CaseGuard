@@ -122,6 +122,11 @@ python main.py --partition shc-criminal --limit 200     # PDFs for the committed
 # re-attempt only what failed, without re-walking the site
 python main.py --retry-failed --source pakistan_code
 
+# files that failed to download are retried by the next run of the same crawl; for
+# records stored before that, requeue them once, then rerun
+python main.py --partition shc-civil --requeue-failed-downloads
+python main.py --partition shc-civil
+
 # third-party bootstrap corpora (kept provenance-separate, see §10)
 python main.py --list-bootstrap
 python main.py --bootstrap pakistan_laws --limit 50
@@ -298,6 +303,14 @@ Every record that links a file says what happened to it in `raw.file_status`:
 `missing_link`. An empty body or a non-PDF is never saved under `raw/`. About 1
 in 10 SHC downloads is one of these (#147). A cached file on disk is reused only
 if it really is a PDF.
+
+`download_failed` (a timeout, or the site answering 5xx such as SHC's HTTP 521/525
+when it is down) is a passing problem: the record is stored, and its crawl state is
+`retry`, so the **next run of the same crawl fetches the file again**. A success
+writes the full judgment under the same id, and the corpus loader replaces the
+head-note row. `empty` and `not_pdf` describe the file itself and are not retried
+(use `--force` for that). Records stored before this behaviour existed can be
+requeued once with `--requeue-failed-downloads`.
 
 Filenames embed a hash of the source URL (`<slug>_<urlkey>.pdf`), so two
 documents with the same title never collide and any file traces back to its URL.
