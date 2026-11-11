@@ -136,3 +136,13 @@ The embedded corpus can now be shared, so teammates restore it instead of embedd
 - `pnpm data:pull -- --dump latest` checks the checksum and the migration revision, shows what you have, asks, and replaces only `corpus`.
 
 It uses `COPY` through psycopg, not `pg_dump`, so it needs no matching Postgres client on Windows or in CI. Plan: `plans/0038`.
+
+## 2026-11-12
+
+### ADR-0009: user API keys (#92)
+Decided how a user's own model key reaches services/ai (FR-SET-2), choosing option (a) from the roadmap:
+- apps/api alone stores keys, encrypted with AES-256-GCM under `KEY_ENCRYPTION_KEY`;
+- it sends the decrypted key with each request over the internal network, and services/ai never stores or logs it;
+- keys work only for cloud providers the Admin has enabled, and the API shows only the last four characters.
+
+Key rotation is left for later. Plan for all of FR-SET-2 (ADR, contracts, api, services/ai, web): `plans/0041`.
