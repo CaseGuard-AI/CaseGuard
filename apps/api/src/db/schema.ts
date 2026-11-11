@@ -171,6 +171,8 @@ export const messages = app.table(
     language: text("language", { enum: LANGUAGES }),
     answerable: boolean("answerable"),
     citations: jsonb("citations").$type<Citation[]>(),
+    // What a "law as of" date changed in this answer (FR-RES-11); assistant messages only.
+    asOfNote: text("as_of_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

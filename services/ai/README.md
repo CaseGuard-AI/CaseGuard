@@ -164,6 +164,7 @@ pnpm data:pull -- --dump latest|<date>[-N]|eval-frozen-N [--from DIR] [--yes]  #
   - the public corpus, plus `ai.case_chunks` only where `user_id` is the caller's **and** `case_id` is in `allowedCaseIds`;
   - it's in every SQL statement that can touch case chunks, and an empty list means the public corpus only;
   - `tests/test_retrieval.py` holds the release-blocking marker-document test.
+- **Law as of (FR-RES-11):** `retrieve(..., law_as_of=date)` leaves out judgments decided after that date, inside both searches and before their `LIMIT`. Judgments with no `decided_on` and all statutes stay in. With a date, the dense search turns on `hnsw.iterative_scan = strict_order` for that query, so the HNSW filter still fills k. The answer then carries an `asOfNote`.
 - **Trace:** `Retrieval.trace()` gives the dense, sparse, fused and reranked lists (ids and scores, no text), for `ai.answer_traces`.
 - **Guard:** search refuses a corpus that was never embedded, or one embedded with a different model or revision than the query embedder.
 - **The reranker** loads in-process like the embedder (pinned by `RERANKER_MODEL` / `RERANKER_REVISION`; about 2.3 GB on first use). Tests use `OverlapReranker`.

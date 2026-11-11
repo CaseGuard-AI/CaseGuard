@@ -665,6 +665,11 @@ components:
         citations:
           type: array
           items: { $ref: "./ai.v1.yaml#/components/schemas/Citation" }
+        asOfNote:
+          description: |
+            Assistant messages only, and only when the question gave `lawAsOf` (FR-RES-11): what
+            the date changed (later judgments excluded; statutes are the current text).
+          type: string
         createdAt: { type: string, format: date-time }
 
     AdminUser:

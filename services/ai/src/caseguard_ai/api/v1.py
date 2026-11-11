@@ -82,6 +82,7 @@ def research_answer(
             allowed_case_ids=tuple(body.scope.allowedCaseIds),
         ),
         language=body.language,
+        law_as_of=body.lawAsOf,
         history=[(t.role, t.content) for t in body.history],
         allowed_providers=body.allowedProviders,
     )

@@ -310,6 +310,31 @@ def test_nothing_retrieved_is_unanswerable_without_calling_the_model(
     assert ask.gateways[-1].calls == []
 
 
+# ── FR-RES-11: "law as of" date ────────────────────────────────────────────────────────────
+
+
+def test_a_law_as_of_date_adds_a_note_in_the_answer_language(ask: Any) -> None:
+    body = ask(cites_302(), lawAsOf="2020-01-01").json()
+    conforms("Answer", body)
+    assert body["answerable"] is True
+    assert "2020-01-01" in body["asOfNote"] and "judgments" in body["asOfNote"]
+    urdu = ask(cites_302(), lawAsOf="2020-01-01", language="ur").json()
+    conforms("Answer", urdu)
+    assert urdu["asOfNote"] != body["asOfNote"] and "2020-01-01" in urdu["asOfNote"]
+
+
+def test_an_unanswerable_answer_with_a_date_still_carries_the_note(ask: Any) -> None:
+    body = ask(lambda _msg: "NOT_ANSWERABLE", lawAsOf="2020-01-01").json()
+    conforms("Answer", body)
+    assert body["answerable"] is False and "2020-01-01" in body["asOfNote"]
+
+
+def test_no_date_means_no_note(ask: Any) -> None:
+    body = ask(cites_302()).json()
+    conforms("Answer", body)
+    assert "asOfNote" not in body
+
+
 def test_the_status_shown_is_the_stored_one(ask: Any, engine: Engine) -> None:
     citation = ask(cites_302()).json()["citations"][0]
     fetched = get(ask, f"/ai/v1/citations/{citation['id']}").json()

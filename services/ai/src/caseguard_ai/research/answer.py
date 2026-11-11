@@ -20,6 +20,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from sqlalchemy import Engine, text
@@ -39,6 +40,26 @@ UNANSWERABLE_TEXT = (
     "The sources in the corpus do not answer this question, so no answer is given. "
     "Try rephrasing it, or name the statute or section you mean."
 )
+# What a "law as of" date changed (FR-RES-11), in the answer's language. Statutes are not
+# versioned yet (FR-TEMP-* is a later module), so the note says the text is the current one.
+AS_OF_NOTES = {
+    "en": (
+        "Law as of {d}: judgments decided after this date were left out. Statute text is the "
+        "current version, because historical versions are not curated yet."
+    ),
+    "ur": (
+        "{d} تک کا قانون: اس تاریخ کے بعد کے فیصلے شامل نہیں کیے گئے۔ قوانین کا متن موجودہ "
+        "ہے، کیونکہ پرانے ورژن ابھی مرتب نہیں کیے گئے۔"
+    ),
+    "roman_ur": (
+        "{d} tak ka qanoon: is tareekh ke baad ke faislay shamil nahin kiye gaye. Qawaneen ka "
+        "matan maujooda version hai, kyunke purane versions abhi murattab nahin kiye gaye."
+    ),
+}
+
+
+def as_of_note(law_as_of: date, language: str) -> str:
+    return AS_OF_NOTES.get(language, AS_OF_NOTES["en"]).format(d=law_as_of.isoformat())
 
 
 @dataclass(frozen=True)
@@ -47,6 +68,7 @@ class Question:
     question: str
     scope: Scope
     language: str | None = None
+    law_as_of: date | None = None
     history: list[tuple[str, str]] = field(default_factory=list)  # (role, content)
     allowed_providers: list[str] | None = None
 
@@ -96,7 +118,9 @@ def answer_question(
     gateway.provider_for("generation", q.allowed_providers)  # fail closed before any work
 
     with engine.connect() as conn:
-        found: Retrieval = retrieve(conn, q.question, q.scope, embedder, reranker)
+        found: Retrieval = retrieve(
+            conn, q.question, q.scope, embedder, reranker, law_as_of=q.law_as_of
+        )
     passages = found.passages
     models: dict[str, Any] = {
         "embedding": f"{embedder.model_id}@{embedder.revision}",
@@ -166,6 +190,7 @@ def answer_question(
             new_citations=new if answerable else [],
         )
 
+    note = {"asOfNote": as_of_note(q.law_as_of, language)} if q.law_as_of else {}
     if not answerable:
         return {
             "requestId": str(q.request_id),
@@ -173,6 +198,7 @@ def answer_question(
             "language": language,
             "text": UNANSWERABLE_TEXT,
             "citations": [],
+            **note,
         }
     with engine.connect() as conn:
         stored = store.read_citations(conn, [c.id for c in new])
@@ -182,4 +208,5 @@ def answer_question(
         "language": language,
         "text": _tidy("".join(pieces)),
         "citations": stored,
+        **note,
     }

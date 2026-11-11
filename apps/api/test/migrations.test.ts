@@ -135,12 +135,17 @@ describe.skipIf(!url)("app schema migrations", () => {
   });
 
   it("is reversible: down drops the tables, up recreates them", async () => {
-    const hasTheme = async () =>
+    const hasColumn = async (table: string, column: string) =>
       (
         await pool.query(
-          "SELECT 1 FROM information_schema.columns WHERE table_schema = 'app' AND table_name = 'users' AND column_name = 'theme'",
+          "SELECT 1 FROM information_schema.columns WHERE table_schema = 'app' AND table_name = $1 AND column_name = $2",
+          [table, column],
         )
       ).rowCount === 1;
+    const hasTheme = () => hasColumn("users", "theme");
+    expect(await hasColumn("messages", "as_of_note")).toBe(true);
+    expect(await migrateDown(pool)).toBe("0009_message_as_of_note");
+    expect(await hasColumn("messages", "as_of_note")).toBe(false);
     expect(await hasTheme()).toBe(true);
     expect(await migrateDown(pool)).toBe("0007_user_theme");
     expect(await hasTheme()).toBe(false);
@@ -180,6 +185,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0005_messages_citations_idx",
       "0006_audit_allowed_providers",
       "0007_user_theme",
+      "0009_message_as_of_note",
     ]);
     expect((await tables()).map((t) => t.tablename)).toEqual([
       "__drizzle_migrations",

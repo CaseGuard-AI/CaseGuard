@@ -194,6 +194,8 @@
     "you": "You",
     "sources": "Evidence & sources",
     "unanswerable": "The sources don't support an answer to this question.",
+    "lawAsOf": "Law as of (optional)",
+    "asOfNote": "Law as of a past date",
     "errors": {
       "aiDisabled": "AI research is turned off for your account. Ask your administrator to enable it.",
       "tooMany": "Too many questions. Wait a few minutes and try again.",
