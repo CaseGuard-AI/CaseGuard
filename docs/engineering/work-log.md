@@ -136,3 +136,14 @@ The embedded corpus can now be shared, so teammates restore it instead of embedd
 - `pnpm data:pull -- --dump latest` checks the checksum and the migration revision, shows what you have, asks, and replaces only `corpus`.
 
 It uses `COPY` through psycopg, not `pg_dump`, so it needs no matching Postgres client on Windows or in CI. Plan: `plans/0038`.
+
+## 2026-11-12
+
+### Research history sidebar (FR-RES-8, #86)
+The Research Hub now lists past conversations, so a user can get back to an earlier thread:
+- newest first, with a relative date, and the open one marked;
+- a column on desktop and a drawer on phones, mirrored for Urdu;
+- "New question", "Load more", and empty, loading and error states;
+- a new question shows at the top straight away, without a reload.
+
+It uses the existing `GET /conversations`, so only `apps/web` changed. "Save to case" waits for Cases. The new Urdu strings need native review (#105). Plan: `plans/0039`.
