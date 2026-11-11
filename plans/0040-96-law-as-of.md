@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#96](https://github.com/CaseGuard-AI/CaseGuard/issues/96)
+> **Status:** Done · **Issue:** [#96](https://github.com/CaseGuard-AI/CaseGuard/issues/96) · **PR:** [#181](https://github.com/CaseGuard-AI/CaseGuard/pull/181)
 
 # #96: "law as of" date (FR-RES-11)
 

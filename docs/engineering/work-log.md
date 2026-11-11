@@ -137,7 +137,7 @@ The embedded corpus can now be shared, so teammates restore it instead of embedd
 
 It uses `COPY` through psycopg, not `pg_dump`, so it needs no matching Postgres client on Windows or in CI. Plan: `plans/0038`.
 
-### "Law as of" date (#96)
+### "Law as of" date (#96, PR #181)
 A question can now be asked about the law on a past date. The date was already accepted and audited, but nothing used it. Now:
 - the search leaves out judgments decided after the date, inside the database queries. Judgments with an unknown date stay in;
 - statutes stay as they are, because no historical versions are curated yet. The answer says so in a note, in its own language;
