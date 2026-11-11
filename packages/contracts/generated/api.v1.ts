@@ -519,6 +519,10 @@ export interface components {
                 support?: "pass" | "uncertain" | "fail" | "not_run";
                 /** @enum {string} */
                 currency?: "current" | "historical" | "unknown";
+                /** @description How the support verdict was reached: "nli", or "nli+llm" when the NLI model was uncertain and the judge decided (FR-TRUST-3). Only present when support ran. */
+                support_method?: string;
+                /** @description P(entailment) from the NLI model, 0 to 1. Only present when support ran. */
+                support_score?: number;
             };
         };
         Citation: {

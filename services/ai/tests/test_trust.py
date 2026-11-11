@@ -44,8 +44,8 @@ def test_only_existence_and_support_with_no_blocking_flag_is_verified(flag: str)
     assert decide("pass", "pass", [flag]) == "verified"
 
 
-def test_m1_never_shows_verified() -> None:
-    # FR-TRUST-8: the support check is not run in M1, so no combination reaches "verified".
+def test_nothing_is_verified_without_a_support_check() -> None:
+    # FR-TRUST-8: when support did not run, no combination reaches "verified".
     flag_sets = [[], ["headnote_only"], ["third_party_source"]]
     results = {decide(e, "not_run", f) for e, f in itertools.product(["pass", "fail"], flag_sets)}  # type: ignore[arg-type]
     assert results == {"needs_review", "unverified"}

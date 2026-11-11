@@ -1,7 +1,8 @@
 """Answer a research question with checked, stored citations (#20, ai.v1 ``answerQuestion``).
 
     retrieve (#19) → prompt with numbered passages → generation (gateway, allow-list only)
-      → parse [[p:N]] markers and quotes → existence check → status → one transaction:
+      → parse [[p:N]] markers and quotes → existence check → support check (only if existence
+        passed) → status → one transaction:
         ai.answer_traces + ai.citations + ai.verifications → read the statuses back → response
 
 - **Fails closed.** A request whose allow-list has no configured generation provider is refused
@@ -33,7 +34,8 @@ from caseguard_ai.research.prompts import answer_v1 as prompt
 from caseguard_ai.retrieval.hybrid import CORPUS, Passage, Retrieval, Scope, retrieve
 from caseguard_ai.retrieval.reranker import Reranker
 from caseguard_ai.trust import existence
-from caseguard_ai.trust.status import VERIFIER_VERSION, decide, source_flags
+from caseguard_ai.trust.status import VERIFIER_VERSION, Support, decide, source_flags
+from caseguard_ai.trust.support import SupportChecker, SupportResult
 
 HISTORY_TURNS = 6  # recent turns sent to the model; small models lose the passages otherwise
 UNANSWERABLE_TEXT = (
@@ -91,6 +93,7 @@ def answer_question(
     gateway: ModelGateway,
     embedder: Embedder,
     reranker: Reranker,
+    support_checker: SupportChecker,
     stale_days: int | None = None,  # FR-TRUST-6 review window; None = never flag "stale"
 ) -> dict[str, Any]:
     started = time.perf_counter()
@@ -105,6 +108,7 @@ def answer_question(
         "reranker": reranker.model_id,
         "prompt": prompt.VERSION,
         "verifier": VERIFIER_VERSION,
+        "support": support_checker.model_id,
     }
 
     reply = Reply(answerable=False)
@@ -131,6 +135,15 @@ def answer_question(
                 invalid += 1
                 continue
             checked = existence.check(conn, passage, reply.quotes.get(marker.passage))
+            claim = marker.claim or reply.text.strip()[:500]
+            # Support runs only after existence passed (FR-TRUST-9): a model never sees, and
+            # never rescues, a citation the deterministic check already failed.
+            supported: SupportResult | None = None
+            if checked.passed:
+                supported = support_checker.check(
+                    claim, checked.span or passage.text, allowed_providers=q.allowed_providers
+                )
+            support: Support = supported.verdict if supported else "not_run"
             flags = source_flags(
                 headnote_only=passage.headnote_only,
                 third_party=passage.third_party,
@@ -139,21 +152,25 @@ def answer_question(
                 now=now,
                 stale_days=stale_days if passage.origin == CORPUS else None,
             )
-            checks = {
+            checks: dict[str, Any] = {
                 "existence": "pass" if checked.passed else "fail",
-                "support": "not_run",  # the support check comes after M1 (PRD §7.1 step 2)
+                "support": support,
                 "currency": "unknown",
                 "existence_reason": checked.reason,
             }
+            if supported is not None:
+                checks["support_method"] = supported.method
+                if supported.score is not None:
+                    checks["support_score"] = supported.score
             citation = store.NewCitation(
                 id=uuid.uuid4(),
                 source_id=passage.document_id,
                 chunk_id=passage.chunk_id,
-                claim=marker.claim or reply.text.strip()[:500],
+                claim=claim,
                 locator=passage.locator,
                 quote=checked.span,
                 quote_language=languages.get(passage.document_id),
-                status=decide("pass" if checked.passed else "fail", "not_run", flags),
+                status=decide("pass" if checked.passed else "fail", support, flags),
                 flags=flags,
                 checks=checks,
                 verifier_version=VERIFIER_VERSION,

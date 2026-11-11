@@ -29,6 +29,7 @@ from caseguard_ai.ingest.embedder import HashEmbedder
 from caseguard_ai.ingest.load import load
 from caseguard_ai.main import app
 from caseguard_ai.retrieval.reranker import OverlapReranker
+from caseguard_ai.trust.support import StubSupportChecker, SupportResult
 from tests.conftest import TOKEN
 from tests.test_load import judgment, record
 
@@ -93,6 +94,24 @@ class FakeGateway:
         return ChatResult(
             self.reply(messages[-1]["content"]), "ollama", "qwen2.5:7b", 5, "stop", {}
         )
+
+
+class RecordingSupport:
+    """The stub support checker, or a fixed verdict, recording what it was asked."""
+
+    model_id = StubSupportChecker.model_id
+
+    def __init__(self) -> None:
+        self.verdict: str | None = None  # None = the stub decides
+        self.calls: list[tuple[str, str, list[str] | None]] = []
+
+    def check(
+        self, claim: str, evidence: str, *, allowed_providers: list[str] | None = None
+    ) -> SupportResult:
+        self.calls.append((claim, evidence, allowed_providers))
+        if self.verdict is None:
+            return StubSupportChecker().check(claim, evidence)
+        return SupportResult(self.verdict, 0.5, "scripted")  # type: ignore[arg-type]
 
 
 def p(user_message: str, heading: str) -> int:
@@ -169,9 +188,12 @@ def ask(engine: Engine, monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[..
     app.dependency_overrides[deps.get_engine] = lambda: engine
     app.dependency_overrides[deps.get_embedder] = HashEmbedder
     app.dependency_overrides[deps.get_reranker] = OverlapReranker
+    support = RecordingSupport()
+    app.dependency_overrides[deps.get_support_checker] = lambda: support
     with TestClient(app) as client:
         _ask.client = client  # type: ignore[attr-defined]
         _ask.gateways = gateways  # type: ignore[attr-defined]
+        _ask.support = support  # type: ignore[attr-defined]
         yield _ask
     app.dependency_overrides.clear()
     get_settings.cache_clear()
@@ -210,10 +232,46 @@ def test_an_answer_with_a_checked_citation(ask: Any, engine: Engine) -> None:
     assert citation["quote"] == "shall,\nsubject to the provisions of this Chapter, be punished"
     assert citation["quoteLanguage"] == "en"
     assert citation["claim"] == "Qatl-i-amd is punished with death as qisas."
-    # M1: the support check is not run, so nothing is "verified" (FR-TRUST-8).
+    # The quote doesn't carry the claim, so support is uncertain: needs review (FR-TRUST-8).
     assert citation["verification"]["status"] == "needs_review"
     assert citation["verification"]["checks"]["existence"] == "pass"
+    assert citation["verification"]["checks"]["support"] == "uncertain"
+    assert citation["verification"]["checks"]["support_method"] == "stub"
+    (stored,) = _rows(
+        engine,
+        "SELECT verifier_version FROM ai.verifications WHERE citation_id = :c",
+        c=citation["id"],
+    )
+    assert stored.verifier_version == "m2-support-1"
+    # The claim is checked against the stored span, under the request's allow-list.
+    assert ask.support.calls == [(citation["claim"], citation["quote"], ["ollama"])]
+
+
+def test_a_supported_citation_is_verified(ask: Any) -> None:
+    (citation,) = ask(cites_302()).json()["citations"]
+    assert citation["verification"]["status"] == "verified"
+    assert citation["verification"]["checks"]["existence"] == "pass"
+    assert citation["verification"]["checks"]["support"] == "pass"
+    assert isinstance(citation["verification"]["checks"]["support_score"], float)
+
+
+def test_a_contradicted_citation_needs_review(ask: Any) -> None:
+    ask.support.verdict = "fail"
+    body = ask(cites_302()).json()
+    conforms("Answer", body)
+    (citation,) = body["citations"]
+    assert citation["verification"]["status"] == "needs_review"
+    assert citation["verification"]["checks"]["support"] == "fail"
+    assert citation["verification"]["checks"]["support_method"] == "scripted"
+
+
+def test_a_failed_existence_never_runs_support_and_is_never_verified(ask: Any) -> None:
+    ask.support.verdict = "pass"  # would pass, if it were ever asked (FR-TRUST-9)
+    (citation,) = ask(cites_302("shall be hanged by the neck until dead")).json()["citations"]
+    assert ask.support.calls == []
+    assert citation["verification"]["status"] == "unverified"
     assert citation["verification"]["checks"]["support"] == "not_run"
+    assert "support_method" not in citation["verification"]["checks"]
 
 
 def test_one_trace_and_one_verification_per_citation_are_stored(ask: Any, engine: Engine) -> None:
@@ -224,6 +282,7 @@ def test_one_trace_and_one_verification_per_citation_are_stored(ask: Any, engine
     assert trace.answerable and trace.provider == "ollama"
     assert trace.dense and trace.sparse and trace.fused and trace.reranked  # FR-RES-2
     assert trace.models["prompt"] == "answer-v1" and trace.models["generation"] == "qwen2.5:7b"
+    assert trace.models["support"] == "caseguard/support-stub"
     counts = _rows(
         engine,
         "SELECT count(*) AS n, count(v.citation_id) AS v FROM ai.citations c"
@@ -282,7 +341,9 @@ def test_a_headnote_only_source_is_flagged(ask: Any) -> None:
 
     body = ask(reply, question="bail refused in qatl-i-amd case").json()
     assert body["citations"][0]["verification"]["flags"] == ["headnote_only"]
-    assert body["citations"][0]["verification"]["status"] == "needs_review"
+    # headnote_only is a non-blocking chip (PRD §7.2): a supported citation stays verified.
+    assert body["citations"][0]["verification"]["checks"]["support"] == "pass"
+    assert body["citations"][0]["verification"]["status"] == "verified"
 
 
 @pytest.mark.parametrize(
@@ -306,7 +367,8 @@ def test_a_source_older_than_the_review_window_is_flagged_stale(
     conforms("Answer", body)
     (citation,) = body["citations"]
     assert citation["verification"]["flags"] == flags
-    assert citation["verification"]["status"] == "needs_review"  # stale is non-blocking
+    # Stale is non-blocking: with existence and support passing, the citation stays verified.
+    assert citation["verification"]["status"] == "verified"
     # Currency is the temporal (current/historical) check, which staleness does not decide.
     assert citation["verification"]["checks"]["currency"] == "unknown"
     (stored,) = _rows(

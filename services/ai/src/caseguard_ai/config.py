@@ -37,6 +37,14 @@ class EmbeddingSettings(BaseSettings):
     embedding_batch_size: int = 16
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_revision: str = "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e"
+    # The citation support check (FR-TRUST-3, PRD §7.1 step 2): a multilingual NLI cross-encoder,
+    # with the LLM judge only when it is inconclusive (trust/support.py).
+    support_model: str = "MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7"
+    support_revision: str = "b5113eb38ab63efdd7f280f8c144ea8b13f978ce"
+    # TBD-13: defaults until they are calibrated on the development set (PRD §7.2, §11).
+    support_pass_threshold: float = 0.7  # P(entailment) at or above this → pass
+    support_fail_threshold: float = 0.7  # P(contradiction) at or above this → fail
+    support_llm_fallback: bool = True  # ask the judge role when NLI is uncertain (if allowed)
 
 
 class DatabaseSettings(BaseSettings):
