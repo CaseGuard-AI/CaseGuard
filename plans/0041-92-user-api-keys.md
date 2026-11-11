@@ -40,10 +40,11 @@ FR-SET-2 lets a user bring their own key for a cloud model provider and pick a d
 - `lib/logger.ts`: redact `req.body.apiKey` and `*.credential.apiKey`.
 - Tests: contract tests for every new route, ciphertext-at-rest, never-returned key, 403 for disabled/local, and a log capture with no test key.
 
-### 2d. services/ai
+### 2d. services/ai (done, PR on `feature/set2-user-keys-ai`, stacked on #177)
 - `api/v1.py`: `CredentialIn` (extra=forbid) on `AnswerRequest`; 400 unless `providerId` is in `allowedProviders` and is a known cloud preset.
 - Build a `ProviderConfig` from the preset base URL and pass it through `Question` to the gateway as the generation-role override. No credential → unchanged.
 - Test: logs captured during a credentialed request don't contain the key.
+- Done: `PRESET_BASE_URLS` and `from_credential()` in `gateway/providers.py`; `ModelGateway.provider_for` / `chat` take `override` (generation role only, re-checked against the allow-list); `Question.generation_override`; `CredentialIn` with a `SecretStr` key. No-DB route tests in `tests/test_credential.py` (routing, 400s, key absent from structlog and stdlib logs on success, HTTP 500/401 and timeout), gateway tests in `tests/test_gateway.py`, and a DB-backed answer test in `tests/test_answer.py`.
 
 ### 2e. Web (#95)
 - "Models & keys" section in `components/settings/`, next to `account-preferences.tsx`: per enabled provider add/replace/delete a key, show `••••last4`, and a default-model select fed by `GET /models`. en/ur strings (Urdu marked for review, #105). Component tests.

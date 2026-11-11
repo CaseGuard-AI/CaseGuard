@@ -24,6 +24,7 @@ from sqlalchemy import Engine, create_engine, text
 from caseguard_ai.api import deps
 from caseguard_ai.config import _sqlalchemy_url, get_settings
 from caseguard_ai.gateway.client import ChatResult, GatewayError, NoProviderError
+from caseguard_ai.gateway.providers import ProviderConfig
 from caseguard_ai.ingest.embed import run
 from caseguard_ai.ingest.embedder import HashEmbedder
 from caseguard_ai.ingest.load import load
@@ -77,22 +78,34 @@ class FakeGateway:
     def __init__(self, reply: Reply, *, fail: bool = False) -> None:
         self.reply, self.fail = reply, fail
         self.calls: list[list[dict[str, str]]] = []
+        self.overrides: list[ProviderConfig | None] = []
 
-    def provider_for(self, role: str, allowed: list[str] | None) -> object:
+    def provider_for(
+        self, role: str, allowed: list[str] | None, override: ProviderConfig | None = None
+    ) -> object:
+        if override is not None and role == "generation":
+            if override.id not in (allowed or []):
+                raise NoProviderError(role)  # type: ignore[arg-type]
+            return override
         if "ollama" not in (allowed or ["ollama"]):
             raise NoProviderError(role)  # type: ignore[arg-type]
         return object()
 
     def chat(
-        self, role: str, messages: list[dict[str, str]], allowed: list[str] | None
+        self,
+        role: str,
+        messages: list[dict[str, str]],
+        allowed: list[str] | None,
+        *,
+        override: ProviderConfig | None = None,
     ) -> ChatResult:
-        self.provider_for(role, allowed)
+        self.provider_for(role, allowed, override)
         self.calls.append(messages)
+        self.overrides.append(override)
+        provider, model = (override.id, override.model) if override else ("ollama", "qwen2.5:7b")
         if self.fail:
-            raise GatewayError("ollama", "HTTP 500")
-        return ChatResult(
-            self.reply(messages[-1]["content"]), "ollama", "qwen2.5:7b", 5, "stop", {}
-        )
+            raise GatewayError(provider, "HTTP 500")
+        return ChatResult(self.reply(messages[-1]["content"]), provider, model, 5, "stop", {})
 
 
 def p(user_message: str, heading: str) -> int:
@@ -347,6 +360,32 @@ def test_the_model_sees_numbered_passages_and_the_history(ask: Any) -> None:
     assert [m["content"] for m in messages[1:3]] == ["Earlier question", "Earlier answer"]
     assert "[p:1] " in messages[-1]["content"]
     assert "Question: What is the punishment of qatl-i-amd?" in messages[-1]["content"]
+
+
+def test_a_user_credential_is_the_generation_provider(ask: Any, engine: Engine) -> None:
+    key = "user-key-answer-test-0123456789"
+    credential = {"providerId": "gemini", "model": "gemini-2.5-flash", "apiKey": key}
+    r = ask(cites_302(), allowedProviders=["ollama", "gemini"], credential=credential)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    conforms("Answer", body)
+    assert key not in r.text
+    (override,) = ask.gateways[-1].overrides
+    assert override is not None
+    assert (override.id, override.model, override.api_key) == ("gemini", "gemini-2.5-flash", key)
+    (trace,) = _rows(
+        engine,
+        "SELECT provider, models, row_to_json(t)::text AS j FROM ai.answer_traces t"
+        " WHERE request_id = :r",
+        r=body["requestId"],
+    )
+    assert trace.provider == "gemini" and trace.models["generation"] == "gemini-2.5-flash"
+    assert key not in trace.j  # the trace never holds the key
+
+
+def test_without_a_credential_there_is_no_override(ask: Any) -> None:
+    ask(cites_302())
+    assert ask.gateways[-1].overrides == [None]
 
 
 # ── failures ───────────────────────────────────────────────────────────────────────────────

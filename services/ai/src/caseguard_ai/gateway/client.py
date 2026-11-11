@@ -3,6 +3,10 @@
 Every provider speaks the OpenAI-compatible ``/chat/completions`` API, so switching between
 NVIDIA NIM, a free-tier cloud and local Ollama is configuration only. Pipelines call
 ``ModelGateway.chat(role, messages, allowed_providers)`` and never a provider SDK.
+
+A key (from the env or a user's credential) goes only into the ``Authorization`` header. Logs
+and ``GatewayError`` messages carry the provider id, model and HTTP status, never the key, the
+headers or the provider's response body.
 """
 
 from __future__ import annotations
@@ -15,7 +19,7 @@ import httpx
 import structlog
 
 from caseguard_ai.config import Settings
-from caseguard_ai.gateway.providers import ProviderConfig, Role, select
+from caseguard_ai.gateway.providers import ProviderConfig, Role, allowed_set, select
 
 log = structlog.get_logger("gateway")
 
@@ -62,7 +66,19 @@ class ModelGateway:
     def close(self) -> None:
         self._client.close()
 
-    def provider_for(self, role: Role, allowed_providers: list[str] | None) -> ProviderConfig:
+    def provider_for(
+        self,
+        role: Role,
+        allowed_providers: list[str] | None,
+        override: ProviderConfig | None = None,
+    ) -> ProviderConfig:
+        """The provider for a role. ``override`` (a user's own key, FR-SET-2) replaces the
+        configured choice for the generation role only, and only if the allow-list has it."""
+        if override is not None and role == "generation":
+            # The route checked this already; never widen the allow-list (SEC-11).
+            if override.id not in allowed_set(allowed_providers):
+                raise NoProviderError(role)
+            return override
         provider = select(self._settings, role, allowed_providers)
         if provider is None:
             raise NoProviderError(role)
@@ -74,10 +90,11 @@ class ModelGateway:
         messages: list[dict[str, str]],
         allowed_providers: list[str] | None,
         *,
+        override: ProviderConfig | None = None,
         max_tokens: int = 1024,
         temperature: float = 0.0,
     ) -> ChatResult:
-        provider = self.provider_for(role, allowed_providers)
+        provider = self.provider_for(role, allowed_providers, override)
         body = {
             "model": provider.model,
             "messages": messages,

@@ -153,3 +153,11 @@ The contract the api, services/ai and web work codes against, stacked on the ADR
 - ai.v1: an optional `credential` on `AnswerRequest`, refused unless the provider is allowed and is a cloud provider, used for the generation role only.
 
 `defaultModel` is now required in the settings response, so the api's settings contract tests fail until the api change (#94) returns it. Plan: `plans/0041`.
+
+### services/ai: a user's own key per request (FR-SET-2, step 2d of #92)
+services/ai now accepts `credential` on the answer route, stacked on the contracts:
+- it is refused with 400 before any model call unless the provider is in `allowedProviders` and has a cloud preset (`PRESET_BASE_URLS`, whose hosts match the ones the gateway already infers); `ollama` never takes one;
+- otherwise it is the generation role's provider for this request only, and the gateway checks the allow-list again; the judge role keeps the env configuration;
+- the key is a `SecretStr` on the way in and `repr=False` in `ProviderConfig`, so it shows up in no log, error or trace. Tests capture structlog and stdlib logs on a good answer, HTTP 500 and 401, and a timeout, and look for the key.
+
+The route tests for this run without a database (`tests/test_credential.py`). Plan: `plans/0041`.

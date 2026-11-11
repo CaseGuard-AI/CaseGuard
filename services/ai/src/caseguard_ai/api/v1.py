@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError
 
@@ -16,6 +16,12 @@ from caseguard_ai import __version__
 from caseguard_ai.api.deps import get_embedder, get_engine, get_gateway, get_reranker
 from caseguard_ai.api.problems import Problem
 from caseguard_ai.gateway.client import GatewayError, ModelGateway, NoProviderError
+from caseguard_ai.gateway.providers import (
+    PRESET_BASE_URLS,
+    ProviderConfig,
+    allowed_set,
+    from_credential,
+)
 from caseguard_ai.ingest.embedder import Embedder
 from caseguard_ai.research import store
 from caseguard_ai.research.answer import Question, answer_question
@@ -44,6 +50,18 @@ class TurnIn(BaseModel):
     content: str
 
 
+class CredentialIn(BaseModel):
+    """A user's own key for this request (ai.v1 ``Credential``, FR-SET-2, ADR-0009).
+
+    ``apiKey`` is a SecretStr, so a repr, a log line or a validation message never shows it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    providerId: ProviderId
+    model: Annotated[str, Field(min_length=1, max_length=200)]
+    apiKey: Annotated[SecretStr, Field(min_length=1, max_length=512)]
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     requestId: uuid.UUID
@@ -53,6 +71,24 @@ class AnswerRequest(BaseModel):
     history: Annotated[list[TurnIn], Field(max_length=20)] = []
     scope: ScopeIn
     allowedProviders: Annotated[list[ProviderId], Field(max_length=32)] | None = None
+    credential: CredentialIn | None = None
+
+
+def _generation_override(body: AnswerRequest) -> ProviderConfig | None:
+    """The credential as a provider, or a 400 before any model call. Details name the field,
+    never the key."""
+    cred = body.credential
+    if cred is None:
+        return None
+    if cred.providerId not in PRESET_BASE_URLS:
+        raise Problem(
+            400, "Bad Request", "invalid field(s): credential.providerId (not a cloud provider)"
+        )
+    if cred.providerId not in allowed_set(body.allowedProviders):
+        raise Problem(
+            400, "Bad Request", "invalid field(s): credential.providerId (not in allowedProviders)"
+        )
+    return from_credential(cred.providerId, cred.model, cred.apiKey.get_secret_value())
 
 
 @router.get("/info")
@@ -73,6 +109,7 @@ def research_answer(
         body.allowedProviders
     ):
         raise Problem(400, "Bad Request", "invalid field(s): allowedProviders (duplicates)")
+    override = _generation_override(body)
     question = Question(
         request_id=body.requestId,
         question=body.question,
@@ -84,6 +121,7 @@ def research_answer(
         language=body.language,
         history=[(t.role, t.content) for t in body.history],
         allowed_providers=body.allowedProviders,
+        generation_override=override,
     )
     try:
         return answer_question(

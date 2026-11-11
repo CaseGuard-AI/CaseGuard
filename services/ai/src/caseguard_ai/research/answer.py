@@ -25,6 +25,7 @@ from typing import Any
 from sqlalchemy import Engine, text
 
 from caseguard_ai.gateway.client import ModelGateway
+from caseguard_ai.gateway.providers import ProviderConfig
 from caseguard_ai.ingest.embedder import Embedder
 from caseguard_ai.research import store
 from caseguard_ai.research.parse import Reply, parse_reply
@@ -49,6 +50,8 @@ class Question:
     language: str | None = None
     history: list[tuple[str, str]] = field(default_factory=list)  # (role, content)
     allowed_providers: list[str] | None = None
+    # A user's own key and model for the generation role (FR-SET-2). Lives for this request only.
+    generation_override: ProviderConfig | None = None
 
 
 def _tidy(answer: str) -> str:
@@ -93,7 +96,8 @@ def answer_question(
 ) -> dict[str, Any]:
     started = time.perf_counter()
     language = q.language or "en"
-    gateway.provider_for("generation", q.allowed_providers)  # fail closed before any work
+    # Fail closed before any work.
+    gateway.provider_for("generation", q.allowed_providers, q.generation_override)
 
     with engine.connect() as conn:
         found: Retrieval = retrieve(conn, q.question, q.scope, embedder, reranker)
@@ -108,7 +112,12 @@ def answer_question(
     reply = Reply(answerable=False)
     provider: str | None = None
     if passages:
-        result = gateway.chat("generation", _messages(q, passages, language), q.allowed_providers)
+        result = gateway.chat(
+            "generation",
+            _messages(q, passages, language),
+            q.allowed_providers,
+            override=q.generation_override,
+        )
         provider = result.provider_id
         models["generation"] = result.model
         reply = parse_reply(result.text)

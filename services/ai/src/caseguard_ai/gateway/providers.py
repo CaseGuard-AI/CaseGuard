@@ -30,6 +30,18 @@ _HOSTS = {
     "api.anthropic.com": "anthropic",
 }
 
+# Provider id → OpenAI-compatible base URL, for a user's own key (FR-SET-2, ADR-0009). These are
+# the presets in .env.example, and each one's host infers back to its id through ``_HOSTS``.
+# Local providers are absent on purpose: they are keyless and never take a credential.
+PRESET_BASE_URLS: dict[str, str] = {
+    "nvidia-nim": "https://integrate.api.nvidia.com/v1",
+    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "groq": "https://api.groq.com/openai/v1",
+    "openrouter": "https://openrouter.ai/api/v1",
+    "openai": "https://api.openai.com/v1",
+    "anthropic": "https://api.anthropic.com/v1",
+}
+
 
 @dataclass(frozen=True)
 class ProviderConfig:
@@ -55,6 +67,24 @@ def infer_provider_id(base_url: str) -> str:
     if parsed.port == 11434 or "ollama" in host:
         return "ollama"
     return ""
+
+
+def from_credential(provider_id: str, model: str, api_key: str) -> ProviderConfig:
+    """The provider for a user's own key: the preset base URL for ``provider_id``.
+
+    Raises ValueError for an id with no preset, which includes every local provider. The
+    message names the id only, never the key.
+    """
+    if provider_id in LOCAL_PROVIDERS or provider_id not in PRESET_BASE_URLS:
+        raise ValueError(f"{provider_id!r} is not a known cloud provider")
+    return ProviderConfig(provider_id, PRESET_BASE_URLS[provider_id], model, api_key)
+
+
+def allowed_set(allowed_providers: list[str] | None) -> set[str]:
+    """The ids a request may use. Omitted means local only (fail closed, SEC-11)."""
+    if allowed_providers is None:
+        return set(LOCAL_PROVIDERS)
+    return {p.strip().lower() for p in allowed_providers}
 
 
 def _role_provider(settings: Settings, role: Role) -> ProviderConfig | None:
@@ -103,10 +133,7 @@ def select(
     settings: Settings, role: Role, allowed_providers: list[str] | None
 ) -> ProviderConfig | None:
     """The first configured provider the request may use, or None (→ 503, no fallback)."""
-    if allowed_providers is None:
-        allowed = set(LOCAL_PROVIDERS)  # omitted = local only, fail closed
-    else:
-        allowed = {p.strip().lower() for p in allowed_providers}
+    allowed = allowed_set(allowed_providers)
     for provider in candidates(settings, role):
         if provider.id in allowed:
             return provider

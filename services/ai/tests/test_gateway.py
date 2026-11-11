@@ -7,10 +7,19 @@ from typing import Any
 
 import httpx
 import pytest
+import structlog.testing
 
 from caseguard_ai.config import Settings
 from caseguard_ai.gateway.client import GatewayError, ModelGateway, NoProviderError
-from caseguard_ai.gateway.providers import candidates, infer_provider_id, select
+from caseguard_ai.gateway.providers import (
+    _HOSTS,
+    LOCAL_PROVIDERS,
+    PRESET_BASE_URLS,
+    candidates,
+    from_credential,
+    infer_provider_id,
+    select,
+)
 
 NIM = "https://integrate.api.nvidia.com/v1"
 GEMINI = "https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -226,3 +235,107 @@ def test_a_malformed_response_is_a_gateway_error() -> None:
 def test_the_key_is_not_in_the_provider_repr() -> None:
     chosen = select(nim(), "generation", ["nvidia-nim"])
     assert "nvapi-secret" not in repr(chosen)
+
+
+# ── a user's own key (FR-SET-2) ───────────────────────────────────────────────────────────
+
+USER_KEY = "user-key-gateway-test-0123456789"
+
+
+@pytest.mark.parametrize(("provider_id", "base_url"), sorted(PRESET_BASE_URLS.items()))
+def test_each_preset_url_infers_back_to_its_id(provider_id: str, base_url: str) -> None:
+    assert infer_provider_id(base_url) == provider_id
+    assert provider_id not in LOCAL_PROVIDERS
+
+
+def test_every_known_cloud_host_has_a_preset() -> None:
+    assert set(PRESET_BASE_URLS) == {infer_provider_id(f"https://{h}/") for h in _HOSTS}
+
+
+@pytest.mark.parametrize("provider_id", ["ollama", "mistral", ""])
+def test_only_a_preset_cloud_provider_takes_a_credential(provider_id: str) -> None:
+    with pytest.raises(ValueError, match="not a known cloud provider") as err:
+        from_credential(provider_id, "m", USER_KEY)
+    assert USER_KEY not in str(err.value)
+
+
+def test_a_credential_provider_hides_its_key() -> None:
+    provider = from_credential("groq", "llama-3.3-70b-versatile", USER_KEY)
+    assert provider.base_url == "https://api.groq.com/openai/v1"
+    assert USER_KEY not in repr(provider)
+
+
+def test_an_override_sends_the_users_key_and_model_to_the_preset() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return ok()
+
+    override = from_credential("gemini", "gemini-2.5-flash", USER_KEY)
+    result = gateway(nim(), handler).chat(
+        "generation",
+        [{"role": "user", "content": "q"}],
+        ["nvidia-nim", "gemini"],
+        override=override,
+    )
+    assert (result.provider_id, result.model) == ("gemini", "gemini-2.5-flash")
+    (request,) = seen
+    assert str(request.url) == f"{PRESET_BASE_URLS['gemini']}/chat/completions"
+    assert request.headers["authorization"] == f"Bearer {USER_KEY}"
+    assert json.loads(request.content)["model"] == "gemini-2.5-flash"
+
+
+def test_without_an_override_the_configured_provider_is_used() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return ok()
+
+    gw = gateway(nim(), handler)
+    gw.chat("generation", [], ["nvidia-nim", "gemini"], override=None)
+    assert str(seen[0].url) == "https://integrate.api.nvidia.com/v1/chat/completions"
+    assert seen[0].headers["authorization"] == "Bearer nvapi-secret"
+
+
+@pytest.mark.parametrize("allowed", [["nvidia-nim"], [], None])
+def test_an_override_outside_the_allow_list_is_refused(allowed: list[str] | None) -> None:
+    calls: list[httpx.Request] = []
+    override = from_credential("gemini", "gemini-2.5-flash", USER_KEY)
+    gw = gateway(nim(), lambda r: calls.append(r) or ok())
+    with pytest.raises(NoProviderError) as err:
+        gw.chat("generation", [], allowed, override=override)
+    assert calls == []
+    assert USER_KEY not in str(err.value)
+
+
+def test_an_override_is_for_the_generation_role_only() -> None:
+    s = nim(
+        llm_judge_base_url=GEMINI, llm_judge_model="gemini-2.5-flash", llm_judge_api_key="env-key"
+    )
+    override = from_credential("groq", "llama-3.3-70b-versatile", USER_KEY)
+    chosen = gateway(s, lambda r: ok()).provider_for("judge", ["gemini", "groq"], override)
+    assert (chosen.id, chosen.api_key) == ("gemini", "env-key")
+
+
+@pytest.mark.parametrize("failure", ["http-500", "http-401", "timeout", "connect"])
+def test_a_failing_override_never_shows_the_key(
+    failure: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("caseguard_ai.gateway.client.time.sleep", lambda s: None)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if failure == "timeout":
+            raise httpx.ReadTimeout(f"timed out {request.headers}", request=request)
+        if failure == "connect":
+            raise httpx.ConnectError("refused", request=request)
+        status = 500 if failure == "http-500" else 401
+        return httpx.Response(status, text=f"echo {request.headers['authorization']}")
+
+    override = from_credential("openai", "gpt-4o-mini", USER_KEY)
+    with structlog.testing.capture_logs() as logs, pytest.raises(GatewayError) as err:
+        gateway(nim(), handler).chat("generation", [], ["openai"], override=override)
+    assert err.value.provider_id == "openai"
+    assert USER_KEY not in str(err.value) and USER_KEY not in repr(err.value)
+    assert USER_KEY not in str(logs)
