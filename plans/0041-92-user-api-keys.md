@@ -45,7 +45,8 @@ FR-SET-2 lets a user bring their own key for a cloud model provider and pick a d
 - Build a `ProviderConfig` from the preset base URL and pass it through `Question` to the gateway as the generation-role override. No credential → unchanged.
 - Test: logs captured during a credentialed request don't contain the key.
 
-### 2e. Web (#95)
+### 2e. Web (#95) — done
+- Done in `components/settings/models-keys.tsx` (shared `section.tsx`), hooks in `queries.ts`, tests in `apps/web/test/settings-keys.test.tsx`. The default-model select offers cloud providers only, because a default model is used only with the user's own key.
 - "Models & keys" section in `components/settings/`, next to `account-preferences.tsx`: per enabled provider add/replace/delete a key, show `••••last4`, and a default-model select fed by `GET /models`. en/ur strings (Urdu marked for review, #105). Component tests.
 
 ## Done when
