@@ -156,7 +156,9 @@ describe("AppShell with a signed-in user", () => {
     expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
     act(() => signIn(ayesha));
     expect(screen.getByRole("link", { name: ur.Nav.admin }).getAttribute("href")).toBe("/admin");
-    act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "user" } }));
+    act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "researcher" } }));
+    expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
+    act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "lawyer" } }));
     expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
   });
 

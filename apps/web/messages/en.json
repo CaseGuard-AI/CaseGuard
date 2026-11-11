@@ -31,7 +31,8 @@
     "help": "Help centre",
     "signOut": "Sign out",
     "roles": {
-      "user": "User",
+      "lawyer": "Lawyer",
+      "researcher": "Researcher",
       "admin": "Admin"
     }
   },
@@ -118,7 +119,9 @@
       "submit": "Create account",
       "haveAccount": "Already have an account?",
       "login": "Sign in",
-      "passwordHint": "At least 10 characters."
+      "passwordHint": "At least 10 characters.",
+      "role": "I'm joining as",
+      "roleHint": "Admin accounts are created by your CaseGuard operator."
     },
     "forgot": {
       "title": "Reset your password",
