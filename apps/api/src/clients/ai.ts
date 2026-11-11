@@ -24,6 +24,15 @@ export interface AnswerRequest {
   scope: Scope;
   /** Providers this request's data may go to (SEC-11). Omitted means local only. */
   allowedProviders?: string[];
+  /** The user's own key and model for the generation role (FR-SET-2, ADR-0009). Secret. */
+  credential?: Credential;
+}
+
+/** ai.v1 Credential. `apiKey` is plaintext: never log, store or return it. */
+export interface Credential {
+  providerId: string;
+  model: string;
+  apiKey: string;
 }
 
 export interface Verification {

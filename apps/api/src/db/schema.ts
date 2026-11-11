@@ -3,11 +3,13 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   date,
   index,
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -55,6 +57,10 @@ export const users = app.table(
     theme: text("theme", { enum: ["light", "dark", "system"] })
       .notNull()
       .default("system"),
+    // FR-SET-2. The chosen model; both set or both null. Used only while the provider is
+    // enabled, is cloud, and the user has a key for it (ADR-0009).
+    defaultProviderId: text("default_provider_id").references(() => providers.id),
+    defaultModel: text("default_model"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -64,6 +70,10 @@ export const users = app.table(
     check("users_role_check", sql`role in ('user', 'admin')`),
     check("users_locale_check", sql`locale in ('en', 'ur')`),
     check("users_theme_check", sql`theme in ('light', 'dark', 'system')`),
+    check(
+      "users_default_model_check",
+      sql`(default_provider_id is null) = (default_model is null)`,
+    ),
   ],
 );
 
@@ -127,6 +137,33 @@ export const providers = app.table(
   () => [
     check("providers_id_check", sql`id ~ '^[a-z0-9][a-z0-9-]{0,62}$'`),
     check("providers_kind_check", sql`kind in ('cloud', 'local')`),
+  ],
+);
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
+
+// A user's own model-provider keys (FR-SET-2, SEC-4, ADR-0009). Encrypted with AES-256-GCM
+// under KEY_ENCRYPTION_KEY (src/keys/crypto.ts); the plaintext is never stored. `last4` is
+// kept in clear for display only.
+export const userApiKeys = app.table(
+  "user_api_keys",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    providerId: text("provider_id")
+      .notNull()
+      .references(() => providers.id),
+    ciphertext: bytea("ciphertext").notNull(),
+    iv: bytea("iv").notNull(),
+    authTag: bytea("auth_tag").notNull(),
+    last4: text("last4").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.providerId] }),
+    check("user_api_keys_last4_check", sql`char_length(last4) = 4`),
   ],
 );
 
@@ -208,6 +245,10 @@ export const aiAuditRecords = app.table(
     error: text("error"),
     // The provider allow-list in effect for this request (SEC-11, #75). Null on older rows.
     allowedProviders: text("allowed_providers").array(),
+    // The user's own provider and model when the request carried their key (FR-SET-2,
+    // ADR-0009). Never the key. Null when the deployment's configuration answered.
+    providerId: text("provider_id"),
+    model: text("model"),
     latencyMs: integer("latency_ms").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -222,6 +263,7 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type RefreshToken = typeof refreshTokens.$inferSelect;
 export type Provider = typeof providers.$inferSelect;
+export type UserApiKey = typeof userApiKeys.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type { Language };

@@ -76,6 +76,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       { tablename: "password_reset_tokens", tableowner: role },
       { tablename: "providers", tableowner: role },
       { tablename: "refresh_tokens", tableowner: role },
+      { tablename: "user_api_keys", tableowner: role },
       { tablename: "users", tableowner: role },
     ]);
   });
@@ -124,6 +125,32 @@ describe.skipIf(!url)("app schema migrations", () => {
     expect(rows[0]).toEqual({ role: "user", locale: "en", ai_enabled: true, theme: "system" });
   });
 
+  it("keeps a default model as a pair and a key's last4 at four characters (FR-SET-2)", async () => {
+    await expect(
+      insertUser(await newAccount(), { email: "m@example.com", default_model: "gemini-2.5-flash" }),
+    ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      insertUser(await newAccount(), { email: "p@example.com", default_provider_id: "gemini" }),
+    ).rejects.toMatchObject({ code: "23514" });
+    const accountId = await newAccount();
+    await insertUser(accountId, { email: "k@example.com" });
+    const { rows } = await pool.query<{ id: string }>(
+      "SELECT id FROM app.users WHERE email = 'k@example.com'",
+    );
+    const insertKey = (last4: string) =>
+      pool.query(
+        `INSERT INTO app.user_api_keys (user_id, provider_id, ciphertext, iv, auth_tag, last4)
+         VALUES ($1, 'gemini', '\\x00', '\\x00', '\\x00', $2)`,
+        [rows[0]!.id, last4],
+      );
+    await expect(insertKey("abc")).rejects.toMatchObject({ code: "23514" });
+    await insertKey("abcd");
+    // Deleting the user deletes their keys.
+    await pool.query("DELETE FROM app.accounts WHERE id = $1", [accountId]);
+    const { rowCount } = await pool.query("SELECT 1 FROM app.user_api_keys");
+    expect(rowCount).toBe(0);
+  });
+
   it("deleting an account deletes its users", async () => {
     const accountId = await newAccount();
     await insertUser(accountId, { email: "c@example.com" });
@@ -142,6 +169,8 @@ describe.skipIf(!url)("app schema migrations", () => {
         )
       ).rowCount === 1;
     expect(await hasTheme()).toBe(true);
+    expect(await migrateDown(pool)).toBe("0010_user_api_keys");
+    expect((await tables()).map((t) => t.tablename)).not.toContain("user_api_keys");
     expect(await migrateDown(pool)).toBe("0007_user_theme");
     expect(await hasTheme()).toBe(false);
     expect(await migrateDown(pool)).toBe("0006_audit_allowed_providers");
@@ -180,6 +209,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0005_messages_citations_idx",
       "0006_audit_allowed_providers",
       "0007_user_theme",
+      "0010_user_api_keys",
     ]);
     expect((await tables()).map((t) => t.tablename)).toEqual([
       "__drizzle_migrations",
@@ -190,6 +220,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "password_reset_tokens",
       "providers",
       "refresh_tokens",
+      "user_api_keys",
       "users",
     ]);
   });
