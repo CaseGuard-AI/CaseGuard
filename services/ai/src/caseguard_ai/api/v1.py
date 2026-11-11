@@ -15,6 +15,7 @@ from sqlalchemy.exc import OperationalError
 from caseguard_ai import __version__
 from caseguard_ai.api.deps import get_embedder, get_engine, get_gateway, get_reranker
 from caseguard_ai.api.problems import Problem
+from caseguard_ai.config import Settings, get_settings
 from caseguard_ai.gateway.client import GatewayError, ModelGateway, NoProviderError
 from caseguard_ai.ingest.embedder import Embedder
 from caseguard_ai.research import store
@@ -68,6 +69,7 @@ def research_answer(
     gateway: Annotated[ModelGateway, Depends(get_gateway)],
     embedder: Annotated[Embedder, Depends(get_embedder)],
     reranker: Annotated[Reranker, Depends(get_reranker)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> dict[str, Any]:
     if body.allowedProviders is not None and len(set(body.allowedProviders)) != len(
         body.allowedProviders
@@ -87,7 +89,12 @@ def research_answer(
     )
     try:
         return answer_question(
-            engine, question, gateway=gateway, embedder=embedder, reranker=reranker
+            engine,
+            question,
+            gateway=gateway,
+            embedder=embedder,
+            reranker=reranker,
+            stale_days=settings.trust_stale_days,
         )
     except NoProviderError as exc:
         raise Problem(503, "Service Unavailable", str(exc)) from exc

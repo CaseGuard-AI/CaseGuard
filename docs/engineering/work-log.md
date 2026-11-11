@@ -146,3 +146,6 @@ The app had only `user` and `admin`; the PRD names three roles. Now:
 - the admin console shows each user's role, and admin routes stay 403 for Lawyers and Researchers.
 
 Old access tokens that say `user` are refused, and the web's refresh replaces them. The Urdu role names and sign-up strings need a native speaker's review (A11).
+
+### Stale flag on old sources (FR-TRUST-6)
+A citation now carries the `stale` chip when its corpus source was last retrieved more than 180 days ago, or has no retrieval date at all. The window is `TRUST_STALE_DAYS` (TBD-13). The flag doesn't change the status, and users' own case files are never flagged. The web app and the contracts already had the flag and its labels, so only services/ai changed.

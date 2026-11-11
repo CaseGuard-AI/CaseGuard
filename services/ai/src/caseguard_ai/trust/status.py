@@ -14,6 +14,7 @@ The deterministic existence check decides first: no model check can lift a faile
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 Status = Literal["verified", "needs_review", "unverified"]
@@ -37,11 +38,29 @@ def decide(existence: Existence, support: Support, flags: Iterable[str] = ()) ->
     return "verified"
 
 
-def source_flags(*, headnote_only: bool, third_party: bool) -> list[str]:
-    """Non-blocking flags that come from the source itself (PRD §7.2, collector README §10.4)."""
+def is_stale(retrieved_at: datetime | None, now: datetime, stale_days: int) -> bool:
+    """FR-TRUST-6: older than the review window, or never dated (unknown age is not current)."""
+    return retrieved_at is None or now - retrieved_at > timedelta(days=stale_days)
+
+
+def source_flags(
+    *,
+    headnote_only: bool,
+    third_party: bool,
+    retrieved_at: datetime | None = None,
+    now: datetime | None = None,
+    stale_days: int | None = None,
+) -> list[str]:
+    """Non-blocking flags that come from the source itself (PRD §7.2, collector README §10.4).
+
+    ``stale`` is only considered when ``stale_days`` is given, so case material (which has no
+    retrieval date) is never flagged.
+    """
     flags: list[str] = []
     if headnote_only:
         flags.append("headnote_only")
     if third_party:
         flags.append("third_party_source")
+    if stale_days is not None and is_stale(retrieved_at, now or datetime.now(UTC), stale_days):
+        flags.append("stale")
     return flags

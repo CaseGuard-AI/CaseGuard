@@ -88,6 +88,10 @@ class Settings(EmbeddingSettings):
     ollama_base_url: str = ""
     ollama_model: str = ""
 
+    # FR-TRUST-6: a corpus source last retrieved longer ago than this is flagged "stale".
+    # 180 days is the review window TBD-13 settled on (PRD §18).
+    trust_stale_days: int = 180
+
     @property
     def sqlalchemy_url(self) -> str:
         return _sqlalchemy_url(self.ai_database_url)

@@ -132,6 +132,8 @@ def engine() -> Iterator[Engine]:
         "p@1",
     )
     run(eng, HashEmbedder())
+    with eng.begin() as conn:  # freshly retrieved, so no test is "stale" by the calendar
+        conn.execute(text("UPDATE corpus.documents SET retrieved_at = now()"))
     yield eng
     with eng.begin() as conn:
         conn.execute(text(reset))
@@ -281,6 +283,36 @@ def test_a_headnote_only_source_is_flagged(ask: Any) -> None:
     body = ask(reply, question="bail refused in qatl-i-amd case").json()
     assert body["citations"][0]["verification"]["flags"] == ["headnote_only"]
     assert body["citations"][0]["verification"]["status"] == "needs_review"
+
+
+@pytest.mark.parametrize(
+    ("age", "flags"),
+    [("400 days", ["stale"]), ("10 days", []), (None, ["stale"])],
+)
+def test_a_source_older_than_the_review_window_is_flagged_stale(
+    ask: Any, engine: Engine, age: str | None, flags: list[str]
+) -> None:
+    # FR-TRUST-6: the default window is 180 days; an undated source counts as stale too.
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE corpus.documents SET retrieved_at ="
+                " CASE WHEN CAST(:age AS interval) IS NULL THEN NULL"
+                " ELSE now() - CAST(:age AS interval) END"
+            ),
+            {"age": age},
+        )
+    body = ask(cites_302()).json()
+    conforms("Answer", body)
+    (citation,) = body["citations"]
+    assert citation["verification"]["flags"] == flags
+    assert citation["verification"]["status"] == "needs_review"  # stale is non-blocking
+    # Currency is the temporal (current/historical) check, which staleness does not decide.
+    assert citation["verification"]["checks"]["currency"] == "unknown"
+    (stored,) = _rows(
+        engine, "SELECT flags FROM ai.verifications WHERE citation_id = :c", c=citation["id"]
+    )
+    assert list(stored.flags) == flags
 
 
 @pytest.mark.parametrize(

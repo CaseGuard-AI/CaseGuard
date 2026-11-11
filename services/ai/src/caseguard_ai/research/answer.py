@@ -20,6 +20,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import Engine, text
@@ -90,6 +91,7 @@ def answer_question(
     gateway: ModelGateway,
     embedder: Embedder,
     reranker: Reranker,
+    stale_days: int | None = None,  # FR-TRUST-6 review window; None = never flag "stale"
 ) -> dict[str, Any]:
     started = time.perf_counter()
     language = q.language or "en"
@@ -113,6 +115,7 @@ def answer_question(
         models["generation"] = result.model
         reply = parse_reply(result.text)
 
+    now = datetime.now(UTC)  # one clock for every citation in this answer
     numbered = {i: p for i, p in enumerate(passages, start=1)}
     languages = _quote_languages(engine, passages) if reply.answerable else {}
     new: list[store.NewCitation] = []
@@ -129,7 +132,12 @@ def answer_question(
                 continue
             checked = existence.check(conn, passage, reply.quotes.get(marker.passage))
             flags = source_flags(
-                headnote_only=passage.headnote_only, third_party=passage.third_party
+                headnote_only=passage.headnote_only,
+                third_party=passage.third_party,
+                # Case passages are the user's own material: never stale.
+                retrieved_at=passage.retrieved_at,
+                now=now,
+                stale_days=stale_days if passage.origin == CORPUS else None,
             )
             checks = {
                 "existence": "pass" if checked.passed else "fail",
