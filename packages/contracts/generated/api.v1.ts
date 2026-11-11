@@ -30,7 +30,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create an account (FR-AUTH-1) */
+        /** Create an account as a Lawyer or Researcher (FR-AUTH-1, FR-AUTH-2) */
         post: operations["register"];
         delete?: never;
         options?: never;
@@ -352,8 +352,11 @@ export interface components {
                 message: string;
             }[];
         };
-        /** @enum {string} */
-        Role: "user" | "admin";
+        /**
+         * @description FR-AUTH-2. Lawyer and Researcher can self-register; Admin is created by an operator.
+         * @enum {string}
+         */
+        Role: "lawyer" | "researcher" | "admin";
         User: {
             /** Format: uuid */
             id: string;
@@ -395,6 +398,12 @@ export interface components {
              * @enum {string}
              */
             locale: "en" | "ur";
+            /**
+             * @description FR-AUTH-2. Admin cannot be self-registered; `admin` or any other value is a 400.
+             * @default lawyer
+             * @enum {string}
+             */
+            role: "lawyer" | "researcher";
         };
         LoginRequest: {
             /** Format: email */
