@@ -66,7 +66,7 @@ describe.skipIf(!url)("auth (api.v1 /auth/*)", () => {
       const res = await register();
       expect(res.status).toBe(201);
       expectContract(res, "post", "/auth/register");
-      expect(res.body.user).toMatchObject({ name: "Alice", role: "user", locale: "en" });
+      expect(res.body.user).toMatchObject({ name: "Alice", role: "lawyer", locale: "en" });
       expect(res.body.user).not.toHaveProperty("passwordHash");
       expect(res.body.expiresIn).toBe(900);
       const cookie = refreshCookie(res);
@@ -76,9 +76,32 @@ describe.skipIf(!url)("auth (api.v1 /auth/*)", () => {
       expect(cookie).toMatch(/Path=\/api\/v1\/auth/);
     });
 
-    it("ignores a role in the body, so nobody self-registers as admin", async () => {
-      const res = await register({ ...alice, role: "admin" });
-      expect(res.body.user.role).toBe("user");
+    it("registers a Researcher, and the token carries the role (FR-AUTH-2)", async () => {
+      const res = await register({ ...alice, role: "researcher" });
+      expect(res.status).toBe(201);
+      expectContract(res, "post", "/auth/register");
+      expect(res.body.user.role).toBe("researcher");
+      const me = await request(app)
+        .get("/api/v1/auth/me")
+        .set("Authorization", `Bearer ${res.body.accessToken}`);
+      expect(me.body.role).toBe("researcher");
+      const { rows } = await pool.query("SELECT role FROM app.users");
+      expect(rows).toEqual([{ role: "researcher" }]);
+    });
+
+    it("registers a Lawyer when asked explicitly", async () => {
+      const res = await register({ ...alice, role: "lawyer" });
+      expect(res.status).toBe(201);
+      expect(res.body.user.role).toBe("lawyer");
+    });
+
+    // Nobody self-registers as admin: the body is rejected and no account is created.
+    it.each(["admin", "user", "superuser", ""])("400 for role %j", async (role) => {
+      const res = await register({ ...alice, role });
+      expect(res.status).toBe(400);
+      expectContract(res, "post", "/auth/register");
+      expect(res.body.errors).toContainEqual(expect.objectContaining({ path: "role" }));
+      expect(Number((await pool.query("SELECT count(*) FROM app.users")).rows[0].count)).toBe(0);
     });
 
     it("409 for an email that exists in another case", async () => {
