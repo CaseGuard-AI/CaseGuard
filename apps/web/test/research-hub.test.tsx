@@ -92,6 +92,9 @@ async function renderHub(route: Route = () => undefined) {
     const path = new URL(request.url).pathname.replace("/api/v1", "");
     const routed = route(request.method, path);
     if (routed) return routed;
+    // The history column (FR-RES-8) lists conversations; these tests start with none.
+    if (request.method === "GET" && path === "/conversations")
+      return json({ items: [], nextCursor: null });
     const citation = citations.find((c) => path === `/citations/${c.id}`);
     if (citation) return json(citation);
     const source = Object.keys(sources).find((id) => path === `/sources/${id}`);
@@ -156,15 +159,14 @@ describe("ResearchHub", () => {
     const fetchMock = await renderHub(askRoutes);
     ask();
     await screen.findByText(ur.Research.analysis);
-    const calls = fetchMock.mock.calls.map(([r]) => [
-      (r as Request).method,
-      new URL((r as Request).url).pathname,
+    const posts = fetchMock.mock.calls
+      .map(([r]) => r as Request)
+      .filter((r) => r.method === "POST");
+    expect(posts.map((r) => new URL(r.url).pathname)).toEqual([
+      "/api/v1/conversations",
+      `/api/v1/conversations/${CONV}/messages`,
     ]);
-    expect(calls.slice(0, 2)).toEqual([
-      ["POST", "/api/v1/conversations"],
-      ["POST", `/api/v1/conversations/${CONV}/messages`],
-    ]);
-    const asked = fetchMock.mock.calls[1][0] as Request;
+    const asked = posts[1];
     expect(await asked.json()).toEqual({
       question: "Can an order be challenged without a hearing?",
     });
@@ -292,7 +294,13 @@ describe("ResearchHub", () => {
     const shown = await screen.findByText(note);
     expect(shown.closest('[role="note"]')).toBeTruthy();
     expect(screen.getByText(ur.Research.asOfNote)).toBeTruthy();
-    const asked = fetchMock.mock.calls[1][0] as Request;
+    const asked = fetchMock.mock.calls
+      .map(([r]) => r as Request)
+      .find(
+        (r) =>
+          r.method === "POST" &&
+          new URL(r.url).pathname === `/api/v1/conversations/${CONV}/messages`,
+      )!;
     expect(await asked.json()).toEqual({
       question: "Can an order be challenged without a hearing?",
       lawAsOf: "2020-01-01",
@@ -311,7 +319,9 @@ describe("ResearchHub", () => {
     fireEvent.click(screen.getByRole("button", { name: ur.Research.submit }));
     await screen.findByText(ur.Research.analysis);
     const creates = fetchMock.mock.calls.filter(
-      ([r]) => new URL((r as Request).url).pathname === "/api/v1/conversations",
+      ([r]) =>
+        (r as Request).method === "POST" &&
+        new URL((r as Request).url).pathname === "/api/v1/conversations",
     );
     expect(creates).toHaveLength(1);
   });

@@ -216,3 +216,12 @@ A new section on the settings page, after Theme, built against the frozen contra
 - friendly errors for 403 (provider off or local), 503 (the server can't store keys), 400 and network failures.
 
 The new Urdu strings under `Settings.models` need a native review (#105). It needs the api (#94) for a live demo.
+
+### Research history sidebar (FR-RES-8, #86)
+The Research Hub now lists past conversations, so a user can get back to an earlier thread:
+- newest first, with a relative date, and the open one marked;
+- a column on desktop and a drawer on phones, mirrored for Urdu;
+- "New question", "Load more", and empty, loading and error states;
+- a new question shows at the top straight away, without a reload.
+
+It uses the existing `GET /conversations`, so only `apps/web` changed. "Save to case" waits for Cases. The new Urdu strings need native review (#105). Plan: `plans/0039`.

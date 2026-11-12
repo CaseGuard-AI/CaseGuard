@@ -230,6 +230,16 @@
       "tierValue": "Tier {tier}",
       "thirdParty": "Third-party source",
       "headnoteOnly": "Head-note only"
+    },
+    "history": {
+      "title": "Research history",
+      "open": "History",
+      "newQuestion": "New question",
+      "loading": "Loading your conversations…",
+      "empty": "No conversations yet. Your questions will appear here.",
+      "error": "Your conversations can't be loaded right now.",
+      "retry": "Try again",
+      "loadMore": "Load more"
     }
   },
   "Admin": {
