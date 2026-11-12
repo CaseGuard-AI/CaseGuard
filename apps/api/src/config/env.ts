@@ -13,6 +13,12 @@ for (const rel of ["../../.env", "../../../../.env"]) {
 // `KEY=` in .env means unset, not an empty value.
 const blankAsUnset = z.preprocess((v) => (v === "" ? undefined : v), z.string().optional());
 
+/** Whether `value` is standard base64 that decodes to exactly 32 bytes (an AES-256 key). */
+export function isBase64Key32(value: string): boolean {
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(value) || value.length % 4 !== 0) return false;
+  return Buffer.from(value, "base64").length === 32;
+}
+
 const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   API_PORT: z.coerce.number().int().positive().default(4000),
@@ -31,6 +37,15 @@ const schema = z.object({
   MAIL_FROM: z.string().min(3).default("CaseGuard <no-reply@caseguard.local>"),
   // The web page that password reset emails link to (#53, #62); the token goes in ?token=.
   RESET_URL_BASE: z.string().url().default("http://localhost:3000/reset-password"),
+  // AES-256-GCM key for user API keys (FR-SET-2, SEC-4, ADR-0009): base64 of 32 random bytes.
+  // Unset means saving a key answers 503; listing and deleting keys still work.
+  KEY_ENCRYPTION_KEY: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z
+      .string()
+      .refine(isBase64Key32, "KEY_ENCRYPTION_KEY must be base64 that decodes to exactly 32 bytes")
+      .optional(),
+  ),
 });
 
 export type Env = z.infer<typeof schema>;

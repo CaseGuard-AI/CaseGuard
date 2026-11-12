@@ -281,6 +281,12 @@ components:
         citations:
           type: array
           items: { $ref: "#/components/schemas/Citation" }
+        asOfNote:
+          description: |
+            Present only when the request gave `lawAsOf` (FR-RES-11): in the answer's language,
+            says that judgments decided after that date were excluded and that statute text is
+            the current version, because historical versions are not curated yet.
+          type: string
 
     Citation:
       type: object
@@ -331,6 +337,16 @@ components:
             existence: { type: string, enum: [pass, fail] }
             support: { type: string, enum: [pass, uncertain, fail, not_run] }
             currency: { type: string, enum: [current, historical, unknown] }
+            support_method:
+              description: >-
+                How the support verdict was reached: "nli", or "nli+llm" when the NLI model was
+                uncertain and the judge decided (FR-TRUST-3). Only present when support ran.
+              type: string
+            support_score:
+              description: P(entailment) from the NLI model, 0 to 1. Only present when support ran.
+              type: number
+              minimum: 0
+              maximum: 1
 
     Source:
       type: object

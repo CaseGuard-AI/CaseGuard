@@ -235,6 +235,33 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
       expect(audit.latency_ms).toBeGreaterThanOrEqual(0);
     });
 
+    it("stores and returns the law-as-of note with the answer (FR-RES-11)", async () => {
+      const note = "Law as of 2020-01-01: judgments decided after this date were left out.";
+      respond = async (req) => ({ ...verifiedAnswer(req), asOfNote: note });
+      const id = await newConversation();
+      const res = await ask(id, { question: "What governs bail?", lawAsOf: "2020-01-01" });
+      expect(res.status).toBe(201);
+      expectContract(res, "post", "/conversations/{conversationId}/messages");
+      expect(res.body.asOfNote).toBe(note);
+
+      const conv = await as(alice.token).get(`/conversations/${id}`);
+      expectContract(conv, "get", "/conversations/{conversationId}");
+      const [question, answer] = conv.body.messages;
+      expect(question).not.toHaveProperty("asOfNote");
+      expect(answer.asOfNote).toBe(note);
+      const { rows } = await pool.query(
+        "SELECT as_of_note FROM app.messages WHERE role = 'assistant' AND conversation_id = $1",
+        [id],
+      );
+      expect(rows).toEqual([{ as_of_note: note }]);
+    });
+
+    it("an answer without a date carries no note", async () => {
+      const res = await ask(await newConversation());
+      expect(res.status).toBe(201);
+      expect(res.body).not.toHaveProperty("asOfNote");
+    });
+
     it("an unanswerable question is answered as such and audited (FR-RES-9)", async () => {
       respond = async (req) => ({
         requestId: req.requestId,

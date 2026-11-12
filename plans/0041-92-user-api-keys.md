@@ -31,7 +31,14 @@ FR-SET-2 lets a user bring their own key for a cloud model provider and pick a d
 - `pnpm gen:contracts`, Redocly lint, `pnpm -r typecheck`.
 - Making `defaultModel` required breaks the DB-backed `/me/settings` contract checks in `apps/api/test/settings.test.ts` until 2c returns it; 2c fixes them.
 
-### 2c. API (#94)
+### 2c. API (#94) — done
+Done as planned, with these choices:
+- The migration is `0010_user_api_keys` with journal `idx` 10, leaving 0008 (roles) and 0009 (law-as-of) free. `src/db/migrate.ts` orders by the journal's `when`, not `idx`, so the gap is fine; whichever reserved migration lands later must keep its `when` above 0010's, or databases that already applied 0010 would skip it. `default_provider_id` references `app.providers` and a check keeps it paired with `default_model`. The audit table also gets nullable `provider_id` and `model` (the 0004 trigger blocks only UPDATE).
+- `KEY_ENCRYPTION_KEY` is optional: invalid stops start-up, unset makes `PUT /me/keys` a 503 and no credential is ever sent. `.env.example` leaves it empty with a generation command. Compose already passes `.env`, and CI tests build the app with a fixed test key, so neither changed.
+- The ciphertext is bound to `(user_id, provider_id)` as GCM AAD, so a row copied to another user or provider won't decrypt. A key that won't decrypt (for example after the encryption key changed) is skipped with a warning, and the question is answered with the deployment's own models.
+- The model catalogue is static (`src/keys/catalog.ts`). Ollama lists none: apps/api has no `OLLAMA_MODEL`, and a local provider takes no credential anyway.
+- One router (`routes/keys.ts`) serves both `/me/keys` and `/models`.
+
 - Migration `apps/api/drizzle/0010_user_api_keys.sql` + `.down.sql`: `app.user_api_keys` (`user_id` FK cascade, `provider_id`, `ciphertext`, `iv`, `auth_tag`, `last4`, `created_at`, `updated_at`, unique `(user_id, provider_id)`), and nullable `default_provider_id` / `default_model` columns on `app.users` (next to `theme`; both set or both null). The lead's roles migration takes 0008; 0009 is left for whichever lands next. Mirror in `src/db/schema.ts`.
 - `KEY_ENCRYPTION_KEY` in `config/env.ts` (base64, exactly 32 bytes), `.env.example`, compose and CI.
 - `src/keys/crypto.ts` (`encrypt`/`decrypt`, `aes-256-gcm`, random 12-byte IV per write), `keys/store.ts`, `routes/keys.ts` and `routes/models.ts` behind `requireAuth`, mounted in `app.ts`.
