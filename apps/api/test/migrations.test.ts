@@ -107,10 +107,11 @@ describe.skipIf(!url)("app schema migrations", () => {
   it("0008 turns existing users into lawyers, and its down turns them back", async () => {
     const roleOf = async (email: string) =>
       (await pool.query("SELECT role FROM app.users WHERE email = $1", [email])).rows[0]?.role;
+    expect(await migrateDown(pool)).toBe("0009_message_as_of_note");
     expect(await migrateDown(pool)).toBe("0008_user_roles");
     await insertUser(await newAccount(), { email: "old-user@example.com", role: "user" });
     await insertUser(await newAccount(), { email: "old-admin@example.com", role: "admin" });
-    expect(await migrateUp(pool)).toEqual(["0008_user_roles"]);
+    expect(await migrateUp(pool)).toEqual(["0008_user_roles", "0009_message_as_of_note"]);
     expect(await roleOf("old-user@example.com")).toBe("lawyer");
     expect(await roleOf("old-admin@example.com")).toBe("admin");
 
@@ -118,11 +119,12 @@ describe.skipIf(!url)("app schema migrations", () => {
       email: "new-researcher@example.com",
       role: "researcher",
     });
+    expect(await migrateDown(pool)).toBe("0009_message_as_of_note");
     expect(await migrateDown(pool)).toBe("0008_user_roles");
     expect(await roleOf("old-user@example.com")).toBe("user");
     expect(await roleOf("new-researcher@example.com")).toBe("user");
     expect(await roleOf("old-admin@example.com")).toBe("admin");
-    expect(await migrateUp(pool)).toEqual(["0008_user_roles"]);
+    expect(await migrateUp(pool)).toEqual(["0008_user_roles", "0009_message_as_of_note"]);
   });
 
   it("rejects a theme outside light/dark/system (FR-SET-1)", async () => {
