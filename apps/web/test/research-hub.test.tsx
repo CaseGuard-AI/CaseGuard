@@ -294,7 +294,13 @@ describe("ResearchHub", () => {
     const shown = await screen.findByText(note);
     expect(shown.closest('[role="note"]')).toBeTruthy();
     expect(screen.getByText(ur.Research.asOfNote)).toBeTruthy();
-    const asked = fetchMock.mock.calls[1][0] as Request;
+    const asked = fetchMock.mock.calls
+      .map(([r]) => r as Request)
+      .find(
+        (r) =>
+          r.method === "POST" &&
+          new URL(r.url).pathname === `/api/v1/conversations/${CONV}/messages`,
+      )!;
     expect(await asked.json()).toEqual({
       question: "Can an order be challenged without a hearing?",
       lawAsOf: "2020-01-01",
