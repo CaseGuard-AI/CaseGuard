@@ -199,3 +199,11 @@ apps/api now does its half of ADR-0009, stacked on the contracts (#93):
 - the logger redacts `apiKey` and `credential.apiKey`, and a log-capture test checks a test key never reaches the output.
 
 Migration numbers 0008 and 0009 are reserved for the roles and law-as-of branches, so this one is 0010 (journal `idx` 10; the runner orders by the journal's `when`, not `idx`). `.env.example` now leaves `KEY_ENCRYPTION_KEY` empty: a local `.env` with the old placeholder must be blanked or given a generated key. Plan: `plans/0041`.
+
+### services/ai: a user's own key per request (FR-SET-2, step 2d of #92)
+services/ai now accepts `credential` on the answer route, stacked on the contracts:
+- it is refused with 400 before any model call unless the provider is in `allowedProviders` and has a cloud preset (`PRESET_BASE_URLS`, whose hosts match the ones the gateway already infers); `ollama` never takes one;
+- otherwise it is the generation role's provider for this request only, and the gateway checks the allow-list again; the judge role keeps the env configuration;
+- the key is a `SecretStr` on the way in and `repr=False` in `ProviderConfig`, so it shows up in no log, error or trace. Tests capture structlog and stdlib logs on a good answer, HTTP 500 and 401, and a timeout, and look for the key.
+
+The route tests for this run without a database (`tests/test_credential.py`). Plan: `plans/0041`.
