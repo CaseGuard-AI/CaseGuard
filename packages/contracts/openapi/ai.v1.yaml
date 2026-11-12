@@ -281,6 +281,12 @@ components:
         citations:
           type: array
           items: { $ref: "#/components/schemas/Citation" }
+        asOfNote:
+          description: |
+            Present only when the request gave `lawAsOf` (FR-RES-11): in the answer's language,
+            says that judgments decided after that date were excluded and that statute text is
+            the current version, because historical versions are not curated yet.
+          type: string
 
     Citation:
       type: object

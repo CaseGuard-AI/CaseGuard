@@ -137,6 +137,14 @@ The embedded corpus can now be shared, so teammates restore it instead of embedd
 
 It uses `COPY` through psycopg, not `pg_dump`, so it needs no matching Postgres client on Windows or in CI. Plan: `plans/0038`.
 
+### "Law as of" date (#96, PR #181)
+A question can now be asked about the law on a past date. The date was already accepted and audited, but nothing used it. Now:
+- the search leaves out judgments decided after the date, inside the database queries. Judgments with an unknown date stay in;
+- statutes stay as they are, because no historical versions are curated yet. The answer says so in a note, in its own language;
+- the note is stored with the message and shown under the answer.
+
+The new column is migration **0009**. Number 0008 is kept for the roles migration. Plan: `plans/0040`.
+
 ## 2026-11-12
 
 ### Lawyer, Researcher and Administrator roles (FR-AUTH-2)

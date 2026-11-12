@@ -64,6 +64,13 @@
       "when": 1794427126147,
       "tag": "0008_user_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794428319426,
+      "tag": "0009_message_as_of_note",
+      "breakpoints": true
     }
   ]
 }

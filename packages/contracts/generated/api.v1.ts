@@ -598,6 +598,11 @@ export interface components {
             /** @description Assistant messages only (FR-RES-9). */
             answerable?: boolean;
             citations?: components["schemas"]["Citation"][];
+            /**
+             * @description Assistant messages only, and only when the question gave `lawAsOf` (FR-RES-11): what
+             *     the date changed (later judgments excluded; statutes are the current text).
+             */
+            asOfNote?: string;
             /** Format: date-time */
             createdAt: string;
         };

@@ -23,6 +23,7 @@ export const answerSchema = z.object({
   language: languageSchema,
   text: z.string(),
   citations: z.array(citationSchema),
+  asOfNote: z.string().optional(),
 });
 
 export const sourceSchema = z.looseObject({

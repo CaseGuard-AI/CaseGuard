@@ -65,7 +65,11 @@ function toMessageDto(m: Message) {
     text: m.text,
     ...(m.language ? { language: m.language } : {}),
     ...(m.role === "assistant"
-      ? { answerable: m.answerable ?? false, citations: m.citations ?? [] }
+      ? {
+          answerable: m.answerable ?? false,
+          citations: m.citations ?? [],
+          ...(m.asOfNote ? { asOfNote: m.asOfNote } : {}),
+        }
       : {}),
     createdAt: m.createdAt.toISOString(),
   };
