@@ -58,6 +58,8 @@ export interface Answer {
   language: Language;
   text: string;
   citations: Citation[];
+  /** Present when the request gave `lawAsOf`: what the date changed (FR-RES-11). */
+  asOfNote?: string;
 }
 
 export interface Source {

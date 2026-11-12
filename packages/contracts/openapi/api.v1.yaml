@@ -31,7 +31,7 @@ tags:
   - name: sources
     description: Citations and source records (FR-RES-7, FR-TRUST)
   - name: admin
-    description: AI access and model providers. Admin role only; Users get 403 (FR-AUTH-2, FR-AUTH-3)
+    description: AI access and model providers. Admin role only; Lawyers and Researchers get 403 (FR-AUTH-2, FR-AUTH-3)
 
 paths:
   /health:
@@ -55,7 +55,7 @@ paths:
     post:
       tags: [auth]
       operationId: register
-      summary: Create an account (FR-AUTH-1)
+      summary: Create an account as a Lawyer or Researcher (FR-AUTH-1, FR-AUTH-2)
       security: []
       requestBody:
         required: true
@@ -624,8 +624,9 @@ components:
                   message: { type: string }
 
     Role:
+      description: FR-AUTH-2. Lawyer and Researcher can self-register; Admin is created by an operator.
       type: string
-      enum: [user, admin]
+      enum: [lawyer, researcher, admin]
 
     User:
       type: object
@@ -751,6 +752,11 @@ components:
         password: { type: string, minLength: 10, maxLength: 128 }
         name: { type: string, minLength: 1, maxLength: 120 }
         locale: { type: string, enum: [en, ur], default: en }
+        role:
+          description: FR-AUTH-2. Admin cannot be self-registered; `admin` or any other value is a 400.
+          type: string
+          enum: [lawyer, researcher]
+          default: lawyer
 
     LoginRequest:
       type: object
@@ -835,6 +841,11 @@ components:
         citations:
           type: array
           items: { $ref: "./ai.v1.yaml#/components/schemas/Citation" }
+        asOfNote:
+          description: |
+            Assistant messages only, and only when the question gave `lawAsOf` (FR-RES-11): what
+            the date changed (later judgments excluded; statutes are the current text).
+          type: string
         createdAt: { type: string, format: date-time }
 
     AdminUser:

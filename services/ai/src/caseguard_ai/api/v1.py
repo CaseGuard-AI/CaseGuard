@@ -13,8 +13,15 @@ from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError
 
 from caseguard_ai import __version__
-from caseguard_ai.api.deps import get_embedder, get_engine, get_gateway, get_reranker
+from caseguard_ai.api.deps import (
+    get_embedder,
+    get_engine,
+    get_gateway,
+    get_reranker,
+    get_support_checker,
+)
 from caseguard_ai.api.problems import Problem
+from caseguard_ai.config import Settings, get_settings
 from caseguard_ai.gateway.client import GatewayError, ModelGateway, NoProviderError
 from caseguard_ai.ingest.embedder import Embedder
 from caseguard_ai.research import store
@@ -23,6 +30,7 @@ from caseguard_ai.retrieval.guard import CorpusNotReady, EmbeddingMismatch
 from caseguard_ai.retrieval.hybrid import Scope
 from caseguard_ai.retrieval.reranker import Reranker
 from caseguard_ai.security import require_service_token
+from caseguard_ai.trust.support import SupportChecker
 
 log = structlog.get_logger("api")
 router = APIRouter(prefix="/ai/v1", dependencies=[Depends(require_service_token)])
@@ -68,6 +76,8 @@ def research_answer(
     gateway: Annotated[ModelGateway, Depends(get_gateway)],
     embedder: Annotated[Embedder, Depends(get_embedder)],
     reranker: Annotated[Reranker, Depends(get_reranker)],
+    support_checker: Annotated[SupportChecker, Depends(get_support_checker)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> dict[str, Any]:
     if body.allowedProviders is not None and len(set(body.allowedProviders)) != len(
         body.allowedProviders
@@ -82,12 +92,19 @@ def research_answer(
             allowed_case_ids=tuple(body.scope.allowedCaseIds),
         ),
         language=body.language,
+        law_as_of=body.lawAsOf,
         history=[(t.role, t.content) for t in body.history],
         allowed_providers=body.allowedProviders,
     )
     try:
         return answer_question(
-            engine, question, gateway=gateway, embedder=embedder, reranker=reranker
+            engine,
+            question,
+            gateway=gateway,
+            embedder=embedder,
+            reranker=reranker,
+            support_checker=support_checker,
+            stale_days=settings.trust_stale_days,
         )
     except NoProviderError as exc:
         raise Problem(503, "Service Unavailable", str(exc)) from exc

@@ -26,6 +26,11 @@ import type { Citation, Language } from "../clients/ai.js";
 // widening accounts.kind, with no change to owned rows (PRD §2).
 export const app = pgSchema("app");
 
+// FR-AUTH-2. Lawyer and Researcher can self-register; Administrator comes only from the
+// create-admin CLI. Migration 0008 renamed the old `user` role to `lawyer`.
+export const USER_ROLES = ["lawyer", "researcher", "admin"] as const;
+export const SELF_REGISTER_ROLES = ["lawyer", "researcher"] as const;
+
 export const accounts = app.table(
   "accounts",
   {
@@ -46,9 +51,7 @@ export const users = app.table(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
-    role: text("role", { enum: ["user", "admin"] })
-      .notNull()
-      .default("user"),
+    role: text("role", { enum: USER_ROLES }).notNull().default("lawyer"),
     locale: text("locale", { enum: ["en", "ur"] })
       .notNull()
       .default("en"),
@@ -67,7 +70,7 @@ export const users = app.table(
   (t) => [
     uniqueIndex("users_email_lower_key").on(sql`lower(${t.email})`),
     index("users_account_id_idx").on(t.accountId),
-    check("users_role_check", sql`role in ('user', 'admin')`),
+    check("users_role_check", sql`role in ('lawyer', 'researcher', 'admin')`),
     check("users_locale_check", sql`locale in ('en', 'ur')`),
     check("users_theme_check", sql`theme in ('light', 'dark', 'system')`),
     check(
@@ -208,6 +211,8 @@ export const messages = app.table(
     language: text("language", { enum: LANGUAGES }),
     answerable: boolean("answerable"),
     citations: jsonb("citations").$type<Citation[]>(),
+    // What a "law as of" date changed in this answer (FR-RES-11); assistant messages only.
+    asOfNote: text("as_of_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

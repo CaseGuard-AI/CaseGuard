@@ -1,7 +1,8 @@
 """Answer a research question with checked, stored citations (#20, ai.v1 ``answerQuestion``).
 
     retrieve (#19) → prompt with numbered passages → generation (gateway, allow-list only)
-      → parse [[p:N]] markers and quotes → existence check → status → one transaction:
+      → parse [[p:N]] markers and quotes → existence check → support check (only if existence
+        passed) → status → one transaction:
         ai.answer_traces + ai.citations + ai.verifications → read the statuses back → response
 
 - **Fails closed.** A request whose allow-list has no configured generation provider is refused
@@ -20,6 +21,7 @@ import re
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy import Engine, text
@@ -32,13 +34,34 @@ from caseguard_ai.research.prompts import answer_v1 as prompt
 from caseguard_ai.retrieval.hybrid import CORPUS, Passage, Retrieval, Scope, retrieve
 from caseguard_ai.retrieval.reranker import Reranker
 from caseguard_ai.trust import existence
-from caseguard_ai.trust.status import VERIFIER_VERSION, decide, source_flags
+from caseguard_ai.trust.status import VERIFIER_VERSION, Support, decide, source_flags
+from caseguard_ai.trust.support import SupportChecker, SupportResult
 
 HISTORY_TURNS = 6  # recent turns sent to the model; small models lose the passages otherwise
 UNANSWERABLE_TEXT = (
     "The sources in the corpus do not answer this question, so no answer is given. "
     "Try rephrasing it, or name the statute or section you mean."
 )
+# What a "law as of" date changed (FR-RES-11), in the answer's language. Statutes are not
+# versioned yet (FR-TEMP-* is a later module), so the note says the text is the current one.
+AS_OF_NOTES = {
+    "en": (
+        "Law as of {d}: judgments decided after this date were left out. Statute text is the "
+        "current version, because historical versions are not curated yet."
+    ),
+    "ur": (
+        "{d} تک کا قانون: اس تاریخ کے بعد کے فیصلے شامل نہیں کیے گئے۔ قوانین کا متن موجودہ "
+        "ہے، کیونکہ پرانے ورژن ابھی مرتب نہیں کیے گئے۔"
+    ),
+    "roman_ur": (
+        "{d} tak ka qanoon: is tareekh ke baad ke faislay shamil nahin kiye gaye. Qawaneen ka "
+        "matan maujooda version hai, kyunke purane versions abhi murattab nahin kiye gaye."
+    ),
+}
+
+
+def as_of_note(law_as_of: date, language: str) -> str:
+    return AS_OF_NOTES.get(language, AS_OF_NOTES["en"]).format(d=law_as_of.isoformat())
 
 
 @dataclass(frozen=True)
@@ -47,6 +70,7 @@ class Question:
     question: str
     scope: Scope
     language: str | None = None
+    law_as_of: date | None = None
     history: list[tuple[str, str]] = field(default_factory=list)  # (role, content)
     allowed_providers: list[str] | None = None
 
@@ -90,19 +114,24 @@ def answer_question(
     gateway: ModelGateway,
     embedder: Embedder,
     reranker: Reranker,
+    support_checker: SupportChecker,
+    stale_days: int | None = None,  # FR-TRUST-6 review window; None = never flag "stale"
 ) -> dict[str, Any]:
     started = time.perf_counter()
     language = q.language or "en"
     gateway.provider_for("generation", q.allowed_providers)  # fail closed before any work
 
     with engine.connect() as conn:
-        found: Retrieval = retrieve(conn, q.question, q.scope, embedder, reranker)
+        found: Retrieval = retrieve(
+            conn, q.question, q.scope, embedder, reranker, law_as_of=q.law_as_of
+        )
     passages = found.passages
     models: dict[str, Any] = {
         "embedding": f"{embedder.model_id}@{embedder.revision}",
         "reranker": reranker.model_id,
         "prompt": prompt.VERSION,
         "verifier": VERIFIER_VERSION,
+        "support": support_checker.model_id,
     }
 
     reply = Reply(answerable=False)
@@ -113,6 +142,7 @@ def answer_question(
         models["generation"] = result.model
         reply = parse_reply(result.text)
 
+    now = datetime.now(UTC)  # one clock for every citation in this answer
     numbered = {i: p for i, p in enumerate(passages, start=1)}
     languages = _quote_languages(engine, passages) if reply.answerable else {}
     new: list[store.NewCitation] = []
@@ -128,24 +158,42 @@ def answer_question(
                 invalid += 1
                 continue
             checked = existence.check(conn, passage, reply.quotes.get(marker.passage))
+            claim = marker.claim or reply.text.strip()[:500]
+            # Support runs only after existence passed (FR-TRUST-9): a model never sees, and
+            # never rescues, a citation the deterministic check already failed.
+            supported: SupportResult | None = None
+            if checked.passed:
+                supported = support_checker.check(
+                    claim, checked.span or passage.text, allowed_providers=q.allowed_providers
+                )
+            support: Support = supported.verdict if supported else "not_run"
             flags = source_flags(
-                headnote_only=passage.headnote_only, third_party=passage.third_party
+                headnote_only=passage.headnote_only,
+                third_party=passage.third_party,
+                # Case passages are the user's own material: never stale.
+                retrieved_at=passage.retrieved_at,
+                now=now,
+                stale_days=stale_days if passage.origin == CORPUS else None,
             )
-            checks = {
+            checks: dict[str, Any] = {
                 "existence": "pass" if checked.passed else "fail",
-                "support": "not_run",  # the support check comes after M1 (PRD §7.1 step 2)
+                "support": support,
                 "currency": "unknown",
                 "existence_reason": checked.reason,
             }
+            if supported is not None:
+                checks["support_method"] = supported.method
+                if supported.score is not None:
+                    checks["support_score"] = supported.score
             citation = store.NewCitation(
                 id=uuid.uuid4(),
                 source_id=passage.document_id,
                 chunk_id=passage.chunk_id,
-                claim=marker.claim or reply.text.strip()[:500],
+                claim=claim,
                 locator=passage.locator,
                 quote=checked.span,
                 quote_language=languages.get(passage.document_id),
-                status=decide("pass" if checked.passed else "fail", "not_run", flags),
+                status=decide("pass" if checked.passed else "fail", support, flags),
                 flags=flags,
                 checks=checks,
                 verifier_version=VERIFIER_VERSION,
@@ -166,6 +214,7 @@ def answer_question(
             new_citations=new if answerable else [],
         )
 
+    note = {"asOfNote": as_of_note(q.law_as_of, language)} if q.law_as_of else {}
     if not answerable:
         return {
             "requestId": str(q.request_id),
@@ -173,6 +222,7 @@ def answer_question(
             "language": language,
             "text": UNANSWERABLE_TEXT,
             "citations": [],
+            **note,
         }
     with engine.connect() as conn:
         stored = store.read_citations(conn, [c.id for c in new])
@@ -182,4 +232,5 @@ def answer_question(
         "language": language,
         "text": _tidy("".join(pieces)),
         "citations": stored,
+        **note,
     }

@@ -1,6 +1,6 @@
 {
   "id": "80571213-52b2-4255-b7ca-f4f8c6e64f59",
-  "prevId": "2cae4b97-fff8-4e21-b993-7434459391f3",
+  "prevId": "562c0f84-dc73-453c-ba3a-e1632e7a88e2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -417,6 +417,12 @@
         "citations": {
           "name": "citations",
           "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "as_of_note": {
+          "name": "as_of_note",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -961,7 +967,7 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "default": "'user'"
+          "default": "'lawyer'"
         },
         "locale": {
           "name": "locale",
@@ -1079,7 +1085,7 @@
       "checkConstraints": {
         "users_role_check": {
           "name": "users_role_check",
-          "value": "role in ('user', 'admin')"
+          "value": "role in ('lawyer', 'researcher', 'admin')"
         },
         "users_locale_check": {
           "name": "users_locale_check",

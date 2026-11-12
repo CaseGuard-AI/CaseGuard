@@ -93,10 +93,49 @@ describe.skipIf(!url)("app schema migrations", () => {
     });
   });
 
-  it("rejects a role outside user/admin (FR-AUTH-2)", async () => {
+  it.each(["superuser", "user"])("rejects the role %j (FR-AUTH-2)", async (role) => {
     await expect(
-      insertUser(await newAccount(), { email: "r@example.com", role: "superuser" }),
+      insertUser(await newAccount(), { email: "r@example.com", role }),
     ).rejects.toMatchObject({ code: "23514" });
+  });
+
+  it("accepts lawyer, researcher and admin (FR-AUTH-2)", async () => {
+    for (const role of ["lawyer", "researcher", "admin"]) {
+      await insertUser(await newAccount(), { email: `${role}@example.com`, role });
+    }
+  });
+
+  it("0008 turns existing users into lawyers, and its down turns them back", async () => {
+    const roleOf = async (email: string) =>
+      (await pool.query("SELECT role FROM app.users WHERE email = $1", [email])).rows[0]?.role;
+    expect(await migrateDown(pool)).toBe("0010_user_api_keys");
+    expect(await migrateDown(pool)).toBe("0009_message_as_of_note");
+    expect(await migrateDown(pool)).toBe("0008_user_roles");
+    await insertUser(await newAccount(), { email: "old-user@example.com", role: "user" });
+    await insertUser(await newAccount(), { email: "old-admin@example.com", role: "admin" });
+    expect(await migrateUp(pool)).toEqual([
+      "0008_user_roles",
+      "0009_message_as_of_note",
+      "0010_user_api_keys",
+    ]);
+    expect(await roleOf("old-user@example.com")).toBe("lawyer");
+    expect(await roleOf("old-admin@example.com")).toBe("admin");
+
+    await insertUser(await newAccount(), {
+      email: "new-researcher@example.com",
+      role: "researcher",
+    });
+    expect(await migrateDown(pool)).toBe("0010_user_api_keys");
+    expect(await migrateDown(pool)).toBe("0009_message_as_of_note");
+    expect(await migrateDown(pool)).toBe("0008_user_roles");
+    expect(await roleOf("old-user@example.com")).toBe("user");
+    expect(await roleOf("new-researcher@example.com")).toBe("user");
+    expect(await roleOf("old-admin@example.com")).toBe("admin");
+    expect(await migrateUp(pool)).toEqual([
+      "0008_user_roles",
+      "0009_message_as_of_note",
+      "0010_user_api_keys",
+    ]);
   });
 
   it("rejects a theme outside light/dark/system (FR-SET-1)", async () => {
@@ -116,13 +155,13 @@ describe.skipIf(!url)("app schema migrations", () => {
     });
   });
 
-  it("applies defaults: role user, locale en, AI enabled, theme system", async () => {
+  it("applies defaults: role lawyer, locale en, AI enabled, theme system", async () => {
     const accountId = await newAccount();
     await insertUser(accountId, { email: "d@example.com" });
     const { rows } = await pool.query(
       "SELECT role, locale, ai_enabled, theme FROM app.users WHERE email = 'd@example.com'",
     );
-    expect(rows[0]).toEqual({ role: "user", locale: "en", ai_enabled: true, theme: "system" });
+    expect(rows[0]).toEqual({ role: "lawyer", locale: "en", ai_enabled: true, theme: "system" });
   });
 
   it("keeps a default model as a pair and a key's last4 at four characters (FR-SET-2)", async () => {
@@ -162,15 +201,21 @@ describe.skipIf(!url)("app schema migrations", () => {
   });
 
   it("is reversible: down drops the tables, up recreates them", async () => {
-    const hasTheme = async () =>
+    const hasColumn = async (table: string, column: string) =>
       (
         await pool.query(
-          "SELECT 1 FROM information_schema.columns WHERE table_schema = 'app' AND table_name = 'users' AND column_name = 'theme'",
+          "SELECT 1 FROM information_schema.columns WHERE table_schema = 'app' AND table_name = $1 AND column_name = $2",
+          [table, column],
         )
       ).rowCount === 1;
-    expect(await hasTheme()).toBe(true);
+    const hasTheme = () => hasColumn("users", "theme");
     expect(await migrateDown(pool)).toBe("0010_user_api_keys");
     expect((await tables()).map((t) => t.tablename)).not.toContain("user_api_keys");
+    expect(await hasColumn("messages", "as_of_note")).toBe(true);
+    expect(await migrateDown(pool)).toBe("0009_message_as_of_note");
+    expect(await hasColumn("messages", "as_of_note")).toBe(false);
+    expect(await migrateDown(pool)).toBe("0008_user_roles");
+    expect(await hasTheme()).toBe(true);
     expect(await migrateDown(pool)).toBe("0007_user_theme");
     expect(await hasTheme()).toBe(false);
     expect(await migrateDown(pool)).toBe("0006_audit_allowed_providers");
@@ -209,6 +254,8 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0005_messages_citations_idx",
       "0006_audit_allowed_providers",
       "0007_user_theme",
+      "0008_user_roles",
+      "0009_message_as_of_note",
       "0010_user_api_keys",
     ]);
     expect((await tables()).map((t) => t.tablename)).toEqual([

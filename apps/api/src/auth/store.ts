@@ -18,7 +18,10 @@ export interface NewUserInput {
   passwordHash: string;
   name: string;
   locale: User["locale"];
-  /** Defaults to user. Only the create-admin CLI passes admin; register never does. */
+  /**
+   * Defaults to lawyer. Register passes lawyer or researcher; only the create-admin CLI passes
+   * admin (FR-AUTH-2).
+   */
   role?: User["role"];
 }
 

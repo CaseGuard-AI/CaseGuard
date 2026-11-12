@@ -143,6 +143,7 @@ export async function saveExchange(db: Db, ctx: AskContext, answer: Answer): Pro
         language: answer.language,
         answerable: answer.answerable,
         citations: answer.citations,
+        asOfNote: answer.asOfNote ?? null,
       })
       .returning();
     await tx
