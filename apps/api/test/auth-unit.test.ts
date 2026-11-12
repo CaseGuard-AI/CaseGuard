@@ -17,7 +17,7 @@ const SECRET = "s".repeat(32);
 const user: AuthContext = {
   userId: "00000000-0000-4000-8000-000000000001",
   accountId: "00000000-0000-4000-8000-000000000002",
-  role: "user",
+  role: "lawyer",
 };
 
 describe("passwords", () => {
@@ -54,8 +54,17 @@ describe("access tokens", () => {
     expect(await verifyAccessToken(token, SECRET)).toBeNull();
   });
 
-  it("rejects a role outside user/admin (FR-AUTH-2)", async () => {
-    const token = await signAccessToken({ ...user, role: "superuser" as never }, SECRET);
+  it("round-trips every role (FR-AUTH-2)", async () => {
+    for (const role of ["lawyer", "researcher", "admin"] as const) {
+      const auth = { ...user, role };
+      expect(await verifyAccessToken(await signAccessToken(auth, SECRET), SECRET)).toEqual(auth);
+    }
+  });
+
+  // `user` is the role before migration 0008: such a token is refused, and the refresh issues
+  // one with the migrated role.
+  it.each(["superuser", "user"])("rejects the unknown role %j (FR-AUTH-2)", async (role) => {
+    const token = await signAccessToken({ ...user, role: role as never }, SECRET);
     expect(await verifyAccessToken(token, SECRET)).toBeNull();
   });
 });
@@ -88,12 +97,15 @@ describe("requireAuth and requireRole", () => {
     expect(res.status).toBe(401);
   });
 
-  it("403 for a User on an admin-only endpoint (FR-AUTH-2)", async () => {
-    const token = await signAccessToken(user, SECRET);
-    const res = await request(app).get("/admin-only").set("Authorization", `Bearer ${token}`);
-    expect(res.status).toBe(403);
-    expect(res.body).toMatchObject({ title: "Forbidden", status: 403 });
-  });
+  it.each(["lawyer", "researcher"] as const)(
+    "403 for a %s on an admin-only endpoint (FR-AUTH-2)",
+    async (role) => {
+      const token = await signAccessToken({ ...user, role }, SECRET);
+      const res = await request(app).get("/admin-only").set("Authorization", `Bearer ${token}`);
+      expect(res.status).toBe(403);
+      expect(res.body).toMatchObject({ title: "Forbidden", status: 403 });
+    },
+  );
 
   it("200 for an Admin", async () => {
     const token = await signAccessToken({ ...user, role: "admin" }, SECRET);

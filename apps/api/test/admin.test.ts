@@ -23,12 +23,13 @@ describe.skipIf(!url)("admin (api.v1 /admin/*)", () => {
   let app: ReturnType<typeof createApp>;
   let adminToken: string;
   let userToken: string;
+  let researcherToken: string;
   let userId: string;
 
-  async function register(email: string) {
+  async function register(email: string, role: "lawyer" | "researcher" = "lawyer") {
     const res = await request(app)
       .post("/api/v1/auth/register")
-      .send({ email, password: PASSWORD, name: email.split("@")[0] });
+      .send({ email, password: PASSWORD, name: email.split("@")[0], role });
     return res.body as { accessToken: string; user: { id: string } };
   }
 
@@ -67,6 +68,7 @@ describe.skipIf(!url)("admin (api.v1 /admin/*)", () => {
     const user = await register("user@example.com");
     userToken = user.accessToken;
     userId = user.user.id;
+    researcherToken = (await register("researcher@example.com", "researcher")).accessToken;
   });
 
   afterAll(async () => {
@@ -94,20 +96,22 @@ describe.skipIf(!url)("admin (api.v1 /admin/*)", () => {
     ] as const;
 
     for (const op of operations) {
-      it(`${op.method.toUpperCase()} ${op.path}: 403 for a User, 401 without a token (FR-AUTH-2)`, async () => {
+      it(`${op.method.toUpperCase()} ${op.path}: 403 for a Lawyer or Researcher, 401 without a token (FR-AUTH-2)`, async () => {
         const send = (r: request.Test) => ("body" in op ? r.send(op.body) : r);
-        const asUser = await send(
-          request(app)[op.method](op.url()).set("Authorization", `Bearer ${userToken}`),
-        );
-        expect(asUser.status).toBe(403);
-        expectContract(asUser, op.method, op.path);
+        for (const token of [userToken, researcherToken]) {
+          const forbidden = await send(
+            request(app)[op.method](op.url()).set("Authorization", `Bearer ${token}`),
+          );
+          expect(forbidden.status).toBe(403);
+          expectContract(forbidden, op.method, op.path);
+        }
         const anonymous = await send(request(app)[op.method](op.url()));
         expect(anonymous.status).toBe(401);
         expectContract(anonymous, op.method, op.path);
       });
     }
 
-    it("a User's 403 changes nothing", async () => {
+    it("a Lawyer's 403 changes nothing", async () => {
       await request(app)
         .patch("/api/v1/admin/providers/gemini")
         .set("Authorization", `Bearer ${userToken}`)
@@ -136,10 +140,11 @@ describe.skipIf(!url)("admin (api.v1 /admin/*)", () => {
         cursor = res.body.nextCursor;
         pages++;
       } while (cursor);
-      expect(pages).toBe(2);
+      expect(pages).toBe(3);
       expect(seen).toEqual([
         "root@example.com",
         "user@example.com",
+        "researcher@example.com",
         "c@example.com",
         "d@example.com",
       ]);
@@ -195,7 +200,7 @@ describe.skipIf(!url)("admin (api.v1 /admin/*)", () => {
       expect(extra.status).toBe(400);
       expectContract(extra, "patch", "/admin/users/{userId}");
       const { rows } = await pool.query("SELECT role FROM app.users WHERE id = $1", [userId]);
-      expect(rows[0].role).toBe("user");
+      expect(rows[0].role).toBe("lawyer");
     });
   });
 
