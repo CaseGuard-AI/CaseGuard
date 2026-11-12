@@ -30,6 +30,10 @@ REVOKE ALL ON SCHEMA app    FROM PUBLIC;
 REVOKE ALL ON SCHEMA corpus FROM PUBLIC;
 REVOKE ALL ON SCHEMA ai     FROM PUBLIC;
 
+-- Extension types and functions (pgvector's `vector`, pg_trgm) live in public. services/ai needs
+-- to use them, never to create anything there: USAGE only (#15).
+GRANT USAGE ON SCHEMA public TO caseguard_ai;
+
 -- Each role connects to the database and resolves its own schema first.
 SELECT format('GRANT CONNECT ON DATABASE %I TO caseguard_app, caseguard_ai', current_database()) \gexec
 ALTER ROLE caseguard_app SET search_path = app, public;

@@ -1,6 +1,6 @@
 # Stream A roadmap: what's done and what's left
 
-> **Status:** Living document, updated 2026-10-22 · **Owner:** Stream A (`apps/web`, `apps/api`) · Source of scope: [PRD §16.1](../PRD.md#161-workstreams)
+> **Status:** Living document, updated 2026-11-09 · **Owner:** Stream A (`apps/web`, `apps/api`) · Source of scope: [PRD §16.1](../PRD.md#161-workstreams)
 
 The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 are still open. **But the PRD gives Stream A more than those issues cover:** "`apps/web` (… all screens), `apps/api` (auth, roles, cases, documents, uploads, settings, keys, notifications, audit writes, jobs)". This page compares that scope with what is merged and puts the rest in order. Each item has one or more issues (§4), and each issue gets one plan (`plans/NNNN-<issue#>-<slug>.md`), and a dependency gets its own issue first, as usual.
 
@@ -8,7 +8,8 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 
 | Area | Issues | Requirements |
 |---|---|---|
-| Auth API: register, login, refresh with reuse detection, logout, me, roles | #10 | FR-AUTH-1, FR-AUTH-2, SEC-1, SEC-2, SEC-15 (auth) |
+| Auth API: register, login, refresh with reuse detection, logout, me, `requireRole` | #10 | FR-AUTH-1, FR-AUTH-2, SEC-1, SEC-2, SEC-15 (auth) |
+| The PRD's three roles: Lawyer, Researcher and Administrator. Migration `0008` renames `user` to `lawyer`; register offers Lawyer or Researcher, and `admin` is a 400 (only the CLI makes admins); the admin console shows each user's role | — (branch `feature/fr-auth-2-roles`, PR pending) | FR-AUTH-2 |
 | Password reset (API and email) | #53, #61 | FR-AUTH-1 |
 | Admin bootstrap CLI, per-user AI toggle and provider allow-list (API) | #54, #55, #75, plus the allow-list contract under #21 (plan 0015) | FR-AUTH-3, SEC-11 (allow-list) |
 | `app` schema, ownership columns | #9 | FR-AUTH-4, FR-AUTH-5 |
@@ -21,6 +22,7 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | Research Hub answer view (web) | #14 | FR-RES-5, FR-RES-7, FR-RES-10, FR-TRUST-5, FR-TRUST-10 |
 | Admin console: per-user AI access and the provider allow-list (web), item A4 | #91 | FR-AUTH-2, FR-AUTH-3, SEC-11 |
 | User settings: name, language and theme (contract, API, web, dark tokens), item A2 | #88, #89, #90 | FR-SET-1, FR-I18N-1 |
+| Refresh has its own rate limit (120 per IP per 15 minutes), item A1 | #83 | SEC-15 |
 
 **Not blocked on Stream A, but it limits what's verifiable:** before #20 (services/ai `research/answer`, Stream C), every question gets 503. M1's definition of done ("Research Hub answers in English with citations") is met on Stream A's side, and the end-to-end demo waits for #20, #18, #19 and #16.
 
@@ -30,7 +32,6 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 
 | # | Item | Requirements | Exists today | Missing |
 |---|---|---|---|---|
-| A1 | **Refresh gets its own rate limit** | SEC-15 | Issue #83 | It shares 20 per 15 minutes with register and reset, so busy tabs can lock out a reset. |
 | A3 | **Default model, user API keys and model choice** | FR-SET-1 (model), FR-SET-2, SEC-4, SEC-11 | Admin provider allow-list | No key storage (AES-256-GCM), no key endpoints, no model list, and **ai.v1 has no field for the model or a user's credential.** This needs Stream C (#21). |
 | A5 | **"Law as of date" in the ask box** | FR-RES-11 | The API passes `lawAsOf` through (#13) | No date control in the Research Hub. It only means something once temporal curation (Streams B and C, M2) exists. |
 
@@ -43,7 +44,7 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | A8 | **Documents and uploads** (contract, storage, job queue, status, web) | FR-DOC-1, FR-DOC-2, FR-DOC-3, FR-DOC-4, FR-DOC-6, SEC-6, NFR-13 | Stream A owns uploads and jobs. OCR, chunking and embedding run in services/ai ingestion workers (Stream C), so the handoff needs a contract. Cut order: last of the P1s to be cut. |
 | A9 | **Notifications** | FR-NOT-1 | Driven by A8's job events. |
 | A10 | **Dashboard** | FR-DASH-1 | `/` is still a placeholder with a disabled ask box. It needs A6 and A7, and drafts once they exist. |
-| A11 | **Urdu UI review** | FR-I18N-2 | Every string is translated, but none reviewed by a native speaker (flagged on #11, #12, #62 and #14). This is a review task, not code. |
+| A11 | **Urdu UI review** | FR-I18N-2 | Every string is translated, but none reviewed by a native speaker (flagged on #11, #12, #62 and #14, and the role names and register strings from FR-AUTH-2). This is a review task, not code. |
 | A12 | **Screens over Stream C features**: precedent search (M3), drafting (M3), linter (M3) | FR-PREC-*, FR-DRAFT-*, FR-LINT-* | Each waits for its ai.v1 operations, which aren't in the contract yet. Cut order: drafting, then linter, then precedent UI. |
 
 ### P2 (M4)
@@ -62,8 +63,6 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 
 ```text
 P0 ─ now
-  A1  #83 refresh rate limit (api)                         independent, small
-  A2  settings: contract → api → web                       independent
   A3  ADR + contract (with Stream C, #21) → api keys → web settings "Models & keys"
   A5  "law as of" control (web)                            after temporal curation (M2)
 P1 ─ M3
@@ -78,7 +77,7 @@ P2 ─ M4
   A13, A14
 ```
 
-A4 (the admin console, #91) and A2 (settings, #88 → #89 → #90) are done. A1 (#83) is small and can go in at any time. A3 (keys and models) waits on the ADR (#92) and Stream C (#21).
+A4 (the admin console, #91), A2 (settings, #88 → #89 → #90) and A1 (the refresh rate limit, #83) are done. A3 (keys and models) waits on the ADR (#92) and Stream C (#21).
 
 ## 4. Issues (filed 2026-10-21)
 

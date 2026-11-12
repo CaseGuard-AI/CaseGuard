@@ -32,7 +32,7 @@ const toProviderDto = (p: Provider) => ({
 
 const notFound = (what: string) => new HttpProblem(404, "Not Found", `No such ${what}.`);
 
-// Admin role only (FR-AUTH-2, FR-AUTH-3). Users get 403 on every route here.
+// Admin role only (FR-AUTH-2, FR-AUTH-3). Lawyers and Researchers get 403 on every route here.
 export function adminRouter(deps: { db: Db; jwtSecret: string }) {
   const { db } = deps;
   const router = Router();

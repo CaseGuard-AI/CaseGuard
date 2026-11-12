@@ -4,7 +4,7 @@
 
 ## Owns
 
-Auth (User/Admin), sessions, **the access decision**, cases, documents and uploads, settings, encrypted user API keys, notifications, audit writes and background jobs. It implements `/api/v1` from `packages/contracts`.
+Auth (Lawyer/Researcher/Admin), sessions, **the access decision**, cases, documents and uploads, settings, encrypted user API keys, notifications, audit writes and background jobs. It implements `/api/v1` from `packages/contracts`.
 
 ## Rules
 
@@ -51,8 +51,9 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 - Passwords are hashed with **argon2id** (`src/auth/password.ts`).
 - Sign-in returns a 15-minute **access JWT** (HS256, `JWT_SECRET`) in the body, sent back as `Authorization: Bearer`. The 14-day **refresh token** is set only in the `cg_refresh` cookie (`HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`). Only its SHA-256 is stored, in `app.refresh_tokens`.
 - Each refresh spends the token and issues a new one in the same family. Presenting a spent token again revokes the whole family.
-- Protect a route with `requireAuth(jwtSecret)`, and add `requireRole("admin")` for admin-only routes (403 for Users).
-- Rate limits (SEC-15): 10 failed sign-ins per IP and email, and 20 register/refresh requests per IP, each per 15 minutes. The store is in memory, so limits are per process; use a shared store before running more than one API instance.
+- **Roles** (FR-AUTH-2): `lawyer`, `researcher` and `admin`. `POST /auth/register` takes an optional `role` of `lawyer` (the default) or `researcher`; `admin` or any other value is a 400, so admins come only from `pnpm db:create-admin`. Migration `0008` renamed the old `user` role to `lawyer`. An access token signed before it (role `user`) gets a 401, and the web's refresh issues one with the new role.
+- Protect a route with `requireAuth(jwtSecret)`, and add `requireRole("admin")` for admin-only routes (403 for Lawyers and Researchers).
+- Rate limits (SEC-15): 10 failed sign-ins per IP and email, 20 register and password-reset requests per IP, and a separate 120 refreshes per IP, each per 15 minutes. Refresh has its own budget because the web refreshes on every page load (#83). The store is in memory, so limits are per process; use a shared store before running more than one API instance.
 - **Password reset** (#53):
   - `POST /auth/password-reset` answers 202 before it looks anything up, so neither the status nor the timing reveals whether an account exists. If the account does exist, it emails `RESET_URL_BASE?token=…` in the background.
   - The token is valid for 30 minutes and works once. Only its SHA-256 is stored, in `app.password_reset_tokens`, and requesting a new link spends the older ones.
@@ -98,7 +99,7 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 
 ## Admin
 
-- Everything under `/api/v1/admin` requires `requireAuth` and `requireRole("admin")`, so Users get 403. Create the first admin with `pnpm db:create-admin` (see Auth).
+- Everything under `/api/v1/admin` requires `requireAuth` and `requireRole("admin")`, so Lawyers and Researchers get 403. Create the first admin with `pnpm db:create-admin` (see Auth).
 - **AI access** (FR-AUTH-3): `PATCH /admin/users/{userId} { aiEnabled }`. Mount `requireAiEnabled(db)` after `requireAuth` on every AI route. It reads `ai_enabled` from the database on each request, so a change applies to the user's very next request.
 - **Provider allow-list** (SEC-11): `app.providers` is seeded by migration `0003` from the ADR-0005 presets. Only `ollama` (local) starts enabled, so an Admin switches cloud providers on. The API only toggles entries and never stores provider keys.
 - **Sending the allow-list** (#75): every question sends the enabled ids explicitly as `allowedProviders`, read fresh on each request. To services/ai, an omitted list means "local only". With nothing enabled, the ask route returns 503 without calling services/ai. The list in effect is stored on the audit row (`allowed_providers`). Enforcement inside `services/ai` is #21.

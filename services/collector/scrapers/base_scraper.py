@@ -22,10 +22,10 @@ from typing import Any
 
 from config import Settings, SourceConfig
 from extractors.pdf_extractor import extract_pdf
-from models.legal_document import ExtractionStatus, LegalDocument
+from models.legal_document import ExtractionStatus, FileStatus, LegalDocument
 from storage.file_storage import FileStorage
 from storage.jsonl_storage import JsonlStorage
-from storage.state_store import StateStore
+from storage.state_store import RETRY, StateStore
 from utils.dates import extract_year, in_year_range
 from utils.hashing import sha256_bytes
 from utils.http_client import FetchError, HttpClient, RobotsDisallowed
@@ -66,6 +66,7 @@ class ScrapeStats:
     pdf_extract_failed: int = 0
     scanned_pdfs: int = 0
     missing_metadata: int = 0
+    not_selected: int = 0
 
     def as_dict(self) -> dict[str, int]:
         return dict(self.__dict__)
@@ -132,12 +133,16 @@ class BaseScraper(abc.ABC):
             )
 
         limit = self.settings.limit
+        selection = self.settings.selection
         for item in self.discover():
             self.stats.discovered += 1
             if limit is not None and self.stats.stored >= limit:
                 self.log.info("Reached --limit %d; stopping discovery.", limit)
                 break
             if not in_year_range(item.year, self.settings.start_year, self.settings.end_year):
+                continue
+            if selection is not None and not selection.wants(item):
+                self.stats.not_selected += 1
                 continue
             try:
                 self._process(item)
@@ -155,6 +160,10 @@ class BaseScraper(abc.ABC):
                 self.events.emit(
                     "document_failed", source=self.source_key, url=item.url, error=str(exc)
                 )
+
+            if selection is not None and selection.exhausted():
+                self.log.info("Every selected item was found; stopping discovery.")
+                break
 
         self.log.info("Finished %s: %s", self.source_key, self.stats.as_dict())
         return self.stats
@@ -282,6 +291,11 @@ class BaseScraper(abc.ABC):
         self.storage.write(document)
         self.stats.stored += 1
         self.state.register_hash(document.content_hash, document.id, self.source_key, state_url)
+        # A file that could not be downloaded (a timeout, the site answering 5xx) is a passing
+        # problem: the record is stored so its metadata isn't lost, but marked RETRY so the next
+        # run fetches the file again. An empty or non-PDF answer is the file itself and is not
+        # retried; --force re-fetches those.
+        download_failed = document.raw.get("file_status") == FileStatus.DOWNLOAD_FAILED.value
         status_change = self.state.mark_seen(
             state_url,
             self.source_key,
@@ -289,12 +303,13 @@ class BaseScraper(abc.ABC):
             content_hash=document.content_hash,
             etag=getattr(response, "etag", None),
             last_modified=getattr(response, "last_modified", None),
-            status="invalid" if problems else "ok",
+            status=RETRY if download_failed else ("invalid" if problems else "ok"),
         )
         if status_change == "changed":
             self.stats.changed += 1
             document.notes.append("content changed since previous run")
-        self.state.clear_failure(state_url)
+        if not download_failed:
+            self.state.clear_failure(state_url)
         return status_change
 
     # ==================================================================
@@ -311,6 +326,7 @@ class BaseScraper(abc.ABC):
         document.document_file_url = pdf_url
         if not self.settings.download_pdfs:
             document.extraction_status = ExtractionStatus.NOT_ATTEMPTED.value
+            document.raw["file_status"] = FileStatus.NOT_DOWNLOADED.value
             document.notes.append("PDF download disabled (--no-pdfs)")
             return document
 
@@ -318,28 +334,37 @@ class BaseScraper(abc.ABC):
         name = name_hint or document.title or document.case_number or "document"
         target = self.files.raw_path(self.source_key, name, pdf_url, year)
 
-        if target.exists() and not self.settings.force:
-            data = target.read_bytes()
+        cached = target.read_bytes() if target.exists() and not self.settings.force else None
+        if cached is not None and cached.startswith(b"%PDF-"):
+            data = cached
             self.log.debug("PDF already on disk: %s", target.name)
         else:
             response = self._fetch(pdf_url)
             if response is None:
                 document.extraction_status = ExtractionStatus.FAILED.value
                 document.extraction_error = f"could not download {pdf_url}"
+                document.raw["file_status"] = FileStatus.DOWNLOAD_FAILED.value
                 self.stats.pdf_extract_failed += 1
                 return document
             data = response.content
+            # Trust the bytes, not the Content-Type header. About 1 in 10 SHC downloads is an
+            # empty body or another format (#147): flag it and never save it as a PDF.
             if not data.startswith(b"%PDF-"):
+                status = FileStatus.EMPTY if not data.strip() else FileStatus.NOT_PDF
                 document.extraction_status = ExtractionStatus.FAILED.value
                 document.extraction_error = (
                     f"URL did not return a PDF (content-type="
                     f"{response.content_type!r}, {len(data)} bytes)"
                 )
+                document.raw["file_status"] = status.value
                 self.stats.pdf_extract_failed += 1
-                self.events.emit("pdf_not_a_pdf", source=self.source_key, url=pdf_url)
+                self.events.emit(
+                    "pdf_not_a_pdf", source=self.source_key, url=pdf_url, file_status=status.value
+                )
                 return document
             target = self.files.save_binary(data, self.source_key, name, pdf_url, year)
 
+        document.raw["file_status"] = FileStatus.OK.value
         self.stats.pdfs += 1
         document.file_path = str(target)
         document.mime_type = "application/pdf"

@@ -156,7 +156,9 @@ describe("AppShell with a signed-in user", () => {
     expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
     act(() => signIn(ayesha));
     expect(screen.getByRole("link", { name: ur.Nav.admin }).getAttribute("href")).toBe("/admin");
-    act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "user" } }));
+    act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "researcher" } }));
+    expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
+    act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "lawyer" } }));
     expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
   });
 
@@ -168,7 +170,8 @@ describe("AppShell with a signed-in user", () => {
     fetchMock.mockImplementation(async (input) => {
       const request = input as Request;
       order.push(`${request.method} ${new URL(request.url).pathname}`);
-      return new Response(JSON.stringify({ name: "Ayesha Khan", locale: "en", theme: "system" }), {
+      const settings = { name: "Ayesha Khan", locale: "en", theme: "system", defaultModel: null };
+      return new Response(JSON.stringify(settings), {
         headers: { "Content-Type": "application/json" },
       });
     });

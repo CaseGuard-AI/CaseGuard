@@ -12,6 +12,13 @@
     "db:down": "docker compose down",
     "db:bootstrap": "node scripts/db-bootstrap.mjs",
     "db:migrate": "pnpm --filter ./apps/api run db:migrate",
+    "db:migrate:ai": "uv run --directory services/ai alembic upgrade head",
+    "db:migrate:ai:down": "uv run --directory services/ai alembic downgrade -1",
+    "data:load": "uv run --directory services/ai python -m caseguard_ai.ingest.load",
+    "data:embed": "uv run --directory services/ai python -m caseguard_ai.ingest.embed",
+    "data:dump": "uv run --directory services/ai python -m caseguard_ai.ingest.dump",
+    "data:pull": "uv run --directory services/ai python -m caseguard_ai.ingest.pull",
+    "db:rebootstrap": "docker compose exec -T db bash /docker-entrypoint-initdb.d/01-schemas-and-roles.sh",
     "db:create-admin": "pnpm --filter ./apps/api run db:create-admin",
     "mail:check": "pnpm --filter ./apps/api run mail:check",
     "stack:up": "docker compose up --build -d --wait",
@@ -22,6 +29,7 @@
     "dev:ai": "uv run --directory services/ai uvicorn caseguard_ai.main:app --reload --port 8000",
     "gen:contracts": "pnpm --filter @caseguard/contracts run generate",
     "llm:check": "uv run --directory services/ai python -m caseguard_ai.gateway.check",
+    "ai:support-eval": "uv run --directory services/ai python -m caseguard_ai.trust.support_eval",
     "lint": "pnpm -r --if-present run lint",
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
@@ -33,7 +41,10 @@
   },
   "pnpm": {
     "overrides": {
-      "@esbuild-kit/core-utils>esbuild": "^0.25.0"
+      "@esbuild-kit/core-utils>esbuild": "^0.25.0",
+      "body-parser@>=2.0.0 <2.4.0": "^2.4.0",
+      "qs@>=6.7.0 <=6.16.0": "^6.16.1",
+      "minimatch@>=7.0.0 <11.0.1": "^11.0.1"
     },
     "ignoredBuiltDependencies": [
       "sharp",

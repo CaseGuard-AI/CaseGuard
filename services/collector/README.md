@@ -114,8 +114,18 @@ python main.py --source all --start-year 2020 --end-year 2026
 python main.py --source shc_caselaw --no-pdfs           # fast metadata pass
 PKLEGAL_SHC_SCOPE=all python main.py --source shc_caselaw --no-pdfs
 
+# the team's crawl is split into partitions, each in data/partitions/<name>/ (PARTITIONS.md)
+python main.py --list-partitions
+python main.py --partition shc-meta                     # all SHC metadata, no PDFs
+python main.py --partition shc-criminal --limit 200     # PDFs for the committed selection only
+
 # re-attempt only what failed, without re-walking the site
 python main.py --retry-failed --source pakistan_code
+
+# files that failed to download are retried by the next run of the same crawl; for
+# records stored before that, requeue them once, then rerun
+python main.py --partition shc-civil --requeue-failed-downloads
+python main.py --partition shc-civil
 
 # third-party bootstrap corpora (kept provenance-separate, see §10)
 python main.py --list-bootstrap
@@ -288,6 +298,20 @@ with `extraction_status` and `extraction_error` set, counted in the report, and
 picked up again on a later run. A URL that returns HTML instead of a PDF is
 caught by magic bytes rather than trusting the `Content-Type` header.
 
+Every record that links a file says what happened to it in `raw.file_status`:
+`ok`, `not_downloaded` (`--no-pdfs`), `download_failed`, `empty`, `not_pdf` or
+`missing_link`. An empty body or a non-PDF is never saved under `raw/`. About 1
+in 10 SHC downloads is one of these (#147). A cached file on disk is reused only
+if it really is a PDF.
+
+`download_failed` (a timeout, or the site answering 5xx such as SHC's HTTP 521/525
+when it is down) is a passing problem: the record is stored, and its crawl state is
+`retry`, so the **next run of the same crawl fetches the file again**. A success
+writes the full judgment under the same id, and the corpus loader replaces the
+head-note row. `empty` and `not_pdf` describe the file itself and are not retried
+(use `--force` for that). Records stored before this behaviour existed can be
+requeued once with `--requeue-failed-downloads`.
+
 Filenames embed a hash of the source URL (`<slug>_<urlkey>.pdf`), so two
 documents with the same title never collide and any file traces back to its URL.
 
@@ -297,7 +321,14 @@ documents with the same title never collide and any file traces back to its URL.
 
 `utils/http_client.py` is the single door every request goes through: robots
 check → per-host politeness delay → request → retry with exponential backoff and
-jitter. It honours `Retry-After`, backs a host off further after a 429/503, and
+jitter. TLS is always verified, against certifi's roots plus the intermediates
+bundled in `certs/extra-intermediates.pem` (`utils/tls.py`). pakistancode.gov.pk
+sends the wrong intermediate, so a strict client can't build its chain without
+that file (#147). robots.txt is fetched with the same trust; a host whose
+certificate fails there is skipped, not treated as "no robots.txt". Links are
+resolved like a browser does (`utils/links.py`): against `<base href>` when the
+page has one, and never from inside an HTML comment.
+It honours `Retry-After`, backs a host off further after a 429/503, and
 **never retries a 400/401/403/404/410** — those will not succeed and retrying
 them is just noise on someone's server.
 
@@ -373,8 +404,9 @@ Be straight about these in the report; examiners respect it.
    works against the real markup or finds nothing and says so loudly. Probe
    first, then tighten it.
 4. **SHC `full_text` may be the head-note, not the judgment.** Where no judgment
-   file is linked, the record carries the listing entry and a `notes` entry
-   saying exactly that. Do not let those records into the RAG index unlabelled —
+   file is linked, or the file couldn't be used, the record carries the listing
+   entry, **`raw.headnote_only: true`**, and a `notes` entry saying exactly why.
+   Loaders and the index read the flag, not the note. Do not let those records into the RAG index unlabelled —
    a retrieved head-note presented as the full judgment is the kind of error
    that discredits the whole system.
 5. **Metadata heuristics are heuristics.** Judge names are parsed only from
@@ -446,7 +478,7 @@ more stable, and far gentler on the court's server.
 ## 12. Tests
 
 ```bash
-pytest                    # 116 tests
+pytest                    # 137 tests
 pytest --cov              # with coverage
 ```
 
@@ -476,6 +508,8 @@ Writing them caught seven real bugs, which is the main argument for keeping them
   Now keyed on the URL actually fetched
 
 ---
+
+> **Loading into the database:** `--load-db` (SQLAlchemy `create_all`) predates the monorepo's `corpus` schema. Use `pnpm data:load` (services/ai, #16) instead. It writes the Alembic-managed `corpus.documents` and keeps the head-note-only and third-party labels.
 
 ## 13. Where this fits in the RAG pipeline
 

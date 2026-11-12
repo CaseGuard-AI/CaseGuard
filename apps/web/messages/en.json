@@ -31,7 +31,8 @@
     "help": "Help centre",
     "signOut": "Sign out",
     "roles": {
-      "user": "User",
+      "lawyer": "Lawyer",
+      "researcher": "Researcher",
       "admin": "Admin"
     }
   },
@@ -78,7 +79,7 @@
     },
     "settings": {
       "title": "Settings",
-      "subtitle": "Your name, language and theme."
+      "subtitle": "Your name, language, theme and AI models."
     },
     "admin": {
       "title": "Admin console",
@@ -118,7 +119,9 @@
       "submit": "Create account",
       "haveAccount": "Already have an account?",
       "login": "Sign in",
-      "passwordHint": "At least 10 characters."
+      "passwordHint": "At least 10 characters.",
+      "role": "I'm joining as",
+      "roleHint": "Admin accounts are created by your CaseGuard operator."
     },
     "forgot": {
       "title": "Reset your password",
@@ -194,6 +197,8 @@
     "you": "You",
     "sources": "Evidence & sources",
     "unanswerable": "The sources don't support an answer to this question.",
+    "lawAsOf": "Law as of (optional)",
+    "asOfNote": "Law as of a past date",
     "errors": {
       "aiDisabled": "AI research is turned off for your account. Ask your administrator to enable it.",
       "tooMany": "Too many questions. Wait a few minutes and try again.",
@@ -225,6 +230,16 @@
       "tierValue": "Tier {tier}",
       "thirdParty": "Third-party source",
       "headnoteOnly": "Head-note only"
+    },
+    "history": {
+      "title": "Research history",
+      "open": "History",
+      "newQuestion": "New question",
+      "loading": "Loading your conversations…",
+      "empty": "No conversations yet. Your questions will appear here.",
+      "error": "Your conversations can't be loaded right now.",
+      "retry": "Try again",
+      "loadMore": "Load more"
     }
   },
   "Admin": {
@@ -301,6 +316,48 @@
       "light": "Light",
       "dark": "Dark",
       "system": "System"
+    },
+    "models": {
+      "title": "Models & keys",
+      "body": "Use your own API key for a cloud model provider, and choose the model your questions use. Keys are stored encrypted and are never shown again.",
+      "loadError": "Couldn't load the model providers.",
+      "empty": "No model providers are enabled on this deployment. Questions use its default model.",
+      "noKey": "No key saved",
+      "noKeyNeeded": "Runs locally. No key needed.",
+      "savedKey": "Saved key ending in {last4}",
+      "updated": "Updated {date}",
+      "keyLabel": "API key for {name}",
+      "keyHint": "Paste the key from the provider's console. It is sent once and stored encrypted.",
+      "keyHintReplace": "Paste a new key to replace the saved one.",
+      "save": "Save key",
+      "replace": "Replace key",
+      "delete": "Delete",
+      "deleteFor": "Delete the {name} key",
+      "confirmTitle": "Delete your {name} key?",
+      "confirmBody": "Questions will use the deployment's model until you add a key for {name} again.",
+      "cancel": "Cancel",
+      "confirmDelete": "Delete key",
+      "keySaved": "Key saved",
+      "keyDeleted": "Key deleted",
+      "defaultLabel": "Default model",
+      "deploymentDefault": "Deployment default",
+      "unlisted": "{model} (no longer offered)",
+      "defaultHint": "Questions use the model this deployment is set up with.",
+      "unavailableHint": "This model is no longer offered, so questions use the deployment's model.",
+      "noKeyHint": "Questions use the deployment's model until you add a key for {name}.",
+      "withKeyHint": "Questions use this model with your {name} key.",
+      "errors": {
+        "network": "Can't reach the server. Check your connection and try again.",
+        "keyTooShort": "A key has at least {min} characters.",
+        "keyTooLong": "A key has at most {max} characters.",
+        "keyForbidden": "This provider doesn't take a key here. It may have been switched off by an admin.",
+        "keysUnavailable": "Saving keys isn't set up on this server yet. Ask your administrator.",
+        "keyInvalid": "That key wasn't accepted. Check it and try again.",
+        "keyGeneric": "The key wasn't saved. Try again.",
+        "deleteGeneric": "The key wasn't deleted. Try again.",
+        "modelUnavailable": "That model isn't available any more. Choose another.",
+        "modelGeneric": "The model wasn't saved. Try again."
+      }
     },
     "errors": {
       "network": "Can't reach the server. Check your connection and try again.",

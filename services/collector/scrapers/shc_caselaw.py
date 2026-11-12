@@ -58,16 +58,28 @@ from extractors.metadata_extractor import (
     extract_judges,
     split_parties,
 )
-from models.legal_document import DocumentType, LegalDocument
+from models.legal_document import DocumentType, FileStatus, LegalDocument
 from scrapers.base_scraper import BaseScraper, Discovered
 from utils.dates import extract_year, normalise_date
+from utils.links import document_base
 
 JUDGE_INDEX = "/caselaw/public/rpt-afr"
 # Fallback listing, used when the judge index cannot be read.
 TOP_TREND = "/caselaw/public/top-trend-judgements"
 
 JUDGE_DETAIL = re.compile(r"/reported-judgements-detail-all/(\d+)/(-1|AFR)")
-DOWNLOAD_LINK = re.compile(r"/caselaw/download-file\.php\?", re.I)
+# Why a SHC record's full_text is only the table row, by raw["file_status"].
+_HEADNOTE_REASON = {
+    "missing_link": "no judgment file was linked",
+    "not_downloaded": "the judgment file was not downloaded (--no-pdfs)",
+    "download_failed": "the judgment file could not be downloaded",
+    "empty": "the linked judgment file was empty",
+    "not_pdf": "the linked judgment file was not a PDF",
+}
+
+# The table links "download-file.php?doc=..." relatively, under <base href="/caselaw/"> (#147).
+# Older pages used "/caselaw/download-file.php?...". Commented-out "view-file/..." links are dead.
+DOWNLOAD_LINK = re.compile(r"(?:^|/)download-file\.php\?", re.I)
 
 # "Suit 333/2004 (S.B.) Sindh High Court, Karachi"
 CASE_CELL = re.compile(
@@ -110,7 +122,7 @@ class SindhHighCourtScraper(BaseScraper):
 
     @property
     def scope(self) -> str:
-        value = os.getenv("PKLEGAL_SHC_SCOPE", "afr").strip().lower()
+        value = (self.settings.shc_scope or os.getenv("PKLEGAL_SHC_SCOPE", "afr")).strip().lower()
         return value if value in {"afr", "all"} else "afr"
 
     # ------------------------------------------------------------------
@@ -193,7 +205,9 @@ class SindhHighCourtScraper(BaseScraper):
                 cells = row.find_all("td")
                 if not cells:
                     continue  # header row
-                item = self._row_to_item(cells, headers, base_url, judge_name)
+                item = self._row_to_item(
+                    cells, headers, base_url, judge_name, link_base=document_base(soup, base_url)
+                )
                 if item is not None:
                     yield item
 
@@ -216,8 +230,14 @@ class SindhHighCourtScraper(BaseScraper):
 
     # ------------------------------------------------------------------
     def _row_to_item(
-        self, cells, headers: dict[int, str], base_url: str, judge_name: str
+        self,
+        cells,
+        headers: dict[int, str],
+        base_url: str,
+        judge_name: str,
+        link_base: str | None = None,
     ) -> Discovered | None:
+        """``base_url`` is the page (provenance); ``link_base`` honours ``<base href>`` for links."""
         values: dict[str, str] = {}
         download_url: str | None = None
 
@@ -229,7 +249,7 @@ class SindhHighCourtScraper(BaseScraper):
             if field == "case_cell":
                 for anchor in cell.find_all("a", href=True):
                     if DOWNLOAD_LINK.search(anchor["href"]):
-                        download_url = urljoin(base_url, anchor["href"])
+                        download_url = urljoin(link_base or base_url, anchor["href"].strip())
                         break
 
         case_cell = values.get("case_cell")
@@ -334,13 +354,24 @@ class SindhHighCourtScraper(BaseScraper):
                 name_hint=f"{item.hint('matter_type') or 'case'}_{case_number}",
             )
 
-        if not document.full_text:
+        if not download_url:
+            document.raw["file_status"] = FileStatus.MISSING_LINK.value
+        elif not self.settings.download_pdfs:
+            document.raw["file_status"] = FileStatus.NOT_DOWNLOADED.value
+        if document.full_text:
+            document.raw["headnote_only"] = False
+        else:
             parts = [parties_text, item.hint("head_note"), item.hint("bench")]
             self.attach_html_text(document, "\n".join(p for p in parts if p))
+            # An explicit flag for loaders and the RAG index (README §10.4), so nothing has to
+            # parse `notes` to know this record is not the judgment itself.
+            document.raw["headnote_only"] = True
+            reason = _HEADNOTE_REASON.get(
+                document.raw.get("file_status", ""), "the judgment file had no extractable text"
+            )
             document.notes.append(
                 "full_text is the portal's table row (parties, head-note, "
-                "bench), not the judgment itself"
-                + ("" if download_url else "; no judgment file was linked")
+                f"bench), not the judgment itself; {reason}"
             )
 
         document.cited_cases = extract_citations(document.summary or "")

@@ -2,14 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "@/components/auth/session-provider";
-import { api, type Schemas } from "@/lib/api";
-import { statusOf, unwrap } from "@/lib/api-query";
+import { api, problemOf, type Schemas } from "@/lib/api";
+import { ApiError, statusOf, unwrap } from "@/lib/api-query";
 import { updateUser } from "@/lib/session";
 
 export type UserSettings = Schemas["UserSettings"];
 export type SettingsUpdate = Schemas["UserSettingsUpdate"];
+export type DefaultModel = Schemas["DefaultModel"];
+export type UserKey = Schemas["UserKey"];
+export type ProviderModels = Schemas["ProviderModels"];
 
 export const settingsKey = ["me", "settings"] as const;
+export const keysKey = ["me", "keys"] as const;
+export const modelsKey = ["models"] as const;
 
 // Retry only a request that got no answer, as the admin console does.
 const retryNetwork = (count: number, error: unknown) => statusOf(error) === undefined && count < 1;
@@ -36,5 +41,65 @@ export function useUpdateSettings() {
       client.setQueryData(settingsKey, settings);
       updateUser({ name: settings.name, locale: settings.locale });
     },
+  });
+}
+
+/** The caller's saved provider keys, `last4` only (FR-SET-2). */
+export function useKeys() {
+  const signedIn = useSession().status === "authenticated";
+  return useQuery({
+    queryKey: keysKey,
+    queryFn: () => unwrap(api.GET("/me/keys")),
+    enabled: signedIn,
+    retry: retryNetwork,
+  });
+}
+
+/** The enabled providers and their models, with whether the caller has a key for each. */
+export function useModels() {
+  const signedIn = useSession().status === "authenticated";
+  return useQuery({
+    queryKey: modelsKey,
+    queryFn: () => unwrap(api.GET("/models")),
+    enabled: signedIn,
+    retry: retryNetwork,
+  });
+}
+
+// A saved or deleted key changes both lists: `/me/keys`, and `hasKey` in `/models`.
+function useInvalidateKeys() {
+  const client = useQueryClient();
+  return () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: keysKey }),
+      client.invalidateQueries({ queryKey: modelsKey }),
+    ]);
+}
+
+/** Saves or replaces the key for one provider. The key is only ever in the request body. */
+export function usePutKey() {
+  const invalidate = useInvalidateKeys();
+  return useMutation({
+    mutationFn: ({ providerId, apiKey }: { providerId: string; apiKey: string }) =>
+      unwrap(
+        api.PUT("/me/keys/{providerId}", { params: { path: { providerId } }, body: { apiKey } }),
+      ),
+    onSuccess: invalidate,
+    // The mutation cache would otherwise keep the key (as `variables`) for five minutes.
+    gcTime: 0,
+  });
+}
+
+export function useDeleteKey() {
+  const invalidate = useInvalidateKeys();
+  return useMutation({
+    // A 204 has no body, so `unwrap` (which needs data) doesn't fit here.
+    mutationFn: async (providerId: string) => {
+      const { error, response } = await api.DELETE("/me/keys/{providerId}", {
+        params: { path: { providerId } },
+      });
+      if (!response.ok) throw new ApiError(response.status, problemOf(error));
+    },
+    onSuccess: invalidate,
   });
 }

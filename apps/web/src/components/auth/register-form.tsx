@@ -2,12 +2,54 @@
 
 import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/routing";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { FormField } from "./form-field";
 import { useAuthSubmit } from "./use-auth-submit";
+
+// FR-AUTH-2. Admin is never offered here: the API rejects it, and admins come from the CLI.
+const SELF_REGISTER_ROLES = ["lawyer", "researcher"] as const;
+
+// Native radios inside the form, so the choice is read from FormData like the other fields.
+function RoleChoice() {
+  const t = useTranslations("Auth.register");
+  const tRoles = useTranslations("Nav.roles");
+  const hintId = useId();
+
+  return (
+    <fieldset className="space-y-2" aria-describedby={hintId}>
+      <legend className="text-sm font-medium">{t("role")}</legend>
+      <div className="grid grid-cols-2 gap-3">
+        {SELF_REGISTER_ROLES.map((role) => (
+          <label
+            key={role}
+            className={cn(
+              "flex h-11 cursor-pointer items-center gap-3 rounded-md border bg-background px-3 text-sm font-medium transition-colors",
+              "hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-accent",
+              "has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50",
+            )}
+          >
+            <input
+              type="radio"
+              name="role"
+              value={role}
+              defaultChecked={role === "lawyer"}
+              className="size-4 accent-primary"
+            />
+            {tRoles(role)}
+          </label>
+        ))}
+      </div>
+      <p id={hintId} className="text-xs text-muted-foreground">
+        {t("roleHint")}
+      </p>
+    </fieldset>
+  );
+}
 
 export function RegisterForm() {
   const t = useTranslations("Auth");
@@ -20,6 +62,7 @@ export function RegisterForm() {
         email: String(form.get("email")),
         password: String(form.get("password")),
         locale,
+        role: form.get("role") === "researcher" ? "researcher" : "lawyer",
       },
     }),
   );
@@ -64,6 +107,7 @@ export function RegisterForm() {
         hint={t("register.passwordHint")}
         error={errors.fields.password}
       />
+      <RoleChoice />
       <Button type="submit" className="h-11 w-full" disabled={pending}>
         {t("register.submit")}
       </Button>

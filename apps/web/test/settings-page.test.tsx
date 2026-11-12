@@ -15,11 +15,11 @@ const user = {
   id: "00000000-0000-4000-8000-000000000001",
   email: "ayesha@chambers.pk",
   name: "Ayesha Khan",
-  role: "user",
+  role: "lawyer",
   locale: "en",
   aiEnabled: true,
 };
-const saved = { name: "Ayesha Khan", locale: "en", theme: "light" };
+const saved = { name: "Ayesha Khan", locale: "en", theme: "light", defaultModel: null };
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -33,8 +33,10 @@ type Route = (
   path: string,
 ) => Response | undefined | Promise<Response | undefined>;
 
-// The settings API: GET returns the saved values, PATCH merges the body into them.
+// The settings API: GET returns the saved values, PATCH merges the body into them. No model
+// providers are enabled here; test/settings-keys.test.tsx covers the Models & keys section.
 const defaults: Route = async (request, path) => {
+  if (path === "/models" || path === "/me/keys") return json([]);
   if (path !== "/me/settings") return;
   if (request.method === "GET") return json(saved);
   if (request.method === "PATCH")

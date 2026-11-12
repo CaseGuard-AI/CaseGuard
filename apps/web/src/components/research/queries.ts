@@ -1,12 +1,13 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Schemas } from "@/lib/api";
 import { ApiError, statusOf, unwrap } from "@/lib/api-query";
 
 export type Citation = Schemas["Citation"];
 export type Conversation = Schemas["Conversation"];
 export type Message = Schemas["Message"];
+export type ConversationSummary = Schemas["ConversationSummary"];
 
 /** The ask box's error message key under `Research.errors`. */
 export function researchErrorKey(error: unknown): string {
@@ -18,6 +19,24 @@ export function researchErrorKey(error: unknown): string {
 }
 
 const conversationKey = (id: string) => ["conversation", id] as const;
+export const historyKey = ["conversations"] as const;
+const HISTORY_PAGE = 20;
+
+// The research history (FR-RES-8): the user's conversations, most recently active first,
+// a page at a time.
+export function useConversations() {
+  return useInfiniteQuery({
+    queryKey: historyKey,
+    queryFn: ({ pageParam }) =>
+      unwrap(
+        api.GET("/conversations", {
+          params: { query: { cursor: pageParam, limit: HISTORY_PAGE } },
+        }),
+      ),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+  });
+}
 
 export function useConversation(id: string | null) {
   return useQuery({
@@ -39,9 +58,12 @@ export function useAsk(onConversation: (id: string) => void) {
     mutationFn: async ({
       conversationId,
       question,
+      lawAsOf,
     }: {
       conversationId: string | null;
       question: string;
+      /** "Law as of" date, YYYY-MM-DD (FR-RES-11). Sent only when set. */
+      lawAsOf?: string;
     }) => {
       let id = conversationId;
       if (!id) {
@@ -53,7 +75,7 @@ export function useAsk(onConversation: (id: string) => void) {
       const answer = await unwrap(
         api.POST("/conversations/{conversationId}/messages", {
           params: { path: { conversationId: id } },
-          body: { question },
+          body: { question, ...(lawAsOf ? { lawAsOf } : {}) },
         }),
       );
       return { id, question, answer };
@@ -69,6 +91,8 @@ export function useAsk(onConversation: (id: string) => void) {
       client.setQueryData<Conversation>(conversationKey(id), (old) =>
         old ? { ...old, messages: [...old.messages, asked, answer] } : old,
       );
+      // A new conversation, or one that just moved to the top, shows in the history at once.
+      void client.invalidateQueries({ queryKey: historyKey });
     },
   });
 }

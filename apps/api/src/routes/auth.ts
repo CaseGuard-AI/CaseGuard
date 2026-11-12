@@ -14,17 +14,25 @@ import {
 } from "../auth/store.js";
 import { ACCESS_TTL_S, REFRESH_TTL_S, RESET_TTL_S, signAccessToken } from "../auth/tokens.js";
 import type { Db } from "../db/client.js";
-import type { User } from "../db/schema.js";
+import { SELF_REGISTER_ROLES, type User } from "../db/schema.js";
 import type { Mailer } from "../lib/mailer.js";
 import { HttpProblem } from "../lib/problem.js";
-import { authLimiter, loginLimiter, resetLimiter } from "../middleware/rate-limit.js";
+import {
+  authLimiter,
+  loginLimiter,
+  refreshLimiter,
+  resetLimiter,
+} from "../middleware/rate-limit.js";
 
-// packages/contracts: RegisterRequest, LoginRequest. Unknown fields (such as `role`) are dropped.
+// packages/contracts: RegisterRequest, LoginRequest. Other unknown fields are dropped. `role` is
+// lawyer or researcher; admin (or anything else) is a 400, so nobody self-registers as admin
+// (FR-AUTH-2).
 const registerBody = z.object({
   email: z.string().trim().pipe(z.email().max(254)),
   password: z.string().min(10).max(128),
   name: z.string().trim().min(1).max(120),
   locale: z.enum(["en", "ur"]).default("en"),
+  role: z.enum(SELF_REGISTER_ROLES).default("lawyer"),
 });
 
 const loginBody = z.object({
@@ -116,6 +124,7 @@ export function authRouter(deps: {
       passwordHash: await hashPassword(body.password),
       name: body.name,
       locale: body.locale,
+      role: body.role,
     });
     res.status(201).json(await session(res, user, await issueRefresh(db, user)));
   });
@@ -134,7 +143,7 @@ export function authRouter(deps: {
     res.json(await session(res, user, await issueRefresh(db, user)));
   });
 
-  router.post("/auth/refresh", limitAuth, async (req, res) => {
+  router.post("/auth/refresh", refreshLimiter(), async (req, res) => {
     const token: unknown = req.cookies?.[REFRESH_COOKIE];
     const rotated = typeof token === "string" && token ? await rotateRefresh(db, token) : null;
     const user = rotated ? await findUserById(db, rotated.userId) : undefined;
