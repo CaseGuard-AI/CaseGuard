@@ -22,7 +22,7 @@ const user = {
   id: "00000000-0000-4000-8000-000000000001",
   email: "ayesha@chambers.pk",
   name: "Ayesha Khan",
-  role: "user",
+  role: "lawyer",
   locale: "ur",
   aiEnabled: false,
 };
@@ -172,5 +172,32 @@ describe("RegisterForm", () => {
     submit();
     await waitFor(() => expect(nav.replace).toHaveBeenCalledWith("/"));
     expect(await (fetchMock.mock.calls[0][0] as Request).json()).toMatchObject({ locale: "ur" });
+  });
+
+  it("offers Lawyer and Researcher, never Admin, and sends Lawyer by default (FR-AUTH-2)", async () => {
+    const fetchMock = await renderForm("register", () =>
+      json({ accessToken: "t", expiresIn: 900, user }),
+    );
+    const lawyer = screen.getByRole("radio", { name: ur.Nav.roles.lawyer }) as HTMLInputElement;
+    expect(lawyer.checked).toBe(true);
+    expect(screen.getByRole("radio", { name: ur.Nav.roles.researcher })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: ur.Nav.roles.admin })).toBeNull();
+    fill({ name: "Ayesha Khan", email: "ayesha@chambers.pk", password: "correct-horse-battery" });
+    submit();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(await (fetchMock.mock.calls[0][0] as Request).json()).toMatchObject({ role: "lawyer" });
+  });
+
+  it("sends the chosen Researcher role", async () => {
+    const fetchMock = await renderForm("register", () =>
+      json({ accessToken: "t", expiresIn: 900, user: { ...user, role: "researcher" } }),
+    );
+    fireEvent.click(screen.getByRole("radio", { name: ur.Nav.roles.researcher }));
+    fill({ name: "Ayesha Khan", email: "ayesha@chambers.pk", password: "correct-horse-battery" });
+    submit();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(await (fetchMock.mock.calls[0][0] as Request).json()).toMatchObject({
+      role: "researcher",
+    });
   });
 });

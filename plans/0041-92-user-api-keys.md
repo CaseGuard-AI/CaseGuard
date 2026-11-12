@@ -31,7 +31,14 @@ FR-SET-2 lets a user bring their own key for a cloud model provider and pick a d
 - `pnpm gen:contracts`, Redocly lint, `pnpm -r typecheck`.
 - Making `defaultModel` required breaks the DB-backed `/me/settings` contract checks in `apps/api/test/settings.test.ts` until 2c returns it; 2c fixes them.
 
-### 2c. API (#94)
+### 2c. API (#94) — done
+Done as planned, with these choices:
+- The migration is `0010_user_api_keys` with journal `idx` 10, leaving 0008 (roles) and 0009 (law-as-of) free. `src/db/migrate.ts` orders by the journal's `when`, not `idx`, so the gap is fine; whichever reserved migration lands later must keep its `when` above 0010's, or databases that already applied 0010 would skip it. `default_provider_id` references `app.providers` and a check keeps it paired with `default_model`. The audit table also gets nullable `provider_id` and `model` (the 0004 trigger blocks only UPDATE).
+- `KEY_ENCRYPTION_KEY` is optional: invalid stops start-up, unset makes `PUT /me/keys` a 503 and no credential is ever sent. `.env.example` leaves it empty with a generation command. Compose already passes `.env`, and CI tests build the app with a fixed test key, so neither changed.
+- The ciphertext is bound to `(user_id, provider_id)` as GCM AAD, so a row copied to another user or provider won't decrypt. A key that won't decrypt (for example after the encryption key changed) is skipped with a warning, and the question is answered with the deployment's own models.
+- The model catalogue is static (`src/keys/catalog.ts`). Ollama lists none: apps/api has no `OLLAMA_MODEL`, and a local provider takes no credential anyway.
+- One router (`routes/keys.ts`) serves both `/me/keys` and `/models`.
+
 - Migration `apps/api/drizzle/0010_user_api_keys.sql` + `.down.sql`: `app.user_api_keys` (`user_id` FK cascade, `provider_id`, `ciphertext`, `iv`, `auth_tag`, `last4`, `created_at`, `updated_at`, unique `(user_id, provider_id)`), and nullable `default_provider_id` / `default_model` columns on `app.users` (next to `theme`; both set or both null). The lead's roles migration takes 0008; 0009 is left for whichever lands next. Mirror in `src/db/schema.ts`.
 - `KEY_ENCRYPTION_KEY` in `config/env.ts` (base64, exactly 32 bytes), `.env.example`, compose and CI.
 - `src/keys/crypto.ts` (`encrypt`/`decrypt`, `aes-256-gcm`, random 12-byte IV per write), `keys/store.ts`, `routes/keys.ts` and `routes/models.ts` behind `requireAuth`, mounted in `app.ts`.
@@ -40,10 +47,11 @@ FR-SET-2 lets a user bring their own key for a cloud model provider and pick a d
 - `lib/logger.ts`: redact `req.body.apiKey` and `*.credential.apiKey`.
 - Tests: contract tests for every new route, ciphertext-at-rest, never-returned key, 403 for disabled/local, and a log capture with no test key.
 
-### 2d. services/ai
+### 2d. services/ai (done, PR on `feature/set2-user-keys-ai`, stacked on #177)
 - `api/v1.py`: `CredentialIn` (extra=forbid) on `AnswerRequest`; 400 unless `providerId` is in `allowedProviders` and is a known cloud preset.
 - Build a `ProviderConfig` from the preset base URL and pass it through `Question` to the gateway as the generation-role override. No credential → unchanged.
 - Test: logs captured during a credentialed request don't contain the key.
+- Done: `PRESET_BASE_URLS` and `from_credential()` in `gateway/providers.py`; `ModelGateway.provider_for` / `chat` take `override` (generation role only, re-checked against the allow-list); `Question.generation_override`; `CredentialIn` with a `SecretStr` key. No-DB route tests in `tests/test_credential.py` (routing, 400s, key absent from structlog and stdlib logs on success, HTTP 500/401 and timeout), gateway tests in `tests/test_gateway.py`, and a DB-backed answer test in `tests/test_answer.py`.
 
 ### 2e. Web (#95) — done
 - Done in `components/settings/models-keys.tsx` (shared `section.tsx`), hooks in `queries.ts`, tests in `apps/web/test/settings-keys.test.tsx`. The default-model select offers cloud providers only, because a default model is used only with the user's own key.
