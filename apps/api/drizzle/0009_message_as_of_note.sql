@@ -1,0 +1,1 @@
+ALTER TABLE "app"."messages" ADD COLUMN "as_of_note" text;

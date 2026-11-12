@@ -170,6 +170,7 @@ describe("ResearchHub", () => {
     });
     expect(nav.replace).toHaveBeenCalledWith(`/research?c=${CONV}`);
     expect(screen.getByText("Can an order be challenged without a hearing?")).toBeTruthy();
+    expect(screen.queryByText(ur.Research.asOfNote)).toBeNull(); // no date, no note
   });
 
   it("renders chips in order with their stored status and drops unknown markers", async () => {
@@ -273,6 +274,29 @@ describe("ResearchHub", () => {
     ask();
     expect((await screen.findByRole("alert")).textContent).toBe(message);
     expect(screen.getByLabelText<HTMLTextAreaElement>(ur.Research.placeholder).value).not.toBe("");
+  });
+
+  it("sends the law-as-of date and shows the note that comes back (FR-RES-11)", async () => {
+    const note = "Law as of 2020-01-01: judgments decided after this date were left out.";
+    const fetchMock = await renderHub((method, path) =>
+      method === "POST" && path === `/conversations/${CONV}/messages`
+        ? json({ ...answer, asOfNote: note }, 201)
+        : askRoutes(method, path),
+    );
+    const date = screen.getByLabelText(ur.Research.lawAsOf) as HTMLInputElement;
+    expect(date.type).toBe("date");
+    expect(date.value).toBe("");
+    expect(date.max).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    fireEvent.change(date, { target: { value: "2020-01-01" } });
+    ask();
+    const shown = await screen.findByText(note);
+    expect(shown.closest('[role="note"]')).toBeTruthy();
+    expect(screen.getByText(ur.Research.asOfNote)).toBeTruthy();
+    const asked = fetchMock.mock.calls[1][0] as Request;
+    expect(await asked.json()).toEqual({
+      question: "Can an order be challenged without a hearing?",
+      lawAsOf: "2020-01-01",
+    });
   });
 
   it("retries in the same conversation after a failed ask", async () => {
