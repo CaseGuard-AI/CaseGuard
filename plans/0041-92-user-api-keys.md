@@ -29,6 +29,7 @@ FR-SET-2 lets a user bring their own key for a cloud model provider and pick a d
   - `UserSettings.defaultModel: DefaultModel | null` (required), optional in `UserSettingsUpdate`; PATCH 400 if the model isn't offered, 403 if the provider isn't enabled.
 - `ai.v1.yaml`: optional `AnswerRequest.credential: Credential {providerId, model, apiKey}`.
 - `pnpm gen:contracts`, Redocly lint, `pnpm -r typecheck`.
+- Making `defaultModel` required breaks the DB-backed `/me/settings` contract checks in `apps/api/test/settings.test.ts` until 2c returns it; 2c fixes them.
 
 ### 2c. API (#94)
 - Migration `apps/api/drizzle/0010_user_api_keys.sql` + `.down.sql`: `app.user_api_keys` (`user_id` FK cascade, `provider_id`, `ciphertext`, `iv`, `auth_tag`, `last4`, `created_at`, `updated_at`, unique `(user_id, provider_id)`), and nullable `default_provider_id` / `default_model` columns on `app.users` (next to `theme`; both set or both null). The lead's roles migration takes 0008; 0009 is left for whichever lands next. Mirror in `src/db/schema.ts`.

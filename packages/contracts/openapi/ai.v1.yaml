@@ -62,6 +62,11 @@ paths:
         Every model call for this request goes only to providers in `allowedProviders` (SEC-11).
         If no allowed provider is configured for a role the pipeline needs, the answer is 503,
         never a fallback to another provider.
+
+        With `credential` (a user's own key, FR-SET-2, ADR-0009), the generation role uses that
+        provider, model and key for this request only. A `credential` whose `providerId` is not in
+        `allowedProviders`, or is not a known cloud provider, is rejected with 400 before any
+        model call.
       requestBody:
         required: true
         content:
@@ -224,6 +229,40 @@ components:
           uniqueItems: true
           maxItems: 32
           items: { $ref: "#/components/schemas/ProviderId" }
+        credential:
+          description: |
+            Optional. The user's own key and chosen model (FR-SET-2, ADR-0009), decrypted by
+            apps/api for this request. Omitted means unchanged behaviour: env-configured providers
+            only.
+          allOf: [{ $ref: "#/components/schemas/Credential" }]
+
+    Credential:
+      description: |
+        A user-supplied model credential for one request (FR-SET-2, SEC-4, SEC-11, ADR-0009).
+
+        - Rejected with 400 unless `providerId` is in `allowedProviders` **and** is a known cloud
+          provider (a preset in `gateway/providers.py`; local providers such as `ollama` are
+          keyless and never take a credential).
+        - Overrides the **generation** role only, for this request only. Other roles keep the
+          deployment's configuration.
+        - `apiKey` is never logged, stored, put in the answer trace or returned. services/ai
+          keeps no copy after the request.
+      type: object
+      required: [providerId, model, apiKey]
+      additionalProperties: false
+      properties:
+        providerId: { $ref: "#/components/schemas/ProviderId" }
+        model:
+          description: The provider's model id, for example `gemini-2.0-flash`.
+          type: string
+          minLength: 1
+          maxLength: 200
+        apiKey:
+          description: The plaintext provider key. Secret; never logged or stored.
+          type: string
+          minLength: 1
+          maxLength: 512
+          writeOnly: true
 
     Answer:
       type: object

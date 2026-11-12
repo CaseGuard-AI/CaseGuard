@@ -182,3 +182,10 @@ Decided how a user's own model key reaches services/ai (FR-SET-2), choosing opti
 - keys work only for cloud providers the Admin has enabled, and the API shows only the last four characters.
 
 Key rotation is left for later. Plan for all of FR-SET-2 (ADR, contracts, api, services/ai, web): `plans/0041`.
+
+### Contracts for user API keys and model choice (#93)
+The contract the api, services/ai and web work codes against, stacked on the ADR:
+- api.v1: list, save and delete your own keys (`/me/keys`, only the last four characters come back), `GET /models` for the enabled providers and their models, and `defaultModel` in settings;
+- ai.v1: an optional `credential` on `AnswerRequest`, refused unless the provider is allowed and is a cloud provider, used for the generation role only.
+
+`defaultModel` is now required in the settings response, so the api's settings contract tests fail until the api change (#94) returns it. Plan: `plans/0041`.
