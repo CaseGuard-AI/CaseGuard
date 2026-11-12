@@ -31,7 +31,8 @@
     "help": "مدد",
     "signOut": "سائن آؤٹ",
     "roles": {
-      "user": "صارف",
+      "lawyer": "وکیل",
+      "researcher": "محقق",
       "admin": "منتظم"
     }
   },
@@ -118,7 +119,9 @@
       "submit": "اکاؤنٹ بنائیں",
       "haveAccount": "پہلے سے اکاؤنٹ ہے؟",
       "login": "سائن اِن",
-      "passwordHint": "کم از کم 10 حروف۔"
+      "passwordHint": "کم از کم 10 حروف۔",
+      "role": "آپ کا کردار",
+      "roleHint": "منتظم اکاؤنٹ آپ کا CaseGuard آپریٹر بناتا ہے۔"
     },
     "forgot": {
       "title": "اپنا پاس ورڈ ری سیٹ کریں",
