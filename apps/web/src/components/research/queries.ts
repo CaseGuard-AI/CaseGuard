@@ -58,9 +58,12 @@ export function useAsk(onConversation: (id: string) => void) {
     mutationFn: async ({
       conversationId,
       question,
+      lawAsOf,
     }: {
       conversationId: string | null;
       question: string;
+      /** "Law as of" date, YYYY-MM-DD (FR-RES-11). Sent only when set. */
+      lawAsOf?: string;
     }) => {
       let id = conversationId;
       if (!id) {
@@ -72,7 +75,7 @@ export function useAsk(onConversation: (id: string) => void) {
       const answer = await unwrap(
         api.POST("/conversations/{conversationId}/messages", {
           params: { path: { conversationId: id } },
-          body: { question },
+          body: { question, ...(lawAsOf ? { lawAsOf } : {}) },
         }),
       );
       return { id, question, answer };

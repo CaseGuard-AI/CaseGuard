@@ -35,9 +35,9 @@ export function ResearchHub() {
     if (missing) router.replace("/research");
   }, [missing, router]);
 
-  async function onAsk(question: string) {
+  async function onAsk(question: string, lawAsOf?: string) {
     try {
-      await ask.mutateAsync({ conversationId: missing ? null : conversationId, question });
+      await ask.mutateAsync({ conversationId: missing ? null : conversationId, question, lawAsOf });
       return true;
     } catch {
       return false;

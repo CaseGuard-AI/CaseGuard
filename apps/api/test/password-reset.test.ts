@@ -113,6 +113,10 @@ describe.skipIf(!url)("password reset (api.v1 /auth/password-reset*)", () => {
       expect(res.status).toBe(429);
       expectContract(res, "post", "/auth/password-reset");
       expect(Number(res.headers["retry-after"])).toBeGreaterThan(0);
+      // The 5 accepted requests insert their tokens in the background. Wait for all 5 emails
+      // (each is sent after its insert), or the next test's TRUNCATE can deadlock with an
+      // insert that is still checking its foreign key.
+      await vi.waitFor(() => expect(sent).toHaveLength(5));
     });
   });
 

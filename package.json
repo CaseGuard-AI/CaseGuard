@@ -29,6 +29,7 @@
     "dev:ai": "uv run --directory services/ai uvicorn caseguard_ai.main:app --reload --port 8000",
     "gen:contracts": "pnpm --filter @caseguard/contracts run generate",
     "llm:check": "uv run --directory services/ai python -m caseguard_ai.gateway.check",
+    "ai:support-eval": "uv run --directory services/ai python -m caseguard_ai.trust.support_eval",
     "lint": "pnpm -r --if-present run lint",
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",

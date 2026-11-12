@@ -14,11 +14,12 @@ import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { conversationsRouter } from "./routes/conversations.js";
 import { healthRouter } from "./routes/health.js";
+import { keysRouter } from "./routes/keys.js";
 import { settingsRouter } from "./routes/settings.js";
 import { sourcesRouter } from "./routes/sources.js";
 
 export interface AppDeps {
-  env: Pick<Env, "CORS_ORIGIN" | "JWT_SECRET" | "RESET_URL_BASE">;
+  env: Pick<Env, "CORS_ORIGIN" | "JWT_SECRET" | "RESET_URL_BASE" | "KEY_ENCRYPTION_KEY">;
   logger: Logger;
   db: Pick<Pool, "query">;
   orm: Db;
@@ -38,6 +39,11 @@ export function createApp(deps: AppDeps) {
   app.use(cookieParser());
   app.use(pinoHttp({ logger: deps.logger }));
 
+  // Validated by config/env.ts (32 bytes of base64). Unset: keys can't be saved or used.
+  const encryptionKey = deps.env.KEY_ENCRYPTION_KEY
+    ? Buffer.from(deps.env.KEY_ENCRYPTION_KEY, "base64")
+    : undefined;
+
   const v1 = express.Router();
   v1.use(healthRouter({ db: deps.db, ai: deps.ai }));
   v1.use(
@@ -49,8 +55,16 @@ export function createApp(deps: AppDeps) {
     }),
   );
   v1.use(settingsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
+  v1.use(keysRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, encryptionKey }));
   v1.use(adminRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
-  v1.use(conversationsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
+  v1.use(
+    conversationsRouter({
+      db: deps.orm,
+      jwtSecret: deps.env.JWT_SECRET,
+      ai: deps.ai,
+      encryptionKey,
+    }),
+  );
   v1.use(sourcesRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
   app.use("/api/v1", v1);
 
