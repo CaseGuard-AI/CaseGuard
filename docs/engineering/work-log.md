@@ -146,3 +146,23 @@ The app had only `user` and `admin`; the PRD names three roles. Now:
 - the admin console shows each user's role, and admin routes stay 403 for Lawyers and Researchers.
 
 Old access tokens that say `user` are refused, and the web's refresh replaces them. The Urdu role names and sign-up strings need a native speaker's review (A11).
+
+### Stale flag on old sources (FR-TRUST-6)
+A citation now carries the `stale` chip when its corpus source was last retrieved more than 180 days ago, or has no retrieval date at all. The window is `TRUST_STALE_DAYS` (TBD-13). The flag doesn't change the status, and users' own case files are never flagged. The web app and the contracts already had the flag and its labels, so only services/ai changed.
+
+### The citation support check (FR-TRUST-3, FR-TRUST-9)
+Citations can now be **verified**. After the existence check passes, the claim is tested against the stored quote:
+- by a multilingual NLI model, `MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7`, pinned to `b5113eb3…` and run in-process (ADR-0008 addendum). P(entailment) ≥ 0.7 passes, P(contradiction) ≥ 0.7 fails, anything else is uncertain;
+- only when NLI is uncertain, by the LLM judge (prompt `support-v1`), and only if the request's allow-list reaches a judge provider. A judge error stays uncertain.
+
+A failed existence never runs the support check, so no model can rescue it. The verifier version is `m2-support-1`. Tests use a stub checker, so CI downloads nothing.
+
+`pnpm ai:support-eval` scores 46 hand-labelled pairs (PPC, CrPC, CPC, Contract Act, Constitution). First run, NLI alone, CPU:
+
+| | precision | recall | n |
+|---|---|---|---|
+| pass | 1.000 | 0.667 | 21 |
+| uncertain | 0.435 | 0.833 | 12 |
+| fail | 0.778 | 0.538 | 13 |
+
+Accuracy is 0.674. Nothing unsupported passed, so no citation was wrongly verified. The misses fall into uncertain, so those citations go to review (and to the judge, when one is allowed). The 0.7 thresholds are still TBD-13 defaults until calibrated on the development set.
