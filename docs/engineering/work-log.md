@@ -207,3 +207,12 @@ services/ai now accepts `credential` on the answer route, stacked on the contrac
 - the key is a `SecretStr` on the way in and `repr=False` in `ProviderConfig`, so it shows up in no log, error or trace. Tests capture structlog and stdlib logs on a good answer, HTTP 500 and 401, and a timeout, and look for the key.
 
 The route tests for this run without a database (`tests/test_credential.py`). Plan: `plans/0041`.
+
+### Models & keys in Settings (#95)
+A new section on the settings page, after Theme, built against the frozen contract:
+- each enabled cloud provider shows `••••last4` and the date of a saved key, a password field to save or replace it, and Delete behind a confirmation; local providers say no key is needed;
+- the typed key is cleared once saved, and the save mutation is reset and not cached, so the key is not kept in the page after the request;
+- a default-model select grouped by provider (cloud providers only, since a default model is used only with the user's own key), with "Deployment default" for `null` and a hint when the chosen provider has no key yet;
+- friendly errors for 403 (provider off or local), 503 (the server can't store keys), 400 and network failures.
+
+The new Urdu strings under `Settings.models` need a native review (#105). It needs the api (#94) for a live demo.

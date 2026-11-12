@@ -53,7 +53,8 @@ Done as planned, with these choices:
 - Test: logs captured during a credentialed request don't contain the key.
 - Done: `PRESET_BASE_URLS` and `from_credential()` in `gateway/providers.py`; `ModelGateway.provider_for` / `chat` take `override` (generation role only, re-checked against the allow-list); `Question.generation_override`; `CredentialIn` with a `SecretStr` key. No-DB route tests in `tests/test_credential.py` (routing, 400s, key absent from structlog and stdlib logs on success, HTTP 500/401 and timeout), gateway tests in `tests/test_gateway.py`, and a DB-backed answer test in `tests/test_answer.py`.
 
-### 2e. Web (#95)
+### 2e. Web (#95) — done
+- Done in `components/settings/models-keys.tsx` (shared `section.tsx`), hooks in `queries.ts`, tests in `apps/web/test/settings-keys.test.tsx`. The default-model select offers cloud providers only, because a default model is used only with the user's own key.
 - "Models & keys" section in `components/settings/`, next to `account-preferences.tsx`: per enabled provider add/replace/delete a key, show `••••last4`, and a default-model select fed by `GET /models`. en/ur strings (Urdu marked for review, #105). Component tests.
 
 ## Done when

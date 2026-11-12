@@ -79,7 +79,7 @@
     },
     "settings": {
       "title": "Settings",
-      "subtitle": "Your name, language and theme."
+      "subtitle": "Your name, language, theme and AI models."
     },
     "admin": {
       "title": "Admin console",
@@ -306,6 +306,48 @@
       "light": "Light",
       "dark": "Dark",
       "system": "System"
+    },
+    "models": {
+      "title": "Models & keys",
+      "body": "Use your own API key for a cloud model provider, and choose the model your questions use. Keys are stored encrypted and are never shown again.",
+      "loadError": "Couldn't load the model providers.",
+      "empty": "No model providers are enabled on this deployment. Questions use its default model.",
+      "noKey": "No key saved",
+      "noKeyNeeded": "Runs locally. No key needed.",
+      "savedKey": "Saved key ending in {last4}",
+      "updated": "Updated {date}",
+      "keyLabel": "API key for {name}",
+      "keyHint": "Paste the key from the provider's console. It is sent once and stored encrypted.",
+      "keyHintReplace": "Paste a new key to replace the saved one.",
+      "save": "Save key",
+      "replace": "Replace key",
+      "delete": "Delete",
+      "deleteFor": "Delete the {name} key",
+      "confirmTitle": "Delete your {name} key?",
+      "confirmBody": "Questions will use the deployment's model until you add a key for {name} again.",
+      "cancel": "Cancel",
+      "confirmDelete": "Delete key",
+      "keySaved": "Key saved",
+      "keyDeleted": "Key deleted",
+      "defaultLabel": "Default model",
+      "deploymentDefault": "Deployment default",
+      "unlisted": "{model} (no longer offered)",
+      "defaultHint": "Questions use the model this deployment is set up with.",
+      "unavailableHint": "This model is no longer offered, so questions use the deployment's model.",
+      "noKeyHint": "Questions use the deployment's model until you add a key for {name}.",
+      "withKeyHint": "Questions use this model with your {name} key.",
+      "errors": {
+        "network": "Can't reach the server. Check your connection and try again.",
+        "keyTooShort": "A key has at least {min} characters.",
+        "keyTooLong": "A key has at most {max} characters.",
+        "keyForbidden": "This provider doesn't take a key here. It may have been switched off by an admin.",
+        "keysUnavailable": "Saving keys isn't set up on this server yet. Ask your administrator.",
+        "keyInvalid": "That key wasn't accepted. Check it and try again.",
+        "keyGeneric": "The key wasn't saved. Try again.",
+        "deleteGeneric": "The key wasn't deleted. Try again.",
+        "modelUnavailable": "That model isn't available any more. Choose another.",
+        "modelGeneric": "The model wasn't saved. Try again."
+      }
     },
     "errors": {
       "network": "Can't reach the server. Check your connection and try again.",

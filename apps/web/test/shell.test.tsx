@@ -170,7 +170,8 @@ describe("AppShell with a signed-in user", () => {
     fetchMock.mockImplementation(async (input) => {
       const request = input as Request;
       order.push(`${request.method} ${new URL(request.url).pathname}`);
-      return new Response(JSON.stringify({ name: "Ayesha Khan", locale: "en", theme: "system" }), {
+      const settings = { name: "Ayesha Khan", locale: "en", theme: "system", defaultModel: null };
+      return new Response(JSON.stringify(settings), {
         headers: { "Content-Type": "application/json" },
       });
     });
