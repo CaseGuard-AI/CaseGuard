@@ -13,7 +13,7 @@ const person = (n: number, extra: object = {}) => ({
   id: `00000000-0000-4000-8000-00000000000${n}`,
   email: `user${n}@chambers.pk`,
   name: `User ${n}`,
-  role: "user",
+  role: "lawyer",
   locale: "en",
   aiEnabled: true,
   createdAt: "2026-10-01T09:00:00Z",
@@ -39,7 +39,7 @@ const defaults: Route = async (request, url) => {
   const path = url.pathname.replace("/api/v1", "");
   if (path === "/admin/users")
     return url.searchParams.get("cursor") === "page-2"
-      ? json({ items: [person(3)], nextCursor: null })
+      ? json({ items: [person(3, { role: "researcher" })], nextCursor: null })
       : json({ items: [admin, person(2)], nextCursor: "page-2" });
   if (path === "/admin/providers") return json({ items: providers });
   const user = path.match(/^\/admin\/users\/(.+)$/);
@@ -54,7 +54,10 @@ const defaults: Route = async (request, url) => {
   }
 };
 
-async function renderConsole(role: "admin" | "user" = "admin", route: Route = () => undefined) {
+async function renderConsole(
+  role: "admin" | "lawyer" | "researcher" = "admin",
+  route: Route = () => undefined,
+) {
   const fetchMock = vi.fn<typeof fetch>(async (input) => {
     const request = input as Request;
     const url = new URL(request.url);
@@ -97,12 +100,15 @@ afterEach(() => {
 });
 
 describe("AdminConsole access", () => {
-  it("shows a User the forbidden panel and makes no admin request", async () => {
-    const fetchMock = await renderConsole("user");
-    expect(screen.getByRole("alert").textContent).toContain(ur.Admin.forbidden);
-    await new Promise((r) => setTimeout(r, 20));
-    expect(adminCalls(fetchMock)).toHaveLength(0);
-  });
+  it.each(["lawyer", "researcher"] as const)(
+    "shows a %s the forbidden panel and makes no admin request",
+    async (role) => {
+      const fetchMock = await renderConsole(role);
+      expect(screen.getByRole("alert").textContent).toContain(ur.Admin.forbidden);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(adminCalls(fetchMock)).toHaveLength(0);
+    },
+  );
 
   it("shows the forbidden panel when the API answers 403", async () => {
     await renderConsole("admin", (_, url) =>
@@ -124,6 +130,11 @@ describe("Users tab", () => {
     fireEvent.click(screen.getByRole("button", { name: ur.Admin.users.loadMore }));
     await screen.findByText("User 3");
     expect(new URL(adminCalls(fetchMock).at(-1)!.url).searchParams.get("cursor")).toBe("page-2");
+    // Each row names the role (FR-AUTH-2).
+    expect(within(own).getByText(ur.Nav.roles.admin)).toBeTruthy();
+    const row = (name: string) => within(screen.getByText(name).closest("li")!);
+    expect(row("User 2").getByText(ur.Nav.roles.lawyer)).toBeTruthy();
+    expect(row("User 3").getByText(ur.Nav.roles.researcher)).toBeTruthy();
     expect(screen.queryByRole("button", { name: ur.Admin.users.loadMore })).toBeNull();
   });
 

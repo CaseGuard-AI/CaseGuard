@@ -136,3 +136,13 @@ The embedded corpus can now be shared, so teammates restore it instead of embedd
 - `pnpm data:pull -- --dump latest` checks the checksum and the migration revision, shows what you have, asks, and replaces only `corpus`.
 
 It uses `COPY` through psycopg, not `pg_dump`, so it needs no matching Postgres client on Windows or in CI. Plan: `plans/0038`.
+
+## 2026-11-12
+
+### Lawyer, Researcher and Administrator roles (FR-AUTH-2)
+The app had only `user` and `admin`; the PRD names three roles. Now:
+- migration `0008_user_roles` turns every `user` into a `lawyer` and allows `lawyer`, `researcher` and `admin`;
+- sign-up asks "Lawyer or Researcher" (Lawyer by default). Asking for `admin`, or any other role, is a 400, so admins still come only from `pnpm db:create-admin`;
+- the admin console shows each user's role, and admin routes stay 403 for Lawyers and Researchers.
+
+Old access tokens that say `user` are refused, and the web's refresh replaces them. The Urdu role names and sign-up strings need a native speaker's review (A11).
