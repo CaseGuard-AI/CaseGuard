@@ -1,6 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
-import type { User } from "../db/schema.js";
+import { USER_ROLES, type User } from "../db/schema.js";
+
+const isRole = (role: unknown): role is User["role"] =>
+  (USER_ROLES as readonly unknown[]).includes(role);
 
 export const ACCESS_TTL_S = 15 * 60;
 export const REFRESH_TTL_S = 14 * 24 * 60 * 60;
@@ -41,7 +44,8 @@ export async function verifyAccessToken(
     });
     const { sub, acct, role } = payload;
     if (typeof sub !== "string" || typeof acct !== "string") return null;
-    if (role !== "user" && role !== "admin") return null;
+    // A token signed before migration 0008 says `user`: reject it, and the refresh gives a new one.
+    if (!isRole(role)) return null;
     return { userId: sub, accountId: acct, role };
   } catch {
     return null;

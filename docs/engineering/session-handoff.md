@@ -24,6 +24,7 @@ The full corpus is being embedded on one laptop (about 8 hours on CPU). None of 
 | One member | **#22, test set:** 60 dev + 40 held-out questions, half civil and half criminal, about 10% unanswerable, each with its gold section (e.g. "PPC s. 302"). Written from the law texts. **Freeze it before any tuning.** | No |
 | One member | **#17, Supreme Court probe:** `uv run python main.py --source supreme_court --probe` from a home or university network; record the result in the collector README §1 | No |
 | One member | **Demo model:** install Ollama and `ollama pull qwen2.5:7b`, or get a free NVIDIA NIM or Gemini key | No |
+| Partner | **Research history (#86), user API keys (#92–#95), "law as of" date (#96):** steps in [`handoff-res8-set2-res11.md`](handoff-res8-set2-res11.md) | No |
 | Others | **Stream A P1 items** (#86–#113), in the order of the [Stream A roadmap](stream-a-roadmap.md) | No |
 | Whoever tries the demo | **M1 demo** (see "Running the demo") | Yes: a small one is enough |
 

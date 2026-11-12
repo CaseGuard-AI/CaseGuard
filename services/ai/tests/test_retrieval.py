@@ -8,7 +8,9 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Iterator
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
@@ -20,10 +22,10 @@ from caseguard_ai.ingest.embed import run
 from caseguard_ai.ingest.embedder import HashEmbedder
 from caseguard_ai.ingest.load import load
 from caseguard_ai.retrieval.guard import CorpusNotReady, EmbeddingMismatch
-from caseguard_ai.retrieval.hybrid import Scope, retrieve, ts_query
+from caseguard_ai.retrieval.hybrid import Retrieval, Scope, retrieve, ts_query
 from caseguard_ai.retrieval.reranker import OverlapReranker
 from caseguard_ai.retrieval.rrf import fuse
-from tests.test_load import record
+from tests.test_load import judgment, record
 
 # ── no database ────────────────────────────────────────────────────────────────────────────
 
@@ -214,6 +216,73 @@ def test_other_users_cases_never_leak_even_with_their_case_ids(engine: Engine, c
     }
     assert case_ids[(USER_B, CASE_B)] not in _case_chunks_seen(result)
     assert case_ids[(USER_B, CASE_X)] not in _case_chunks_seen(result)
+
+
+# ── FR-RES-11: "law as of" date ────────────────────────────────────────────────────────────
+
+AS_OF = date(2024, 1, 1)
+BEFORE, AFTER, UNDATED = "Bail Before 1", "Bail After 2", "Bail Undated 3"
+BAIL_QUESTION = "bail in a non-bailable offence"
+WIDE: dict[str, Any] = {"fused_k": 50, "final_k": 50}  # keep every candidate in view
+
+
+@pytest.fixture
+def dated(engine: Engine) -> Engine:
+    """Three bail judgments: decided before AS_OF, after it, and on an unknown date."""
+    body = "Bail application in a non-bailable offence: the accused is released on bail."
+    load(
+        engine,
+        [
+            judgment(1, title=BEFORE, judgment_date="2023-06-01", full_text=f"{BEFORE}. {body}"),
+            judgment(2, title=AFTER, judgment_date="2025-03-01", full_text=f"{AFTER}. {body}"),
+            judgment(3, title=UNDATED, judgment_date=None, full_text=f"{UNDATED}. {body}"),
+        ],
+        "shc@1",
+    )
+    run(engine, HashEmbedder())
+    return engine
+
+
+def _retrieve(conn: Connection, law_as_of: date | None) -> Retrieval:
+    return retrieve(
+        conn, BAIL_QUESTION, scope(), HashEmbedder(), OverlapReranker(), law_as_of=law_as_of, **WIDE
+    )
+
+
+def _titles(conn: Connection, result: Retrieval) -> set[str]:
+    """Titles of every corpus document either search found, before fusion."""
+    ids = [e["chunkId"] for e in result.dense + result.sparse if e["origin"] == "corpus"]
+    rows = conn.execute(
+        text(
+            "SELECT DISTINCT d.title FROM corpus.chunks c JOIN corpus.documents d"
+            " ON d.id = c.document_id WHERE c.id = ANY(CAST(:ids AS uuid[]))"
+        ),
+        {"ids": ids},
+    )
+    return {r.title for r in rows}
+
+
+@db
+def test_a_law_as_of_date_leaves_out_later_judgments_only(dated: Engine) -> None:
+    with dated.connect() as conn:
+        result = _retrieve(conn, AS_OF)
+        titles = _titles(conn, result)
+    assert AFTER not in titles
+    # Earlier and undated judgments stay in, and so do statutes (not versioned yet).
+    assert {BEFORE, UNDATED, "Code of Criminal Procedure, 1898"} <= titles
+    assert AFTER not in {p.title for p in result.passages}
+
+
+@db
+def test_without_a_date_retrieval_is_unchanged(dated: Engine) -> None:
+    with dated.connect() as conn:
+        plain = retrieve(conn, BAIL_QUESTION, scope(), HashEmbedder(), OverlapReranker(), **WIDE)
+        none = _retrieve(conn, None)
+        late = _retrieve(conn, date(2100, 1, 1))  # nothing is later, so nothing is left out
+        titles = _titles(conn, plain)
+    assert {BEFORE, AFTER, UNDATED} <= titles
+    assert plain.trace() == none.trace() == late.trace()
+    assert plain.passages == none.passages == late.passages
 
 
 # ── the model guard ────────────────────────────────────────────────────────────────────────

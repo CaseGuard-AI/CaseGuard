@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import itertools
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -14,6 +15,7 @@ from caseguard_ai.trust.status import (
     BLOCKING_FLAGS,
     NON_BLOCKING_FLAGS,
     decide,
+    is_stale,
     source_flags,
 )
 
@@ -42,8 +44,8 @@ def test_only_existence_and_support_with_no_blocking_flag_is_verified(flag: str)
     assert decide("pass", "pass", [flag]) == "verified"
 
 
-def test_m1_never_shows_verified() -> None:
-    # FR-TRUST-8: the support check is not run in M1, so no combination reaches "verified".
+def test_nothing_is_verified_without_a_support_check() -> None:
+    # FR-TRUST-8: when support did not run, no combination reaches "verified".
     flag_sets = [[], ["headnote_only"], ["third_party_source"]]
     results = {decide(e, "not_run", f) for e, f in itertools.product(["pass", "fail"], flag_sets)}  # type: ignore[arg-type]
     assert results == {"needs_review", "unverified"}
@@ -60,6 +62,46 @@ def test_source_flags() -> None:
         "headnote_only",
         "third_party_source",
     ]
+
+
+# ── stale (FR-TRUST-6) ─────────────────────────────────────────────────────────────────────
+
+NOW = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)
+
+
+@pytest.mark.parametrize(
+    ("retrieved_at", "flags"),
+    [
+        (NOW - timedelta(days=181), ["stale"]),  # older than the window
+        (NOW - timedelta(days=180), []),  # exactly the window: still current
+        (NOW - timedelta(days=3), []),
+        (None, ["stale"]),  # never dated: its age is unknown, so it is not shown as current
+    ],
+)
+def test_a_source_older_than_the_review_window_is_stale(
+    retrieved_at: datetime | None, flags: list[str]
+) -> None:
+    assert is_stale(retrieved_at, NOW, 180) is bool(flags)
+    got = source_flags(
+        headnote_only=False, third_party=False, retrieved_at=retrieved_at, now=NOW, stale_days=180
+    )
+    assert got == flags
+
+
+def test_stale_is_only_checked_when_a_window_is_given() -> None:
+    # Case passages are passed without a window: no retrieval date, never stale.
+    assert source_flags(headnote_only=False, third_party=False, retrieved_at=None, now=NOW) == []
+
+
+def test_stale_comes_after_the_other_source_flags() -> None:
+    got = source_flags(headnote_only=True, third_party=True, now=NOW, stale_days=180)
+    assert got == ["headnote_only", "third_party_source", "stale"]
+
+
+@pytest.mark.parametrize("support", ["pass", "not_run"])
+def test_stale_never_changes_the_status(support: str) -> None:
+    for existence in ("pass", "fail"):
+        assert decide(existence, support, ["stale"]) == decide(existence, support)  # type: ignore[arg-type]
 
 
 # ── existence: the verbatim span ───────────────────────────────────────────────────────────

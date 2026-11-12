@@ -75,6 +75,24 @@ export function AnswerCard({
             </div>
           </div>
         )}
+        {message.asOfNote && (
+          <div
+            role="note"
+            className="mt-5 flex gap-3 rounded-sm border border-info/20 bg-info-soft p-4"
+          >
+            <Info className="mt-1 size-4 shrink-0 text-info" aria-hidden />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">{t("asOfNote")}</p>
+              <p
+                lang={langOf(message.language)}
+                dir={dirOf(message.language)}
+                className="text-sm text-foreground/80"
+              >
+                {message.asOfNote}
+              </p>
+            </div>
+          </div>
+        )}
       </article>
       {answerable && items.length > 0 && <SourcesList items={items} onOpen={onOpen} />}
     </div>
