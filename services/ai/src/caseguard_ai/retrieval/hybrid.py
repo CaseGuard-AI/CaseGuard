@@ -21,6 +21,7 @@ import re
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import Connection, text
@@ -65,6 +66,7 @@ class Passage:
     kind: str | None = None
     case_id: uuid.UUID | None = None
     rerank_score: float = 0.0
+    retrieved_at: datetime | None = None  # corpus only: when the source was last fetched
 
 
 @dataclass
@@ -128,7 +130,7 @@ _SPARSE = text(
 _CORPUS_PASSAGES = text(
     """
     SELECT c.id AS chunk_id, c.document_id, c.text, c.locator, c.section_id, c.headnote_only,
-           c.third_party, d.title, d.official_url, d.kind
+           c.third_party, d.title, d.official_url, d.kind, d.retrieved_at
       FROM corpus.chunks c JOIN corpus.documents d ON d.id = c.document_id
      WHERE c.id = ANY(CAST(:ids AS uuid[]))
     """

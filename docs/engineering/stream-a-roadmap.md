@@ -8,7 +8,8 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 
 | Area | Issues | Requirements |
 |---|---|---|
-| Auth API: register, login, refresh with reuse detection, logout, me, roles | #10 | FR-AUTH-1, FR-AUTH-2, SEC-1, SEC-2, SEC-15 (auth) |
+| Auth API: register, login, refresh with reuse detection, logout, me, `requireRole` | #10 | FR-AUTH-1, FR-AUTH-2, SEC-1, SEC-2, SEC-15 (auth) |
+| The PRD's three roles: Lawyer, Researcher and Administrator. Migration `0008` renames `user` to `lawyer`; register offers Lawyer or Researcher, and `admin` is a 400 (only the CLI makes admins); the admin console shows each user's role | — (branch `feature/fr-auth-2-roles`, PR pending) | FR-AUTH-2 |
 | Password reset (API and email) | #53, #61 | FR-AUTH-1 |
 | Admin bootstrap CLI, per-user AI toggle and provider allow-list (API) | #54, #55, #75, plus the allow-list contract under #21 (plan 0015) | FR-AUTH-3, SEC-11 (allow-list) |
 | `app` schema, ownership columns | #9 | FR-AUTH-4, FR-AUTH-5 |
@@ -43,7 +44,7 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | A8 | **Documents and uploads** (contract, storage, job queue, status, web) | FR-DOC-1, FR-DOC-2, FR-DOC-3, FR-DOC-4, FR-DOC-6, SEC-6, NFR-13 | Stream A owns uploads and jobs. OCR, chunking and embedding run in services/ai ingestion workers (Stream C), so the handoff needs a contract. Cut order: last of the P1s to be cut. |
 | A9 | **Notifications** | FR-NOT-1 | Driven by A8's job events. |
 | A10 | **Dashboard** | FR-DASH-1 | `/` is still a placeholder with a disabled ask box. It needs A6 and A7, and drafts once they exist. |
-| A11 | **Urdu UI review** | FR-I18N-2 | Every string is translated, but none reviewed by a native speaker (flagged on #11, #12, #62 and #14). This is a review task, not code. |
+| A11 | **Urdu UI review** | FR-I18N-2 | Every string is translated, but none reviewed by a native speaker (flagged on #11, #12, #62 and #14, and the role names and register strings from FR-AUTH-2). This is a review task, not code. |
 | A12 | **Screens over Stream C features**: precedent search (M3), drafting (M3), linter (M3) | FR-PREC-*, FR-DRAFT-*, FR-LINT-* | Each waits for its ai.v1 operations, which aren't in the contract yet. Cut order: drafting, then linter, then precedent UI. |
 
 ### P2 (M4)

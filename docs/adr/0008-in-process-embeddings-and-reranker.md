@@ -31,3 +31,19 @@ In practice:
 - services/ai gains `torch` and `sentence-transformers` (about 1–2 GB installed). The model weights download once into the Hugging Face cache.
 - The integrator embeds on the strongest machine available. Everyone else restores the dump and only embeds queries, which is fast on CPU.
 - Tests use a deterministic stand-in embedder and reranker, so CI never downloads models.
+
+## Addendum (2026-11-12): the support-check NLI model runs in-process too
+The citation support check (FR-TRUST-3, PRD §7.1 step 2) needs a cross-encoder that scores
+entailment, neutral and contradiction for a (evidence, claim) pair. No OpenAI-compatible endpoint
+offers that, for the same reason as the reranker, so it follows this decision:
+
+- **Model:** `MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7` (multilingual, so
+  Urdu and Roman Urdu claims can be checked against English statutes), pinned by
+  `SUPPORT_MODEL` and `SUPPORT_REVISION` (`b5113eb38ab63efdd7f280f8c144ea8b13f978ce`). About
+  0.6 GB, CPU by default (`EMBEDDING_DEVICE`).
+- It loads through `transformers` (a dependency of `sentence-transformers`), and the label order
+  is read from the model config's `id2label`, never assumed.
+- The LLM judge, used only when NLI is uncertain, goes through the gateway under the request's
+  allow-list, as above. The model id is recorded in `ai.answer_traces.models.support`; the
+  verifier version (`m2-support-1`) on every verification.
+- Tests and CI use `StubSupportChecker`, so they never download it.
