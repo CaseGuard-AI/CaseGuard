@@ -8,14 +8,27 @@ from typing import Annotated, Any, Literal
 
 import structlog
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from sqlalchemy import Engine
 from sqlalchemy.exc import OperationalError
 
 from caseguard_ai import __version__
-from caseguard_ai.api.deps import get_embedder, get_engine, get_gateway, get_reranker
+from caseguard_ai.api.deps import (
+    get_embedder,
+    get_engine,
+    get_gateway,
+    get_reranker,
+    get_support_checker,
+)
 from caseguard_ai.api.problems import Problem
+from caseguard_ai.config import Settings, get_settings
 from caseguard_ai.gateway.client import GatewayError, ModelGateway, NoProviderError
+from caseguard_ai.gateway.providers import (
+    PRESET_BASE_URLS,
+    ProviderConfig,
+    allowed_set,
+    from_credential,
+)
 from caseguard_ai.ingest.embedder import Embedder
 from caseguard_ai.research import store
 from caseguard_ai.research.answer import Question, answer_question
@@ -23,6 +36,7 @@ from caseguard_ai.retrieval.guard import CorpusNotReady, EmbeddingMismatch
 from caseguard_ai.retrieval.hybrid import Scope
 from caseguard_ai.retrieval.reranker import Reranker
 from caseguard_ai.security import require_service_token
+from caseguard_ai.trust.support import SupportChecker
 
 log = structlog.get_logger("api")
 router = APIRouter(prefix="/ai/v1", dependencies=[Depends(require_service_token)])
@@ -44,6 +58,18 @@ class TurnIn(BaseModel):
     content: str
 
 
+class CredentialIn(BaseModel):
+    """A user's own key for this request (ai.v1 ``Credential``, FR-SET-2, ADR-0009).
+
+    ``apiKey`` is a SecretStr, so a repr, a log line or a validation message never shows it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    providerId: ProviderId
+    model: Annotated[str, Field(min_length=1, max_length=200)]
+    apiKey: Annotated[SecretStr, Field(min_length=1, max_length=512)]
+
+
 class AnswerRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     requestId: uuid.UUID
@@ -53,6 +79,24 @@ class AnswerRequest(BaseModel):
     history: Annotated[list[TurnIn], Field(max_length=20)] = []
     scope: ScopeIn
     allowedProviders: Annotated[list[ProviderId], Field(max_length=32)] | None = None
+    credential: CredentialIn | None = None
+
+
+def _generation_override(body: AnswerRequest) -> ProviderConfig | None:
+    """The credential as a provider, or a 400 before any model call. Details name the field,
+    never the key."""
+    cred = body.credential
+    if cred is None:
+        return None
+    if cred.providerId not in PRESET_BASE_URLS:
+        raise Problem(
+            400, "Bad Request", "invalid field(s): credential.providerId (not a cloud provider)"
+        )
+    if cred.providerId not in allowed_set(body.allowedProviders):
+        raise Problem(
+            400, "Bad Request", "invalid field(s): credential.providerId (not in allowedProviders)"
+        )
+    return from_credential(cred.providerId, cred.model, cred.apiKey.get_secret_value())
 
 
 @router.get("/info")
@@ -68,11 +112,14 @@ def research_answer(
     gateway: Annotated[ModelGateway, Depends(get_gateway)],
     embedder: Annotated[Embedder, Depends(get_embedder)],
     reranker: Annotated[Reranker, Depends(get_reranker)],
+    support_checker: Annotated[SupportChecker, Depends(get_support_checker)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> dict[str, Any]:
     if body.allowedProviders is not None and len(set(body.allowedProviders)) != len(
         body.allowedProviders
     ):
         raise Problem(400, "Bad Request", "invalid field(s): allowedProviders (duplicates)")
+    override = _generation_override(body)
     question = Question(
         request_id=body.requestId,
         question=body.question,
@@ -82,12 +129,20 @@ def research_answer(
             allowed_case_ids=tuple(body.scope.allowedCaseIds),
         ),
         language=body.language,
+        law_as_of=body.lawAsOf,
         history=[(t.role, t.content) for t in body.history],
         allowed_providers=body.allowedProviders,
+        generation_override=override,
     )
     try:
         return answer_question(
-            engine, question, gateway=gateway, embedder=embedder, reranker=reranker
+            engine,
+            question,
+            gateway=gateway,
+            embedder=embedder,
+            reranker=reranker,
+            support_checker=support_checker,
+            stale_days=settings.trust_stale_days,
         )
     except NoProviderError as exc:
         raise Problem(503, "Service Unavailable", str(exc)) from exc

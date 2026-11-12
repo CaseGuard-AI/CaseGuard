@@ -25,7 +25,7 @@ const user = {
   id: "00000000-0000-4000-8000-000000000001",
   email: "ayesha@chambers.pk",
   name: "Ayesha Khan",
-  role: "user",
+  role: "lawyer",
   locale: "en",
   aiEnabled: false,
 } as const;

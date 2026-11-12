@@ -3,11 +3,13 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   date,
   index,
   integer,
   jsonb,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -23,6 +25,11 @@ import type { Citation, Language } from "../clients/ai.js";
 // P0/P1 has individual accounts only (one user per account). Tenants arrive in P2 by
 // widening accounts.kind, with no change to owned rows (PRD §2).
 export const app = pgSchema("app");
+
+// FR-AUTH-2. Lawyer and Researcher can self-register; Administrator comes only from the
+// create-admin CLI. Migration 0008 renamed the old `user` role to `lawyer`.
+export const USER_ROLES = ["lawyer", "researcher", "admin"] as const;
+export const SELF_REGISTER_ROLES = ["lawyer", "researcher"] as const;
 
 export const accounts = app.table(
   "accounts",
@@ -44,9 +51,7 @@ export const users = app.table(
     email: text("email").notNull(),
     passwordHash: text("password_hash").notNull(),
     name: text("name").notNull(),
-    role: text("role", { enum: ["user", "admin"] })
-      .notNull()
-      .default("user"),
+    role: text("role", { enum: USER_ROLES }).notNull().default("lawyer"),
     locale: text("locale", { enum: ["en", "ur"] })
       .notNull()
       .default("en"),
@@ -55,15 +60,23 @@ export const users = app.table(
     theme: text("theme", { enum: ["light", "dark", "system"] })
       .notNull()
       .default("system"),
+    // FR-SET-2. The chosen model; both set or both null. Used only while the provider is
+    // enabled, is cloud, and the user has a key for it (ADR-0009).
+    defaultProviderId: text("default_provider_id").references(() => providers.id),
+    defaultModel: text("default_model"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     uniqueIndex("users_email_lower_key").on(sql`lower(${t.email})`),
     index("users_account_id_idx").on(t.accountId),
-    check("users_role_check", sql`role in ('user', 'admin')`),
+    check("users_role_check", sql`role in ('lawyer', 'researcher', 'admin')`),
     check("users_locale_check", sql`locale in ('en', 'ur')`),
     check("users_theme_check", sql`theme in ('light', 'dark', 'system')`),
+    check(
+      "users_default_model_check",
+      sql`(default_provider_id is null) = (default_model is null)`,
+    ),
   ],
 );
 
@@ -130,6 +143,33 @@ export const providers = app.table(
   ],
 );
 
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => "bytea" });
+
+// A user's own model-provider keys (FR-SET-2, SEC-4, ADR-0009). Encrypted with AES-256-GCM
+// under KEY_ENCRYPTION_KEY (src/keys/crypto.ts); the plaintext is never stored. `last4` is
+// kept in clear for display only.
+export const userApiKeys = app.table(
+  "user_api_keys",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    providerId: text("provider_id")
+      .notNull()
+      .references(() => providers.id),
+    ciphertext: bytea("ciphertext").notNull(),
+    iv: bytea("iv").notNull(),
+    authTag: bytea("auth_tag").notNull(),
+    last4: text("last4").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.providerId] }),
+    check("user_api_keys_last4_check", sql`char_length(last4) = 4`),
+  ],
+);
+
 // Conversations and their messages (FR-RES-8, #13). case_id has no FK until cases land (P1).
 export const conversations = app.table(
   "conversations",
@@ -171,6 +211,8 @@ export const messages = app.table(
     language: text("language", { enum: LANGUAGES }),
     answerable: boolean("answerable"),
     citations: jsonb("citations").$type<Citation[]>(),
+    // What a "law as of" date changed in this answer (FR-RES-11); assistant messages only.
+    asOfNote: text("as_of_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -208,6 +250,10 @@ export const aiAuditRecords = app.table(
     error: text("error"),
     // The provider allow-list in effect for this request (SEC-11, #75). Null on older rows.
     allowedProviders: text("allowed_providers").array(),
+    // The user's own provider and model when the request carried their key (FR-SET-2,
+    // ADR-0009). Never the key. Null when the deployment's configuration answered.
+    providerId: text("provider_id"),
+    model: text("model"),
     latencyMs: integer("latency_ms").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -222,6 +268,7 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type RefreshToken = typeof refreshTokens.$inferSelect;
 export type Provider = typeof providers.$inferSelect;
+export type UserApiKey = typeof userApiKeys.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type { Language };

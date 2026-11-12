@@ -31,7 +31,7 @@ tags:
   - name: sources
     description: Citations and source records (FR-RES-7, FR-TRUST)
   - name: admin
-    description: AI access and model providers. Admin role only; Users get 403 (FR-AUTH-2, FR-AUTH-3)
+    description: AI access and model providers. Admin role only; Lawyers and Researchers get 403 (FR-AUTH-2, FR-AUTH-3)
 
 paths:
   /health:
@@ -55,7 +55,7 @@ paths:
     post:
       tags: [auth]
       operationId: register
-      summary: Create an account (FR-AUTH-1)
+      summary: Create an account as a Lawyer or Researcher (FR-AUTH-1, FR-AUTH-2)
       security: []
       requestBody:
         required: true
@@ -199,6 +199,11 @@ paths:
         Partial update: send only the fields that change. Always the caller's own settings
         (FR-AUTH-4). The change applies from the next request. `User` (from `getMe` and the
         session) shows a new `name` or `locale` after the next refresh.
+
+        `defaultModel` (FR-SET-2): `null` clears it. A `DefaultModel` is checked against
+        `listModels`: 403 if `providerId` is not an enabled provider (unknown ids included), and
+        400 if `model` is not in that provider's `models`. Nothing is changed when either check
+        fails.
       requestBody:
         required: true
         content:
@@ -211,6 +216,87 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/UserSettings" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /me/keys:
+    get:
+      tags: [settings]
+      operationId: listMyKeys
+      summary: The signed-in user's saved model-provider keys (FR-SET-2, SEC-4)
+      description: |
+        One entry per provider the caller has saved a key for, ordered by `providerId`. Never
+        returns a key, only its last four characters (ADR-0009). A key for a provider the Admin
+        has since disabled is still listed (so it can be deleted) but is not used.
+      responses:
+        "200":
+          description: The caller's keys, without the secret
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/UserKey" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /me/keys/{providerId}:
+    parameters:
+      - $ref: "#/components/parameters/KeyProviderId"
+    put:
+      tags: [settings]
+      operationId: putMyKey
+      summary: Save or replace the caller's key for one provider (FR-SET-2, SEC-4, SEC-11)
+      description: |
+        Creates the key, or replaces the existing one for this provider (same 200 either way).
+        Stored encrypted (AES-256-GCM, ADR-0009); the response carries only `last4`.
+
+        403 if the provider is not enabled on the Admin allow-list (unknown ids included), or is
+        a `local` provider (for example `ollama`, which takes no key). 400 if the body is
+        invalid. The key is never logged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserKeyInput" }
+      responses:
+        "200":
+          description: The saved key, without the secret
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserKey" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      tags: [settings]
+      operationId: deleteMyKey
+      summary: Delete the caller's key for one provider (FR-SET-2)
+      description: |
+        Works whether or not the provider is still enabled. `defaultModel` is left as it is;
+        without a key, questions use the deployment's own configuration.
+      responses:
+        "204": { description: "Key deleted" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /models:
+    get:
+      tags: [settings]
+      operationId: listModels
+      summary: The enabled model providers and the models each offers (FR-SET-2, SEC-11)
+      description: |
+        Only providers enabled on the Admin allow-list, ordered by `name`. `models` comes from
+        the deployment's model catalog (ADR-0005) and is what `defaultModel` is checked against.
+        `hasKey` says whether the caller has saved a key for that provider (always false for
+        `local` providers, which take none).
+      responses:
+        "200":
+          description: Enabled providers with their models
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ProviderModels" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /conversations:
@@ -472,6 +558,11 @@ components:
       name: cursor
       in: query
       schema: { type: string }
+    KeyProviderId:
+      name: providerId
+      in: path
+      required: true
+      schema: { $ref: "#/components/schemas/ProviderId" }
     Limit:
       name: limit
       in: query
@@ -533,8 +624,9 @@ components:
                   message: { type: string }
 
     Role:
+      description: FR-AUTH-2. Lawyer and Researcher can self-register; Admin is created by an operator.
       type: string
-      enum: [user, admin]
+      enum: [lawyer, researcher, admin]
 
     User:
       type: object
@@ -555,13 +647,20 @@ components:
       enum: [light, dark, system]
 
     UserSettings:
-      description: FR-SET-1. Users who never chose a theme get `system`.
+      description: |
+        FR-SET-1, FR-SET-2. Users who never chose a theme get `system`; users who never chose a
+        model get `defaultModel: null`.
       type: object
-      required: [name, locale, theme]
+      required: [name, locale, theme, defaultModel]
       properties:
         name: { type: string, minLength: 1, maxLength: 120 }
         locale: { type: string, enum: [en, ur] }
         theme: { $ref: "#/components/schemas/Theme" }
+        defaultModel:
+          description: The user's chosen model, or null for the deployment's default.
+          oneOf:
+            - $ref: "#/components/schemas/DefaultModel"
+            - type: "null"
 
     UserSettingsUpdate:
       description: At least one field. Unknown fields are rejected with 400.
@@ -572,6 +671,78 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         locale: { type: string, enum: [en, ur] }
         theme: { $ref: "#/components/schemas/Theme" }
+        defaultModel:
+          description: A provider and one of its offered models, or null to clear the choice.
+          oneOf:
+            - $ref: "#/components/schemas/DefaultModel"
+            - type: "null"
+
+    DefaultModel:
+      description: |
+        The model a user's questions are generated with (FR-SET-2). It is used only when the
+        provider is still enabled, is a `cloud` provider, and the user has a key for it; then
+        apps/api sends that key as `AnswerRequest.credential` (ai.v1, ADR-0009). Otherwise the
+        deployment's own configuration answers, as if no model were chosen.
+      type: object
+      required: [providerId, model]
+      additionalProperties: false
+      properties:
+        providerId: { $ref: "#/components/schemas/ProviderId" }
+        model:
+          description: One of the provider's `models` from `listModels`.
+          type: string
+          minLength: 1
+          maxLength: 200
+          examples: ["gemini-2.0-flash"]
+
+    UserKey:
+      description: A saved provider key, without the secret (FR-SET-2, SEC-4). The key itself is never returned.
+      type: object
+      required: [providerId, last4, createdAt, updatedAt]
+      properties:
+        providerId: { $ref: "#/components/schemas/ProviderId" }
+        last4:
+          description: The last four characters of the key, for display as `••••last4`.
+          type: string
+          minLength: 4
+          maxLength: 4
+          examples: ["x9Qz"]
+        createdAt: { type: string, format: date-time }
+        updatedAt:
+          description: When the key was last replaced; equals `createdAt` until then.
+          type: string
+          format: date-time
+
+    UserKeyInput:
+      type: object
+      required: [apiKey]
+      additionalProperties: false
+      properties:
+        apiKey:
+          description: The provider's API key. Write-only, stored encrypted, never returned or logged.
+          type: string
+          minLength: 8
+          maxLength: 512
+          writeOnly: true
+
+    ProviderModels:
+      description: An enabled provider and the models it offers (FR-SET-2).
+      type: object
+      required: [providerId, name, kind, models, hasKey]
+      properties:
+        providerId: { $ref: "#/components/schemas/ProviderId" }
+        name: { type: string, examples: ["Google Gemini"] }
+        kind:
+          description: Same as `Provider.kind`. Only `cloud` providers take a key.
+          type: string
+          enum: [cloud, local]
+        models:
+          description: Model ids offered for this provider. May be empty.
+          type: array
+          items: { type: string, minLength: 1, maxLength: 200 }
+        hasKey:
+          description: Whether the caller has saved a key for this provider.
+          type: boolean
 
     RegisterRequest:
       type: object
@@ -581,6 +752,11 @@ components:
         password: { type: string, minLength: 10, maxLength: 128 }
         name: { type: string, minLength: 1, maxLength: 120 }
         locale: { type: string, enum: [en, ur], default: en }
+        role:
+          description: FR-AUTH-2. Admin cannot be self-registered; `admin` or any other value is a 400.
+          type: string
+          enum: [lawyer, researcher]
+          default: lawyer
 
     LoginRequest:
       type: object
@@ -665,6 +841,11 @@ components:
         citations:
           type: array
           items: { $ref: "./ai.v1.yaml#/components/schemas/Citation" }
+        asOfNote:
+          description: |
+            Assistant messages only, and only when the question gave `lawAsOf` (FR-RES-11): what
+            the date changed (later judgments excluded; statutes are the current text).
+          type: string
         createdAt: { type: string, format: date-time }
 
     AdminUser:

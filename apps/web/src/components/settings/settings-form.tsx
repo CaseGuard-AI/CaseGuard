@@ -11,7 +11,9 @@ import { statusOf } from "@/lib/api-query";
 import type { Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { markLocaleApplied } from "./account-preferences";
+import { ModelsKeysSection } from "./models-keys";
 import { useSettings, useUpdateSettings, type UserSettings } from "./queries";
+import { Section } from "./section";
 
 type Locale = UserSettings["locale"];
 
@@ -29,7 +31,8 @@ const saveErrorKey = (error: unknown) => {
   return status === undefined ? "network" : status === 400 ? "invalid" : "generic";
 };
 
-// FR-SET-1: the user's own name, language and theme. Each section saves on its own.
+// FR-SET-1 and FR-SET-2: the user's name, language, theme, model keys and default model.
+// Each section saves on its own.
 export function SettingsForm() {
   const t = useTranslations("Settings");
   const settings = useSettings();
@@ -58,17 +61,8 @@ export function SettingsForm() {
       <ProfileSection settings={settings.data} />
       <LanguageSection settings={settings.data} />
       <ThemeSection settings={settings.data} />
+      <ModelsKeysSection settings={settings.data} />
     </div>
-  );
-}
-
-function Section({ title, body, children }: { title: string; body: string; children: ReactNode }) {
-  return (
-    <section className="rounded-md border bg-card p-5 sm:p-6">
-      <h2 className="text-base font-semibold">{title}</h2>
-      <p className="mt-1 mb-5 text-sm text-muted-foreground">{body}</p>
-      {children}
-    </section>
   );
 }
 

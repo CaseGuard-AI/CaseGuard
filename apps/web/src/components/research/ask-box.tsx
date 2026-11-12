@@ -5,6 +5,13 @@ import { useTranslations } from "next-intl";
 import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 
+/** Today in the user's time zone, as YYYY-MM-DD: no "law as of" date in the future. */
+function today(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 export function AskBox({
   pending,
   error,
@@ -12,17 +19,21 @@ export function AskBox({
 }: {
   pending: boolean;
   error?: string;
-  onAsk: (question: string) => Promise<boolean>;
+  /** `lawAsOf` is the optional "law as of" date, YYYY-MM-DD (FR-RES-11). */
+  onAsk: (question: string, lawAsOf?: string) => Promise<boolean>;
 }) {
   const t = useTranslations("Research");
   const [question, setQuestion] = useState("");
+  // Kept after a question is sent, so follow-ups ask about the same date.
+  const [lawAsOf, setLawAsOf] = useState("");
   const hintId = useId();
+  const dateId = useId();
 
   async function submit(event?: FormEvent) {
     event?.preventDefault();
     const trimmed = question.trim();
     if (!trimmed || pending) return;
-    if (await onAsk(trimmed)) setQuestion("");
+    if (await onAsk(trimmed, lawAsOf || undefined)) setQuestion("");
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -64,9 +75,24 @@ export function AskBox({
           {t("submit")}
         </Button>
       </div>
-      <p id={hintId} className="mt-2 text-[11px] text-muted-foreground">
-        {t("shortcut")}
-      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p id={hintId} className="text-[11px] text-muted-foreground">
+          {t("shortcut")}
+        </p>
+        <div className="flex items-center gap-2">
+          <label htmlFor={dateId} className="text-xs text-muted-foreground">
+            {t("lawAsOf")}
+          </label>
+          <input
+            id={dateId}
+            type="date"
+            value={lawAsOf}
+            max={today()}
+            onChange={(event) => setLawAsOf(event.target.value)}
+            className="rounded-sm border bg-background px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+      </div>
     </form>
   );
 }

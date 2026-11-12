@@ -18,12 +18,12 @@ const session = {
     id: "00000000-0000-4000-8000-000000000001",
     email: "ayesha@chambers.pk",
     name: "Ayesha Khan",
-    role: "user" as const,
+    role: "lawyer" as const,
     locale: "ur" as const,
     aiEnabled: true,
   },
 };
-let saved = { name: "Ayesha Khan", locale: "ur", theme: "dark" };
+let saved = { name: "Ayesha Khan", locale: "ur", theme: "dark", defaultModel: null };
 
 async function setup() {
   vi.stubGlobal(
@@ -57,7 +57,7 @@ beforeEach(() => {
   sessionStorage.clear();
   // Each test waits for the theme to land, which happens in the same commit as the locale check.
   delete document.documentElement.dataset.theme;
-  saved = { name: "Ayesha Khan", locale: "ur", theme: "dark" };
+  saved = { name: "Ayesha Khan", locale: "ur", theme: "dark", defaultModel: null };
   vi.stubGlobal(
     "matchMedia",
     vi.fn(() => ({ matches: false, addEventListener() {}, removeEventListener() {} })),

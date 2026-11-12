@@ -21,6 +21,7 @@ import re
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import Connection, text
@@ -65,6 +66,7 @@ class Passage:
     kind: str | None = None
     case_id: uuid.UUID | None = None
     rerank_score: float = 0.0
+    retrieved_at: datetime | None = None  # corpus only: when the source was last fetched
 
 
 @dataclass
@@ -88,11 +90,16 @@ class Retrieval:
 # ── the two searches ────────────────────────────────────────────────────────────────────────
 
 # The case branch carries the scope predicate. With no allowed cases it matches nothing.
+# The corpus branch carries the "law as of" predicate (FR-RES-11), before its LIMIT so a date
+# never returns fewer passages: judgments decided after :as_of are left out; statutes, and
+# judgments with no known decision date, stay in. A NULL :as_of leaves the branch unchanged.
 _DENSE = text(
     """
     (SELECT 'corpus' AS origin, c.id, c.embedding <=> CAST(:q AS vector) AS distance
-       FROM corpus.chunks c
+       FROM corpus.chunks c JOIN corpus.documents d ON d.id = c.document_id
       WHERE c.embedding IS NOT NULL
+        AND (CAST(:as_of AS date) IS NULL OR d.kind <> 'judgment' OR d.decided_on IS NULL
+             OR d.decided_on <= CAST(:as_of AS date))
       ORDER BY distance LIMIT :k)
     UNION ALL
     (SELECT 'case' AS origin, cc.id, cc.embedding <=> CAST(:q AS vector) AS distance
@@ -110,8 +117,10 @@ _SPARSE = text(
     """
     WITH q AS (SELECT to_tsquery('english', :tsq) AS query)
     (SELECT 'corpus' AS origin, c.id, ts_rank_cd(c.tsv, q.query) AS rank
-       FROM corpus.chunks c, q
+       FROM corpus.chunks c JOIN corpus.documents d ON d.id = c.document_id, q
       WHERE c.tsv @@ q.query
+        AND (CAST(:as_of AS date) IS NULL OR d.kind <> 'judgment' OR d.decided_on IS NULL
+             OR d.decided_on <= CAST(:as_of AS date))
       ORDER BY rank DESC LIMIT :k)
     UNION ALL
     (SELECT 'case' AS origin, cc.id, ts_rank_cd(cc.tsv, q.query) AS rank
@@ -128,7 +137,7 @@ _SPARSE = text(
 _CORPUS_PASSAGES = text(
     """
     SELECT c.id AS chunk_id, c.document_id, c.text, c.locator, c.section_id, c.headnote_only,
-           c.third_party, d.title, d.official_url, d.kind
+           c.third_party, d.title, d.official_url, d.kind, d.retrieved_at
       FROM corpus.chunks c JOIN corpus.documents d ON d.id = c.document_id
      WHERE c.id = ANY(CAST(:ids AS uuid[]))
     """
@@ -165,19 +174,37 @@ def _vector(values: Sequence[float]) -> str:
 
 
 def dense_search(
-    conn: Connection, query_vector: Sequence[float], scope: Scope, k: int = DENSE_K
+    conn: Connection,
+    query_vector: Sequence[float],
+    scope: Scope,
+    k: int = DENSE_K,
+    law_as_of: date | None = None,
 ) -> list[tuple[Key, float]]:
-    rows = conn.execute(_DENSE, {"q": _vector(query_vector), "k": k, **_scope_params(scope)}).all()
+    params = {"q": _vector(query_vector), "k": k, "as_of": law_as_of, **_scope_params(scope)}
+    if law_as_of is None:
+        rows = conn.execute(_DENSE, params).all()
+    else:
+        # The HNSW index applies the date filter to the neighbours it found, so a date could
+        # return fewer than k. An iterative scan (pgvector 0.8) keeps going, in exact distance
+        # order, until k rows pass. Transaction-local, and switched off again straight after.
+        conn.execute(text("SELECT set_config('hnsw.iterative_scan', 'strict_order', true)"))
+        rows = conn.execute(_DENSE, params).all()
+        conn.execute(text("SELECT set_config('hnsw.iterative_scan', 'off', true)"))
     return [((r.origin, r.id), 1.0 - float(r.distance)) for r in rows]
 
 
 def sparse_search(
-    conn: Connection, question: str, scope: Scope, k: int = SPARSE_K
+    conn: Connection,
+    question: str,
+    scope: Scope,
+    k: int = SPARSE_K,
+    law_as_of: date | None = None,
 ) -> list[tuple[Key, float]]:
     query = ts_query(question)
     if not query:
         return []
-    rows = conn.execute(_SPARSE, {"tsq": query, "k": k, **_scope_params(scope)}).all()
+    params = {"tsq": query, "k": k, "as_of": law_as_of, **_scope_params(scope)}
+    rows = conn.execute(_SPARSE, params).all()
     return [((r.origin, r.id), float(r.rank)) for r in rows]
 
 
@@ -226,12 +253,14 @@ def retrieve(
     sparse_k: int = SPARSE_K,
     fused_k: int = FUSED_K,
     final_k: int = FINAL_K,
+    law_as_of: date | None = None,
 ) -> Retrieval:
-    """The best ``final_k`` passages for ``question`` within ``scope``, best first."""
+    """The best ``final_k`` passages for ``question`` within ``scope``, best first. With
+    ``law_as_of``, judgments decided after that date are left out (FR-RES-11)."""
     check_corpus(conn, embedder)
     (query_vector,) = embedder.embed([question])
-    dense = dense_search(conn, query_vector, scope, dense_k)
-    sparse = sparse_search(conn, question, scope, sparse_k)
+    dense = dense_search(conn, query_vector, scope, dense_k, law_as_of)
+    sparse = sparse_search(conn, question, scope, sparse_k, law_as_of)
     fused = fuse([[key for key, _ in dense], [key for key, _ in sparse]], k=RRF_K)[:fused_k]
     candidates = _passages(conn, [key for key, _ in fused], scope)
     # A fused key with no passage could only be a case chunk outside the scope; it is dropped.

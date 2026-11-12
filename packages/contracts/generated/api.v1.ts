@@ -30,7 +30,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create an account (FR-AUTH-1) */
+        /** Create an account as a Lawyer or Researcher (FR-AUTH-1, FR-AUTH-2) */
         post: operations["register"];
         delete?: never;
         options?: never;
@@ -170,8 +170,90 @@ export interface paths {
          * @description Partial update: send only the fields that change. Always the caller's own settings
          *     (FR-AUTH-4). The change applies from the next request. `User` (from `getMe` and the
          *     session) shows a new `name` or `locale` after the next refresh.
+         *
+         *     `defaultModel` (FR-SET-2): `null` clears it. A `DefaultModel` is checked against
+         *     `listModels`: 403 if `providerId` is not an enabled provider (unknown ids included), and
+         *     400 if `model` is not in that provider's `models`. Nothing is changed when either check
+         *     fails.
          */
         patch: operations["updateMySettings"];
+        trace?: never;
+    };
+    "/me/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The signed-in user's saved model-provider keys (FR-SET-2, SEC-4)
+         * @description One entry per provider the caller has saved a key for, ordered by `providerId`. Never
+         *     returns a key, only its last four characters (ADR-0009). A key for a provider the Admin
+         *     has since disabled is still listed (so it can be deleted) but is not used.
+         */
+        get: operations["listMyKeys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/keys/{providerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["KeyProviderId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save or replace the caller's key for one provider (FR-SET-2, SEC-4, SEC-11)
+         * @description Creates the key, or replaces the existing one for this provider (same 200 either way).
+         *     Stored encrypted (AES-256-GCM, ADR-0009); the response carries only `last4`.
+         *
+         *     403 if the provider is not enabled on the Admin allow-list (unknown ids included), or is
+         *     a `local` provider (for example `ollama`, which takes no key). 400 if the body is
+         *     invalid. The key is never logged.
+         */
+        put: operations["putMyKey"];
+        post?: never;
+        /**
+         * Delete the caller's key for one provider (FR-SET-2)
+         * @description Works whether or not the provider is still enabled. `defaultModel` is left as it is;
+         *     without a key, questions use the deployment's own configuration.
+         */
+        delete: operations["deleteMyKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The enabled model providers and the models each offers (FR-SET-2, SEC-11)
+         * @description Only providers enabled on the Admin allow-list, ordered by `name`. `models` comes from
+         *     the deployment's model catalog (ADR-0005) and is what `defaultModel` is checked against.
+         *     `hasKey` says whether the caller has saved a key for that provider (always false for
+         *     `local` providers, which take none).
+         */
+        get: operations["listModels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/conversations": {
@@ -352,8 +434,11 @@ export interface components {
                 message: string;
             }[];
         };
-        /** @enum {string} */
-        Role: "user" | "admin";
+        /**
+         * @description FR-AUTH-2. Lawyer and Researcher can self-register; Admin is created by an operator.
+         * @enum {string}
+         */
+        Role: "lawyer" | "researcher" | "admin";
         User: {
             /** Format: uuid */
             id: string;
@@ -371,12 +456,17 @@ export interface components {
          * @enum {string}
          */
         Theme: "light" | "dark" | "system";
-        /** @description FR-SET-1. Users who never chose a theme get `system`. */
+        /**
+         * @description FR-SET-1, FR-SET-2. Users who never chose a theme get `system`; users who never chose a
+         *     model get `defaultModel: null`.
+         */
         UserSettings: {
             name: string;
             /** @enum {string} */
             locale: "en" | "ur";
             theme: components["schemas"]["Theme"];
+            /** @description The user's chosen model, or null for the deployment's default. */
+            defaultModel: components["schemas"]["DefaultModel"] | null;
         };
         /** @description At least one field. Unknown fields are rejected with 400. */
         UserSettingsUpdate: {
@@ -384,6 +474,57 @@ export interface components {
             /** @enum {string} */
             locale?: "en" | "ur";
             theme?: components["schemas"]["Theme"];
+            /** @description A provider and one of its offered models, or null to clear the choice. */
+            defaultModel?: components["schemas"]["DefaultModel"] | null;
+        };
+        /**
+         * @description The model a user's questions are generated with (FR-SET-2). It is used only when the
+         *     provider is still enabled, is a `cloud` provider, and the user has a key for it; then
+         *     apps/api sends that key as `AnswerRequest.credential` (ai.v1, ADR-0009). Otherwise the
+         *     deployment's own configuration answers, as if no model were chosen.
+         */
+        DefaultModel: {
+            providerId: components["schemas"]["ProviderId"];
+            /**
+             * @description One of the provider's `models` from `listModels`.
+             * @example gemini-2.0-flash
+             */
+            model: string;
+        };
+        /** @description A saved provider key, without the secret (FR-SET-2, SEC-4). The key itself is never returned. */
+        UserKey: {
+            providerId: components["schemas"]["ProviderId"];
+            /**
+             * @description The last four characters of the key, for display as `••••last4`.
+             * @example x9Qz
+             */
+            last4: string;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description When the key was last replaced; equals `createdAt` until then.
+             */
+            updatedAt: string;
+        };
+        UserKeyInput: {
+            /** @description The provider's API key. Write-only, stored encrypted, never returned or logged. */
+            apiKey: string;
+        };
+        /** @description An enabled provider and the models it offers (FR-SET-2). */
+        ProviderModels: {
+            providerId: components["schemas"]["ProviderId"];
+            /** @example Google Gemini */
+            name: string;
+            /**
+             * @description Same as `Provider.kind`. Only `cloud` providers take a key.
+             * @enum {string}
+             */
+            kind: "cloud" | "local";
+            /** @description Model ids offered for this provider. May be empty. */
+            models: string[];
+            /** @description Whether the caller has saved a key for this provider. */
+            hasKey: boolean;
         };
         RegisterRequest: {
             /** Format: email */
@@ -395,6 +536,12 @@ export interface components {
              * @enum {string}
              */
             locale: "en" | "ur";
+            /**
+             * @description FR-AUTH-2. Admin cannot be self-registered; `admin` or any other value is a 400.
+             * @default lawyer
+             * @enum {string}
+             */
+            role: "lawyer" | "researcher";
         };
         LoginRequest: {
             /** Format: email */
@@ -451,6 +598,11 @@ export interface components {
             /** @description Assistant messages only (FR-RES-9). */
             answerable?: boolean;
             citations?: components["schemas"]["Citation"][];
+            /**
+             * @description Assistant messages only, and only when the question gave `lawAsOf` (FR-RES-11): what
+             *     the date changed (later judgments excluded; statutes are the current text).
+             */
+            asOfNote?: string;
             /** Format: date-time */
             createdAt: string;
         };
@@ -510,6 +662,10 @@ export interface components {
                 support?: "pass" | "uncertain" | "fail" | "not_run";
                 /** @enum {string} */
                 currency?: "current" | "historical" | "unknown";
+                /** @description How the support verdict was reached: "nli", or "nli+llm" when the NLI model was uncertain and the judge decided (FR-TRUST-3). Only present when support ran. */
+                support_method?: string;
+                /** @description P(entailment) from the NLI model, 0 to 1. Only present when support ran. */
+                support_score?: number;
             };
         };
         Citation: {
@@ -629,6 +785,7 @@ export interface components {
     parameters: {
         ConversationId: string;
         Cursor: string;
+        KeyProviderId: components["schemas"]["ProviderId"];
         Limit: number;
     };
     requestBodies: never;
@@ -873,6 +1030,101 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listMyKeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's keys, without the secret */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserKey"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    putMyKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["KeyProviderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserKeyInput"];
+            };
+        };
+        responses: {
+            /** @description The saved key, without the secret */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserKey"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteMyKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                providerId: components["parameters"]["KeyProviderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Key deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Enabled providers with their models */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderModels"][];
+                };
+            };
             401: components["responses"]["Unauthorized"];
         };
     };

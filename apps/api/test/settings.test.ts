@@ -35,8 +35,18 @@ describe.skipIf(!url)("settings (api.v1 /me/settings)", () => {
       .patch(`/api/v1${PATH}`)
       .set("Authorization", `Bearer ${as}`)
       .send(body as object);
+  // The stored settings, shaped like the contract's UserSettings.
   const row = async (id = userId) =>
-    (await pool.query("SELECT name, locale, theme FROM app.users WHERE id = $1", [id])).rows[0];
+    (
+      await pool.query(
+        `SELECT name, locale, theme,
+           CASE WHEN default_provider_id IS NULL THEN NULL
+             ELSE json_build_object('providerId', default_provider_id, 'model', default_model)
+           END AS "defaultModel"
+         FROM app.users WHERE id = $1`,
+        [id],
+      )
+    ).rows[0];
 
   beforeAll(async () => {
     pool = new pg.Pool({ connectionString: url, max: 4 });
@@ -69,11 +79,16 @@ describe.skipIf(!url)("settings (api.v1 /me/settings)", () => {
   });
 
   describe("GET", () => {
-    it("returns the name and locale from registration, and theme system", async () => {
+    it("returns the name and locale from registration, theme system and no model", async () => {
       const res = await get();
       expect(res.status).toBe(200);
       expectContract(res, "get", PATH);
-      expect(res.body).toEqual({ name: "Ayesha Khan", locale: "ur", theme: "system" });
+      expect(res.body).toEqual({
+        name: "Ayesha Khan",
+        locale: "ur",
+        theme: "system",
+        defaultModel: null,
+      });
     });
 
     it("needs a token", async () => {
@@ -84,15 +99,18 @@ describe.skipIf(!url)("settings (api.v1 /me/settings)", () => {
   });
 
   describe("PATCH", () => {
-    it.each([
-      [{ theme: "dark" }, { name: "Ayesha Khan", locale: "ur", theme: "dark" }],
-      [{ locale: "en" }, { name: "Ayesha Khan", locale: "en", theme: "system" }],
-      [{ name: "Ayesha K." }, { name: "Ayesha K.", locale: "ur", theme: "system" }],
+    it.each(
       [
-        { name: "A. Khan", locale: "en", theme: "light" },
-        { name: "A. Khan", locale: "en", theme: "light" },
-      ],
-    ])("changes only what is sent: %j", async (body, expected) => {
+        [{ theme: "dark" }, { name: "Ayesha Khan", locale: "ur", theme: "dark" }],
+        [{ locale: "en" }, { name: "Ayesha Khan", locale: "en", theme: "system" }],
+        [{ name: "Ayesha K." }, { name: "Ayesha K.", locale: "ur", theme: "system" }],
+        [
+          { name: "A. Khan", locale: "en", theme: "light" },
+          { name: "A. Khan", locale: "en", theme: "light" },
+        ],
+        [{ defaultModel: null }, { name: "Ayesha Khan", locale: "ur", theme: "system" }],
+      ].map(([body, settings]) => [body, { ...settings, defaultModel: null }] as const),
+    )("changes only what is sent: %j", async (body, expected) => {
       const res = await patch(body);
       expect(res.status).toBe(200);
       expectContract(res, "patch", PATH);
@@ -124,6 +142,13 @@ describe.skipIf(!url)("settings (api.v1 /me/settings)", () => {
       ["a blank name", { name: "   " }],
       ["a 121-character name", { name: "a".repeat(121) }],
       ["a non-object body", ["theme", "dark"]],
+      ["a defaultModel without a model", { defaultModel: { providerId: "gemini" } }],
+      ["a defaultModel with an empty model", { defaultModel: { providerId: "gemini", model: "" } }],
+      [
+        "a defaultModel with an extra field",
+        { defaultModel: { providerId: "gemini", model: "gemini-2.5-flash", apiKey: "x" } },
+      ],
+      ["a defaultModel that is a string", { defaultModel: "gemini-2.5-flash" }],
     ])("rejects %s with 400 and changes nothing", async (_, body) => {
       const before = await row();
       const res = await patch(body);
@@ -144,13 +169,10 @@ describe.skipIf(!url)("settings (api.v1 /me/settings)", () => {
   it("only ever changes the caller's own settings (FR-AUTH-4)", async () => {
     const other = await register("other@example.com", "en");
     await patch({ theme: "dark", name: "Changed" });
-    expect(await row(other.user.id)).toEqual({
-      name: "Ayesha Khan",
-      locale: "en",
-      theme: "system",
-    });
+    const untouched = { name: "Ayesha Khan", locale: "en", theme: "system", defaultModel: null };
+    expect(await row(other.user.id)).toEqual(untouched);
     const res = await get(other.accessToken);
-    expect(res.body).toEqual({ name: "Ayesha Khan", locale: "en", theme: "system" });
+    expect(res.body).toEqual(untouched);
   });
 
   it("gives 401 once the user no longer exists", async () => {
