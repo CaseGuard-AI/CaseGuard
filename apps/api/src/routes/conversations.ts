@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { enabledProviderIds } from "../admin/store.js";
 import { requireAiEnabled, requireAuth } from "../auth/middleware.js";
-import type { AiClient, Answer } from "../clients/ai.js";
+import type { AiClient, Answer, Credential } from "../clients/ai.js";
 import { languageSchema, parseAnswer } from "../clients/ai-schemas.js";
 import {
   auditFailure,
@@ -17,6 +17,7 @@ import {
 } from "../conversations/store.js";
 import type { Db } from "../db/client.js";
 import type { Conversation, Message } from "../db/schema.js";
+import { resolveCredential } from "../keys/credential.js";
 import { HttpProblem } from "../lib/problem.js";
 import { aiLimiter } from "../middleware/rate-limit.js";
 
@@ -77,8 +78,13 @@ function toMessageDto(m: Message) {
 
 const notFound = () => new HttpProblem(404, "Not Found", "No such conversation.");
 
-export function conversationsRouter(deps: { db: Db; jwtSecret: string; ai: AiClient }) {
-  const { db, ai } = deps;
+export function conversationsRouter(deps: {
+  db: Db;
+  jwtSecret: string;
+  ai: AiClient;
+  encryptionKey?: Buffer;
+}) {
+  const { db, ai, encryptionKey } = deps;
   const router = Router();
   router.use("/conversations", requireAuth(deps.jwtSecret));
 
@@ -123,6 +129,17 @@ export function conversationsRouter(deps: { db: Db; jwtSecret: string; ai: AiCli
       // The Admin's allow-list, always sent explicitly: an omitted list means "local only"
       // to services/ai, never "whatever is enabled" (SEC-11, #75).
       const allowedProviders = await enabledProviderIds(db);
+      // The user's own key for their default model, if it may be used (FR-SET-2, ADR-0009).
+      // It holds the plaintext key, so it goes only into the AI request: never into ctx (which
+      // is audited) or a log line.
+      let credential: Credential | undefined;
+      try {
+        credential = await resolveCredential(db, owner.userId, allowedProviders, encryptionKey);
+      } catch {
+        // A key saved under a different KEY_ENCRYPTION_KEY: answer with the deployment's own
+        // configuration rather than fail. The user can save the key again.
+        req.log.warn({ requestId }, "saved user key could not be decrypted; not using it");
+      }
       const ctx: Omit<AskContext, "latencyMs"> = {
         requestId,
         owner,
@@ -131,6 +148,7 @@ export function conversationsRouter(deps: { db: Db; jwtSecret: string; ai: AiCli
         ...(body.language ? { language: body.language } : {}),
         ...(body.lawAsOf ? { lawAsOf: body.lawAsOf } : {}),
         allowedProviders,
+        ...(credential ? { providerId: credential.providerId, model: credential.model } : {}),
       };
 
       if (allowedProviders.length === 0) {
@@ -154,6 +172,7 @@ export function conversationsRouter(deps: { db: Db; jwtSecret: string; ai: AiCli
             // Public corpus only until cases land (P1). Never widened by the AI (FR-CASE-6).
             scope: { userId: owner.userId, accountId: owner.accountId, allowedCaseIds: [] },
             allowedProviders,
+            ...(credential ? { credential } : {}),
           }),
           requestId,
         );

@@ -189,3 +189,13 @@ The contract the api, services/ai and web work codes against, stacked on the ADR
 - ai.v1: an optional `credential` on `AnswerRequest`, refused unless the provider is allowed and is a cloud provider, used for the generation role only.
 
 `defaultModel` is now required in the settings response, so the api's settings contract tests fail until the api change (#94) returns it. Plan: `plans/0041`.
+
+### API: user keys, model list and default model (#94)
+apps/api now does its half of ADR-0009, stacked on the contracts (#93):
+- `app.user_api_keys` (migration `0010_user_api_keys`) holds each key as AES-256-GCM ciphertext with a fresh IV, bound to the user and provider, plus `last4` for display;
+- `/me/keys` saves, lists and deletes keys (403 for a disabled, unknown or local provider; 503 when `KEY_ENCRYPTION_KEY` is unset), and `GET /models` lists the enabled providers with a static model catalogue and `hasKey`;
+- `/me/settings` reads and writes `defaultModel` (403 for a provider that isn't enabled, 400 for a model it doesn't offer);
+- a question carries `credential` only when that provider is allowed, is a cloud provider and has a saved key, and the audit row gets the provider and model, never the key;
+- the logger redacts `apiKey` and `credential.apiKey`, and a log-capture test checks a test key never reaches the output.
+
+Migration numbers 0008 and 0009 are reserved for the roles and law-as-of branches, so this one is 0010 (journal `idx` 10; the runner orders by the journal's `when`, not `idx`). `.env.example` now leaves `KEY_ENCRYPTION_KEY` empty: a local `.env` with the old placeholder must be blanked or given a generated key. Plan: `plans/0041`.

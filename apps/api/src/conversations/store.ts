@@ -114,6 +114,9 @@ export interface AskContext {
   language?: Language;
   lawAsOf?: string;
   allowedProviders: string[];
+  /** The user's own provider and model, when their key was sent (FR-SET-2). Never the key. */
+  providerId?: string;
+  model?: string;
   latencyMs: number;
 }
 
@@ -178,6 +181,8 @@ function auditBase(ctx: AskContext) {
     language: ctx.language ?? null,
     lawAsOf: ctx.lawAsOf ?? null,
     allowedProviders: ctx.allowedProviders,
+    providerId: ctx.providerId ?? null,
+    model: ctx.model ?? null,
     latencyMs: ctx.latencyMs,
   };
 }
