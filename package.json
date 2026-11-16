@@ -37,7 +37,7 @@
     "format": "pnpm -r --if-present run format"
   },
   "devDependencies": {
-    "concurrently": "^10.0.6"
+    "concurrently": "^10.0.7"
   },
   "pnpm": {
     "overrides": {
