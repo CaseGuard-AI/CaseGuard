@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#191](https://github.com/CaseGuard-AI/CaseGuard/issues/191)
+> **Status:** Done · **Issue:** [#191](https://github.com/CaseGuard-AI/CaseGuard/issues/191) · **PR:** [#193](https://github.com/CaseGuard-AI/CaseGuard/pull/193) · follow-up [#192](https://github.com/CaseGuard-AI/CaseGuard/issues/192)
 
 # #191: `pnpm research:ask`, a terminal front to the answer path
 
