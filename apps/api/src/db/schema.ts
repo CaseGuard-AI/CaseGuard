@@ -170,7 +170,54 @@ export const userApiKeys = app.table(
   ],
 );
 
-// Conversations and their messages (FR-RES-8, #13). case_id has no FK until cases land (P1).
+export const PARTY_SIDES = ["claimant", "respondent"] as const;
+
+/** A party to a case (api.v1 Party). `label` is what the court calls them ("Petitioner"). */
+export interface Party {
+  side: (typeof PARTY_SIDES)[number];
+  name: string;
+  label?: string;
+}
+
+// A user's cases (FR-CASE-1, #98), with the editable fields of Deliverable II Table 4.29. Owner
+// only (FR-AUTH-4). Never deleted through the API: archiving sets archived_at.
+export const cases = app.table(
+  "cases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    court: text("court"),
+    caseNumber: text("case_number"),
+    caseType: text("case_type"),
+    filedOn: date("filed_on", { mode: "string" }),
+    status: text("status"),
+    nextHearingOn: date("next_hearing_on", { mode: "string" }),
+    parties: jsonb("parties").$type<Party[]>().notNull().default([]),
+    judge: text("judge"),
+    assignedLawyer: text("assigned_lawyer"),
+    relevantLaws: text("relevant_laws")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    summary: text("summary"),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("cases_owner_updated_idx").on(t.ownerUserId, t.updatedAt),
+    check("cases_parties_check", sql`jsonb_typeof(${t.parties}) = 'array'`),
+  ],
+);
+
+// Conversations and their messages (FR-RES-8, #13). A conversation saved to a case (FR-CASE-5)
+// is scoped to it on every question (FR-CASE-6).
 export const conversations = app.table(
   "conversations",
   {
@@ -182,7 +229,7 @@ export const conversations = app.table(
       .notNull()
       .references(() => accounts.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
-    caseId: uuid("case_id"),
+    caseId: uuid("case_id").references(() => cases.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -239,6 +286,8 @@ export const aiAuditRecords = app.table(
     conversationId: uuid("conversation_id").references(() => conversations.id, {
       onDelete: "set null",
     }),
+    // The case the request was scoped to. No FK: the row is append-only, so it records what
+    // the request carried rather than following the case.
     caseId: uuid("case_id"),
     question: text("question").notNull(),
     language: text("language", { enum: LANGUAGES }),
@@ -269,6 +318,8 @@ export type NewUser = typeof users.$inferInsert;
 export type RefreshToken = typeof refreshTokens.$inferSelect;
 export type Provider = typeof providers.$inferSelect;
 export type UserApiKey = typeof userApiKeys.$inferSelect;
+export type Case = typeof cases.$inferSelect;
+export type NewCase = typeof cases.$inferInsert;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type { Language };

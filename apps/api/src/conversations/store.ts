@@ -8,7 +8,7 @@ import {
   type Conversation,
   type Message,
 } from "../db/schema.js";
-import { HttpProblem } from "../lib/problem.js";
+import { decodeCursor, encodeCursor, isUuid } from "../lib/cursor.js";
 
 export const DEFAULT_TITLE = "New conversation";
 const MAX_HISTORY = 20; // ai.v1 AnswerRequest.history maxItems
@@ -18,21 +18,14 @@ interface Owner {
   accountId: string;
 }
 
-// Cursor: base64url of the last conversation's id; the next page compares (updated_at, id) in
-// SQL, as in src/admin/store.ts.
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-function decodeCursor(cursor: string): string {
-  const id = Buffer.from(cursor, "base64url").toString("utf8");
-  if (!UUID.test(id)) throw new HttpProblem(400, "Bad Request", "The cursor is invalid.");
-  return id;
-}
-
-/** The user's conversations, most recently active first (FR-RES-8). */
+/**
+ * The user's conversations, most recently active first (FR-RES-8), optionally only those saved
+ * to one case (FR-CASE-4). Another user's case id just gives an empty page.
+ */
 export async function listConversations(
   db: Db,
   owner: Owner,
-  page: { cursor?: string; limit: number },
+  page: { cursor?: string; limit: number; caseId?: string },
 ): Promise<{ items: Conversation[]; nextCursor: string | null }> {
   const before = page.cursor ? decodeCursor(page.cursor) : undefined;
   const rows = await db
@@ -41,6 +34,7 @@ export async function listConversations(
     .where(
       and(
         eq(conversations.ownerUserId, owner.userId),
+        page.caseId ? eq(conversations.caseId, page.caseId) : undefined,
         before
           ? sql`(${conversations.updatedAt}, ${conversations.id}) < (select updated_at, id from app.conversations where id = ${before})`
           : undefined,
@@ -50,27 +44,44 @@ export async function listConversations(
     .limit(page.limit + 1);
   const items = rows.slice(0, page.limit);
   const last = items.at(-1);
-  return {
-    items,
-    nextCursor:
-      rows.length > page.limit && last ? Buffer.from(last.id).toString("base64url") : null,
-  };
+  return { items, nextCursor: rows.length > page.limit && last ? encodeCursor(last.id) : null };
 }
 
 export async function createConversation(
   db: Db,
   owner: Owner,
-  title: string | undefined,
+  fields: { title?: string; caseId?: string },
 ): Promise<Conversation> {
   const [row] = await db
     .insert(conversations)
     .values({
       ownerUserId: owner.userId,
       accountId: owner.accountId,
-      title: title ?? DEFAULT_TITLE,
+      title: fields.title ?? DEFAULT_TITLE,
+      caseId: fields.caseId ?? null,
     })
     .returning();
   return row!;
+}
+
+/**
+ * Saves a conversation to a case, or detaches it with null (FR-CASE-5). The caller checks the
+ * case (requireActiveCase). Counts as activity, so the conversation moves to the top.
+ * Undefined if the user doesn't own the conversation.
+ */
+export async function setConversationCase(
+  db: Db,
+  owner: Owner,
+  id: string,
+  caseId: string | null,
+): Promise<Conversation | undefined> {
+  if (!isUuid(id)) return undefined;
+  const [row] = await db
+    .update(conversations)
+    .set({ caseId, updatedAt: sql`now()` })
+    .where(and(eq(conversations.id, id), eq(conversations.ownerUserId, owner.userId)))
+    .returning();
+  return row;
 }
 
 /** The conversation if this user owns it, else undefined (callers answer 404, FR-AUTH-4). */
@@ -79,7 +90,7 @@ export async function findOwnConversation(
   owner: Owner,
   id: string,
 ): Promise<Conversation | undefined> {
-  if (!UUID.test(id)) return undefined;
+  if (!isUuid(id)) return undefined;
   const [row] = await db
     .select()
     .from(conversations)

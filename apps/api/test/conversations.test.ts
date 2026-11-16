@@ -82,7 +82,14 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
         .post(`/api/v1${path}`)
         .set("Authorization", `Bearer ${token}`)
         .send(body ?? {}),
+    patch: (path: string, body: object) =>
+      request(app).patch(`/api/v1${path}`).set("Authorization", `Bearer ${token}`).send(body),
   });
+
+  async function newCase(token = alice.token, title = "State v. Ahmed") {
+    const res = await as(token).post("/cases", { title });
+    return res.body.id as string;
+  }
 
   async function newConversation(token = alice.token, title?: string) {
     const res = await as(token).post("/conversations", title ? { title } : {});
@@ -145,12 +152,47 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
       expect(res.body).toMatchObject({ title: "Bail research", caseId: null, messages: [] });
     });
 
-    it("400 for a caseId until cases exist (P1)", async () => {
-      const res = await as(alice.token).post("/conversations", {
-        caseId: "33333333-3333-4333-8333-333333333333",
-      });
-      expect(res.status).toBe(400);
+    it("201 saved to the user's own active case (FR-CASE-5)", async () => {
+      const caseId = await newCase();
+      const res = await as(alice.token).post("/conversations", { caseId });
+      expect(res.status).toBe(201);
       expectContract(res, "post", "/conversations");
+      expect(res.body.caseId).toBe(caseId);
+    });
+
+    it("400 on caseId for another user's case, an archived case or an unknown id (FR-AUTH-4)", async () => {
+      const archived = await newCase(alice.token, "archived");
+      await as(alice.token).post(`/cases/${archived}/archive`);
+      for (const caseId of [
+        await newCase(bob.token),
+        archived,
+        "33333333-3333-4333-8333-333333333333",
+      ]) {
+        const res = await as(alice.token).post("/conversations", { caseId });
+        expect(res.status).toBe(400);
+        expectContract(res, "post", "/conversations");
+        expect(res.body.errors[0].path).toBe("caseId");
+      }
+      expect((await as(alice.token).get("/conversations")).body.items).toEqual([]);
+    });
+
+    it("filters the list by case; another user's case id gives an empty page (FR-CASE-4)", async () => {
+      const caseId = await newCase();
+      const saved = (await as(alice.token).post("/conversations", { caseId, title: "saved" })).body
+        .id as string;
+      await newConversation(alice.token, "loose");
+      const bobsCase = await newCase(bob.token);
+      await as(bob.token).post("/conversations", { caseId: bobsCase });
+
+      const res = await as(alice.token).get(`/conversations?caseId=${caseId}`);
+      expect(res.status).toBe(200);
+      expectContract(res, "get", "/conversations");
+      expect(res.body.items.map((c: { id: string }) => c.id)).toEqual([saved]);
+      const foreign = await as(alice.token).get(`/conversations?caseId=${bobsCase}`);
+      expect(foreign.body).toEqual({ items: [], nextCursor: null });
+      const bad = await as(alice.token).get("/conversations?caseId=nope");
+      // listConversations declares no 400 in api.v1 yet (a bad cursor is a 400 too).
+      expect(bad.status).toBe(400);
     });
 
     it("lists only the user's own conversations, most recently active first, page by page", async () => {
@@ -178,6 +220,58 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
       const res = await request(app).get("/api/v1/conversations");
       expect(res.status).toBe(401);
       expectContract(res, "get", "/conversations");
+    });
+  });
+
+  describe("save to a case (PATCH /conversations/{id}, FR-CASE-5)", () => {
+    const PATH = "/conversations/{conversationId}";
+
+    it("attaches and detaches, moving the conversation to the top", async () => {
+      const id = await newConversation(alice.token, "older");
+      await newConversation(alice.token, "newer");
+      const caseId = await newCase();
+
+      const attached = await as(alice.token).patch(`/conversations/${id}`, { caseId });
+      expect(attached.status).toBe(200);
+      expectContract(attached, "patch", PATH);
+      expect(attached.body).toMatchObject({ id, caseId, title: "older" });
+      const list = await as(alice.token).get("/conversations");
+      expect(list.body.items[0].id).toBe(id);
+
+      const detached = await as(alice.token).patch(`/conversations/${id}`, { caseId: null });
+      expect(detached.status).toBe(200);
+      expectContract(detached, "patch", PATH);
+      expect(detached.body.caseId).toBeNull();
+    });
+
+    it("400 for another user's case or an archived one, leaving the conversation as it was", async () => {
+      const id = await newConversation();
+      const archived = await newCase(alice.token, "archived");
+      await as(alice.token).post(`/cases/${archived}/archive`);
+      for (const caseId of [await newCase(bob.token), archived]) {
+        const res = await as(alice.token).patch(`/conversations/${id}`, { caseId });
+        expect(res.status).toBe(400);
+        expectContract(res, "patch", PATH);
+        expect(res.body.errors[0].path).toBe("caseId");
+      }
+      expect((await as(alice.token).get(`/conversations/${id}`)).body.caseId).toBeNull();
+    });
+
+    it("400 for a body without caseId or with other fields", async () => {
+      const id = await newConversation();
+      for (const body of [{}, { caseId: null, title: "x" }]) {
+        const res = await as(alice.token).patch(`/conversations/${id}`, body);
+        expect(res.status).toBe(400);
+        expectContract(res, "patch", PATH);
+      }
+    });
+
+    it("404 for another user's conversation, even with the caller's own case", async () => {
+      const id = await newConversation(bob.token);
+      const res = await as(alice.token).patch(`/conversations/${id}`, { caseId: await newCase() });
+      expect(res.status).toBe(404);
+      expectContract(res, "patch", PATH);
+      expect((await as(bob.token).get(`/conversations/${id}`)).body.caseId).toBeNull();
     });
   });
 
@@ -216,6 +310,33 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
       expect(second.requestId).not.toBe(calls[0]!.requestId);
     });
 
+    it("scopes a case conversation to exactly that case, and audits it (FR-CASE-6, SEC-8)", async () => {
+      const caseId = await newCase();
+      await newCase(alice.token, "another of alice's");
+      await as(bob.token).post("/conversations", { caseId: await newCase(bob.token) });
+      const id = (await as(alice.token).post("/conversations", { caseId })).body.id as string;
+      await ask(id);
+      expect(calls[0]!.scope).toEqual({
+        userId: alice.userId,
+        accountId: alice.accountId,
+        allowedCaseIds: [caseId],
+      });
+      expect((await audits())[0]).toMatchObject({ conversation_id: id, case_id: caseId });
+
+      // Detached, the next question is back to the public corpus only.
+      await as(alice.token).patch(`/conversations/${id}`, { caseId: null });
+      await ask(id, { question: "Follow-up?" });
+      expect(calls[1]!.scope.allowedCaseIds).toEqual([]);
+    });
+
+    it("keeps an archived case's scope for a conversation already saved to it", async () => {
+      const caseId = await newCase();
+      const id = (await as(alice.token).post("/conversations", { caseId })).body.id as string;
+      await as(alice.token).post(`/cases/${caseId}/archive`);
+      await ask(id);
+      expect(calls[0]!.scope.allowedCaseIds).toEqual([caseId]);
+    });
+
     it("writes the audit record keyed by the request id (FR-TRUST-12)", async () => {
       const id = await newConversation();
       await ask(id, { question: "What governs bail?", lawAsOf: "2024-05-01" });
@@ -225,6 +346,7 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
         owner_user_id: alice.userId,
         account_id: alice.accountId,
         conversation_id: id,
+        case_id: null,
         question: "What governs bail?",
         law_as_of: "2024-05-01",
         outcome: "answered",

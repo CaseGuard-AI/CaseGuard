@@ -55,7 +55,7 @@ export function sourcesRouter(deps: { db: Db; jwtSecret: string; ai: AiClient })
   });
 
   // Public-corpus sources are readable by any signed-in user. Private case documents arrive
-  // with cases (P1) and must then be limited to the resolved scope (FR-CASE-6).
+  // with #101 and must then be limited to the caller's own cases (FR-CASE-6).
   router.get("/sources/:sourceId", async (req, res) => {
     const sourceId = id.safeParse(req.params.sourceId);
     if (!sourceId.success) throw notFound("source");
