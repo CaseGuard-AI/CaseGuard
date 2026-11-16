@@ -1,19 +1,9 @@
 import { asc, eq, sql } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { providers, users, type Provider, type User } from "../db/schema.js";
-import { HttpProblem } from "../lib/problem.js";
+import { decodeCursor, encodeCursor } from "../lib/cursor.js";
 
-// Cursor for the user list: opaque to clients, base64url of the last user's id. The next page
-// compares (created_at, id) in SQL, so microsecond timestamps never round through JavaScript.
-const encodeCursor = (id: string) => Buffer.from(id).toString("base64url");
-
-function decodeCursor(cursor: string): string {
-  const id = Buffer.from(cursor, "base64url").toString("utf8");
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) {
-    throw new HttpProblem(400, "Bad Request", "The cursor is invalid.");
-  }
-  return id;
-}
+// Cursor: see src/lib/cursor.ts. The user list compares (created_at, id).
 
 /** Every user, oldest first. Returns one page and the cursor for the next, or null at the end. */
 export async function listUsers(

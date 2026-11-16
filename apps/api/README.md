@@ -35,9 +35,16 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 | `POST /api/v1/auth/password-reset/confirm` | Set a new password with the emailed token; ends every session                       |
 | `GET /api/v1/me/settings`                  | Your own settings: name, language, theme                                            |
 | `PATCH /api/v1/me/settings`                | Change some of your own settings (strict, partial)                                  |
-| `GET /api/v1/conversations`                | The user's conversations, most recently active first (`cursor`, `limit`)            |
-| `POST /api/v1/conversations`               | Start a conversation (`title`; `caseId` waits for cases, P1)                        |
+| `GET /api/v1/cases`                        | The user's cases, most recently updated first (`state=active\|archived\|all`, `cursor`, `limit`) |
+| `POST /api/v1/cases`                       | Create a case (only `title` required; Table 4.29 fields)                            |
+| `GET /api/v1/cases/{id}`                   | One case (404 if it isn't yours)                                                    |
+| `PATCH /api/v1/cases/{id}`                 | Partial edit; `null` and `[]` clear                                                 |
+| `POST /api/v1/cases/{id}/archive`          | Archive (idempotent; nothing is deleted)                                            |
+| `POST /api/v1/cases/{id}/unarchive`        | Restore an archived case (idempotent)                                               |
+| `GET /api/v1/conversations`                | The user's conversations, most recently active first (`cursor`, `limit`, `caseId`)  |
+| `POST /api/v1/conversations`               | Start a conversation (`title`, `caseId`: one of your active cases)                  |
 | `GET /api/v1/conversations/{id}`           | A conversation with its messages (404 if it isn't yours)                            |
+| `PATCH /api/v1/conversations/{id}`         | Save to one of your active cases, or detach with `caseId: null`                     |
 | `POST /api/v1/conversations/{id}/messages` | Ask a question; answers only with verified citations (rate-limited, AI must be on)  |
 | `GET /api/v1/citations/{id}`               | A citation from your own answers, with its current verification                     |
 | `GET /api/v1/sources/{id}`                 | A corpus source record with its official URL                                        |
@@ -75,7 +82,7 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 `POST /conversations/{id}/messages` runs as follows:
 
 1. **Checks:** `requireAuth`, then `aiLimiter` (30 questions per user per 15 minutes, SEC-15), then `requireAiEnabled` (403 when AI is off, FR-AUTH-3). A conversation that isn't the user's gives 404 (FR-AUTH-4).
-2. **The AI call:** `ai.answer()` (`/ai/v1/research/answer`, with the service token and a 120 s timeout) gets a fresh `requestId`, up to 20 earlier turns, and the scope `{ userId, accountId, allowedCaseIds: [] }`. The scope is the public corpus only until cases land (P1, FR-CASE-6).
+2. **The AI call:** `ai.answer()` (`/ai/v1/research/answer`, with the service token and a 120 s timeout) gets a fresh `requestId`, up to 20 earlier turns, and the scope `{ userId, accountId, allowedCaseIds }`: `[caseId]` for a conversation saved to a case, else `[]` (the public corpus only). `case_id` can only be set to one of the caller's own active cases, so the scope never names another user's case (FR-CASE-6, SEC-8).
 3. **Checking the answer:** it's accepted only if its `requestId` matches and every citation has a stored verification (FR-RES-6), and an unanswerable answer must carry no citations (FR-RES-9). Anything else, or an AI error, returns **503**. Nothing is added to the conversation, and the failure is audited with `outcome = 'error'`.
 4. **Saving:** on success, the question, the answer and the audit row are saved in one transaction.
 
@@ -126,7 +133,7 @@ src/
   app.ts               createApp(deps): middleware + /api/v1 router (dependencies injected, so it's testable)
   config/env.ts        Zod-validated environment
   clients/ai.ts        /ai/v1 client (bearer service token)
-  routes/              one router per contract tag (health, auth, settings, admin, conversations, sources)
+  routes/              one router per contract tag (health, auth, settings, admin, cases, conversations, sources)
   auth/                passwords (argon2id), tokens (JWT + refresh), store, requireAuth/requireRole
   settings/            store for the user's own settings (FR-SET-1)
   middleware/          errors (RFC 9457 problem+json), rate limits

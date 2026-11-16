@@ -5,6 +5,7 @@ import { enabledProviderIds } from "../admin/store.js";
 import { requireAiEnabled, requireAuth } from "../auth/middleware.js";
 import type { AiClient, Answer, Credential } from "../clients/ai.js";
 import { languageSchema, parseAnswer } from "../clients/ai-schemas.js";
+import { requireActiveCase } from "../cases/store.js";
 import {
   auditFailure,
   createConversation,
@@ -13,6 +14,7 @@ import {
   listMessages,
   recentTurns,
   saveExchange,
+  setConversationCase,
   type AskContext,
 } from "../conversations/store.js";
 import type { Db } from "../db/client.js";
@@ -21,16 +23,20 @@ import { resolveCredential } from "../keys/credential.js";
 import { HttpProblem } from "../lib/problem.js";
 import { aiLimiter } from "../middleware/rate-limit.js";
 
-// packages/contracts api.v1: Cursor, Limit, createConversation body, AskRequest.
+// packages/contracts api.v1: Cursor, Limit, ConversationCaseId, createConversation body,
+// ConversationUpdate, AskRequest.
 const pageQuery = z.object({
   cursor: z.string().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+  caseId: z.uuid().optional(),
 });
 
 const createBody = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   caseId: z.uuid().optional(),
 });
+
+const updateBody = z.strictObject({ caseId: z.uuid().nullable() });
 
 const askBody = z.object({
   question: z.string().trim().min(1).max(4000),
@@ -96,13 +102,8 @@ export function conversationsRouter(deps: {
 
   router.post("/conversations", async (req, res) => {
     const body = createBody.parse(req.body ?? {});
-    if (body.caseId) {
-      // Cases arrive in P1 (FR-CASE-6); until then no case is visible to scope to.
-      throw new HttpProblem(400, "Bad Request", "Case-scoped conversations aren't available yet.", {
-        errors: [{ path: "caseId", message: "Cases aren't available yet" }],
-      });
-    }
-    const conversation = await createConversation(db, req.auth!, body.title);
+    if (body.caseId) await requireActiveCase(db, req.auth!, body.caseId);
+    const conversation = await createConversation(db, req.auth!, body);
     res.status(201).json({ ...toSummary(conversation), messages: [] });
   });
 
@@ -111,6 +112,18 @@ export function conversationsRouter(deps: {
     if (!conversation) throw notFound();
     const messages = await listMessages(db, conversation.id);
     res.json({ ...toSummary(conversation), messages: messages.map(toMessageDto) });
+  });
+
+  // Save to a case or detach (FR-CASE-5). The conversation is checked first, so another user's
+  // conversation is a 404 whatever the body says (FR-AUTH-4).
+  router.patch("/conversations/:conversationId", async (req, res) => {
+    const owner = req.auth!;
+    const { caseId } = updateBody.parse(req.body);
+    if (!(await findOwnConversation(db, owner, req.params.conversationId))) throw notFound();
+    if (caseId) await requireActiveCase(db, owner, caseId);
+    const updated = await setConversationCase(db, owner, req.params.conversationId, caseId);
+    if (!updated) throw notFound();
+    res.json(toSummary(updated));
   });
 
   // Ask a question (FR-RES-6, FR-AUTH-3, FR-CASE-6, FR-TRUST-12, SEC-15).
@@ -169,8 +182,14 @@ export function conversationsRouter(deps: {
             ...(body.language ? { language: body.language } : {}),
             ...(body.lawAsOf ? { lawAsOf: body.lawAsOf } : {}),
             history: await recentTurns(db, conversation.id),
-            // Public corpus only until cases land (P1). Never widened by the AI (FR-CASE-6).
-            scope: { userId: owner.userId, accountId: owner.accountId, allowedCaseIds: [] },
+            // The public corpus plus, for a conversation saved to a case, that case's own
+            // documents and nothing else (FR-CASE-6, SEC-8). case_id is only ever set to one of
+            // the owner's cases (requireActiveCase), and services/ai never widens the scope.
+            scope: {
+              userId: owner.userId,
+              accountId: owner.accountId,
+              allowedCaseIds: conversation.caseId ? [conversation.caseId] : [],
+            },
             allowedProviders,
             ...(credential ? { credential } : {}),
           }),

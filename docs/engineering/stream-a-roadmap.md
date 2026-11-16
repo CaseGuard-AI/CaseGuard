@@ -40,7 +40,7 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | # | Item | Requirements | Notes |
 |---|---|---|---|
 | A6 | **Research history** | FR-RES-8 (UI) | Issue #86 |
-| A7 | **Cases** (contract, API, web list and case dashboard), plus asking within a case | FR-CASE-1, FR-CASE-4, FR-CASE-5, FR-CASE-6 (case scope), FR-AUTH-4 | The API rejects `caseId` with 400 until cases exist. `/cases` is `ComingSoon`. |
+| A7 | **Cases** (contract, API, web list and case dashboard), plus asking within a case | FR-CASE-1, FR-CASE-4, FR-CASE-5, FR-CASE-6 (case scope), FR-AUTH-4 | Contract (#97) and API (#98) done: cases CRUD, saving a conversation to a case, and `allowedCaseIds: [caseId]` on ask. `/cases` is `ComingSoon` until #99. |
 | A8 | **Documents and uploads** (contract, storage, job queue, status, web) | FR-DOC-1, FR-DOC-2, FR-DOC-3, FR-DOC-4, FR-DOC-6, SEC-6, NFR-13 | Stream A owns uploads and jobs. OCR, chunking and embedding run in services/ai ingestion workers (Stream C), so the handoff needs a contract. Cut order: last of the P1s to be cut. |
 | A9 | **Notifications** | FR-NOT-1 | Driven by A8's job events. |
 | A10 | **Dashboard** | FR-DASH-1 | `/` is still a placeholder with a disabled ask box. It needs A6 and A7, and drafts once they exist. |

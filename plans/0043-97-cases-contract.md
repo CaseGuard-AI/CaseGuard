@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#97](https://github.com/CaseGuard-AI/CaseGuard/issues/97) · **PR:** [#194](https://github.com/CaseGuard-AI/CaseGuard/pull/194)
+> **Status:** Done · **Issue:** [#97](https://github.com/CaseGuard-AI/CaseGuard/issues/97) · **PR:** [#194](https://github.com/CaseGuard-AI/CaseGuard/pull/194)
 
 # #97: cases in the api.v1 contract
 
