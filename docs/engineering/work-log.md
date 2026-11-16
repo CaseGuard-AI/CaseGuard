@@ -225,3 +225,13 @@ The Research Hub now lists past conversations, so a user can get back to an earl
 - a new question shows at the top straight away, without a reload.
 
 It uses the existing `GET /conversations`, so only `apps/web` changed. "Save to case" waits for Cases. The new Urdu strings need native review (#105). Plan: `plans/0039`.
+
+## 2026-11-16
+
+### `pnpm research:ask`, the answer path from the terminal (#191)
+A CLI that runs the Research Hub answer path end to end, without the web and api in between:
+- it calls `answer_question` with the same dependencies as `/ai/v1/research/answer`, so what it prints is what the route would return;
+- it shows what the route hides: the provider and model, latency, finish reason, token usage, and the raw model reply, so format problems are visible;
+- `--providers` is the api's allow-list, `--json` is for scripts, `--show-prompt` prints the numbered passages; log lines go to stderr.
+
+Found on the way: the NIM preset `nvidia/nemotron-3-super-120b-a12b` is end-of-life (HTTP 410), so `.env.example` and the README move to `nvidia/nemotron-3.5-super-vl-120b-a12b`. The measurement itself is #192: the demo corpus is placeholders, and embedding the real seed laws needs a machine with more memory than the development laptop. Plan: `plans/0042`.

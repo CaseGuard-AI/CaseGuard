@@ -36,7 +36,7 @@ Providers are configuration, not code (ADR-0005). Set a role in `.env` using a p
 
 ```env
 LLM_GENERATION_BASE_URL=https://integrate.api.nvidia.com/v1
-LLM_GENERATION_MODEL=nvidia/nemotron-3-super-120b-a12b
+LLM_GENERATION_MODEL=nvidia/nemotron-3.5-super-vl-120b-a12b
 LLM_GENERATION_API_KEY=nvapi-...
 ```
 
