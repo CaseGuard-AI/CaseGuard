@@ -114,7 +114,7 @@ Then pass all four partition folders to one `pnpm data:load` command.
 2. In the admin console, enable a provider: Ollama with `OLLAMA_MODEL`, or NIM/Gemini with a key in `.env`.
 3. In the Research Hub, ask "What is the punishment under s. 302 PPC?". You should get a cited answer with statuses.
 
-The reranker downloads on first use (about 2.3 GB). How well a 7–8B model follows the answer format hasn't been tested yet.
+The reranker downloads on first use (about 2.3 GB). How well a model follows the answer format hasn't been measured yet: `pnpm research:ask -- "<question>" --providers nvidia-nim` runs the answer path from the terminal and shows the raw reply (#191); the measurement on the real seed laws is #192.
 
 ## Open items
 
