@@ -22,6 +22,7 @@ from caseguard_ai.gateway.providers import ProviderConfig
 from caseguard_ai.ingest.embedder import HashEmbedder
 from caseguard_ai.research import ask_cli
 from caseguard_ai.retrieval.reranker import OverlapReranker
+from tests.conftest import TOKEN
 from tests.test_answer import RecordingSupport, cites_302, engine, p  # noqa: F401  # fixture
 
 pytestmark = pytest.mark.skipif(
@@ -50,6 +51,7 @@ class ScriptedGateway(ask_cli.RecordingGateway):
 
 @pytest.fixture
 def cli(engine: Engine, monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[..., Any]]:  # noqa: F811
+    monkeypatch.setenv("AI_SERVICE_TOKEN", TOKEN)  # Settings needs it; CI has no .env
     # One configured provider: Ollama, so the allow-list has something to refuse (nvidia-nim).
     monkeypatch.setenv("LLM_GENERATION_BASE_URL", "http://127.0.0.1:11434/v1")
     monkeypatch.setenv("LLM_GENERATION_MODEL", "qwen2.5:7b")
