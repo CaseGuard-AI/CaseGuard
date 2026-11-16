@@ -288,7 +288,13 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Save a conversation to a case, or detach it (FR-CASE-5, FR-RES-8)
+         * @description Later questions in the conversation are scoped to the new case (FR-CASE-6); earlier
+         *     answers are unchanged. The case rule is the same as for `createConversation`: it must be
+         *     the caller's and active, else 400. `null` detaches the conversation from its case.
+         */
+        patch: operations["updateConversation"];
         trace?: never;
     };
     "/conversations/{conversationId}/messages": {
@@ -306,6 +312,97 @@ export interface paths {
          *     AI features are disabled for the user (FR-AUTH-3).
          */
         post: operations["askQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The user's cases, most recently updated first (FR-CASE-1) */
+        get: operations["listCases"];
+        put?: never;
+        /**
+         * Create a case (FR-CASE-1)
+         * @description The case belongs to the signed-in user (FR-AUTH-4, FR-AUTH-5). The validation rules are
+         *     the field rules of `CaseFields`; a failure is a 400 with `errors[]` and nothing is saved.
+         */
+        post: operations["createCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{caseId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A case, the root of its dashboard (FR-CASE-4)
+         * @description Research saved to the case is `listConversations` with `caseId`. Documents, drafts and
+         *     precedents are listed by their own operations with the same filter once they exist.
+         */
+        get: operations["getCase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change some of a case's fields (FR-CASE-1)
+         * @description Partial update: send only the fields that change. A successful save sets `updatedAt`.
+         *     An archived case can still be edited. Invalid values are a 400 with `errors[]` and
+         *     nothing is saved.
+         */
+        patch: operations["updateCase"];
+        trace?: never;
+    };
+    "/cases/{caseId}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a case (FR-CASE-1)
+         * @description Sets `archivedAt` and hides the case from `listCases` unless `state` asks for it. Nothing
+         *     is deleted: its conversations and documents stay, but no new conversation can be saved
+         *     to it. Archiving an archived case changes nothing and is still a 200.
+         */
+        post: operations["archiveCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cases/{caseId}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bring an archived case back (FR-CASE-1)
+         * @description Clears `archivedAt`. Unarchiving an active case changes nothing and is still a 200.
+         */
+        post: operations["unarchiveCase"];
         delete?: never;
         options?: never;
         head?: never;
@@ -563,6 +660,148 @@ export interface components {
             expiresIn: number;
             user: components["schemas"]["User"];
         };
+        /**
+         * @description One party to the matter (Table 4.29 "Parties"). `side` is the column it belongs to and
+         *     `label` is what the court calls it.
+         */
+        Party: {
+            /**
+             * @description `claimant`: plaintiff, petitioner, applicant or appellant. `respondent`: defendant, respondent or accused.
+             * @enum {string}
+             */
+            side: "claimant" | "respondent";
+            name: string;
+            /** @example Petitioner */
+            label?: string;
+        };
+        /**
+         * @description A case with every field present (`null` or `[]` when empty). `archivedAt` is null while
+         *     the case is active.
+         */
+        Case: {
+            title: string;
+            /** @example Sindh High Court, Karachi */
+            court: string | null;
+            /** @example Cr. Bail No. 1234 of 2026 */
+            caseNumber: string | null;
+            /**
+             * @description What the court calls the matter. Free text until the case taxonomy (#164) is
+             *     agreed; its proceeding type and area of law will then be added as separate fields.
+             * @example Cr. Bail
+             */
+            caseType: string | null;
+            /** Format: date */
+            filedOn: string | null;
+            /**
+             * @description The matter's status before the court. Not archiving, which is `archivedAt`.
+             * @example Reserved for judgment
+             */
+            status: string | null;
+            /** Format: date */
+            nextHearingOn: string | null;
+            parties: components["schemas"]["Party"][];
+            judge: string | null;
+            /** @description The responsible lawyer, by name. The case's owner is always the signed-in user (FR-AUTH-4). */
+            assignedLawyer: string | null;
+            /**
+             * @description Laws and sections relevant to the case, one per entry.
+             * @example [
+             *       "s.497 CrPC",
+             *       "s.9(c) CNSA 1997"
+             *     ]
+             */
+            relevantLaws: string[];
+            summary: string | null;
+        } & {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            archivedAt: string | null;
+        };
+        /** @description Only `title` is required; an omitted field is stored empty. Unknown fields are rejected with 400. */
+        CaseInput: {
+            title: string;
+            /** @example Sindh High Court, Karachi */
+            court?: string | null;
+            /** @example Cr. Bail No. 1234 of 2026 */
+            caseNumber?: string | null;
+            /**
+             * @description What the court calls the matter. Free text until the case taxonomy (#164) is
+             *     agreed; its proceeding type and area of law will then be added as separate fields.
+             * @example Cr. Bail
+             */
+            caseType?: string | null;
+            /** Format: date */
+            filedOn?: string | null;
+            /**
+             * @description The matter's status before the court. Not archiving, which is `archivedAt`.
+             * @example Reserved for judgment
+             */
+            status?: string | null;
+            /** Format: date */
+            nextHearingOn?: string | null;
+            parties?: components["schemas"]["Party"][];
+            judge?: string | null;
+            /** @description The responsible lawyer, by name. The case's owner is always the signed-in user (FR-AUTH-4). */
+            assignedLawyer?: string | null;
+            /**
+             * @description Laws and sections relevant to the case, one per entry.
+             * @example [
+             *       "s.497 CrPC",
+             *       "s.9(c) CNSA 1997"
+             *     ]
+             */
+            relevantLaws?: string[];
+            summary?: string | null;
+        };
+        /**
+         * @description Partial: at least one field. `null` clears a nullable field and `[]` clears a list.
+         *     Unknown fields are rejected with 400.
+         */
+        CaseUpdate: {
+            title?: string;
+            /** @example Sindh High Court, Karachi */
+            court?: string | null;
+            /** @example Cr. Bail No. 1234 of 2026 */
+            caseNumber?: string | null;
+            /**
+             * @description What the court calls the matter. Free text until the case taxonomy (#164) is
+             *     agreed; its proceeding type and area of law will then be added as separate fields.
+             * @example Cr. Bail
+             */
+            caseType?: string | null;
+            /** Format: date */
+            filedOn?: string | null;
+            /**
+             * @description The matter's status before the court. Not archiving, which is `archivedAt`.
+             * @example Reserved for judgment
+             */
+            status?: string | null;
+            /** Format: date */
+            nextHearingOn?: string | null;
+            parties?: components["schemas"]["Party"][];
+            judge?: string | null;
+            /** @description The responsible lawyer, by name. The case's owner is always the signed-in user (FR-AUTH-4). */
+            assignedLawyer?: string | null;
+            /**
+             * @description Laws and sections relevant to the case, one per entry.
+             * @example [
+             *       "s.497 CrPC",
+             *       "s.9(c) CNSA 1997"
+             *     ]
+             */
+            relevantLaws?: string[];
+            summary?: string | null;
+        };
+        /** @description Save a conversation to a case, or detach it with `null` (FR-CASE-5). */
+        ConversationUpdate: {
+            /** Format: uuid */
+            caseId: string | null;
+        };
         ConversationSummary: {
             /** Format: uuid */
             id: string;
@@ -783,6 +1022,11 @@ export interface components {
         };
     };
     parameters: {
+        CaseId: string;
+        /** @description `active` (the default) hides archived cases, `archived` shows only them, `all` shows both. */
+        CaseState: "active" | "archived" | "all";
+        /** @description Only the conversations saved to this case (FR-CASE-4). A case that is not the caller's gives an empty page. */
+        ConversationCaseId: string;
         ConversationId: string;
         Cursor: string;
         KeyProviderId: components["schemas"]["ProviderId"];
@@ -1131,6 +1375,8 @@ export interface operations {
     listConversations: {
         parameters: {
             query?: {
+                /** @description Only the conversations saved to this case (FR-CASE-4). A case that is not the caller's gives an empty page. */
+                caseId?: components["parameters"]["ConversationCaseId"];
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
             };
@@ -1168,7 +1414,9 @@ export interface operations {
                     title?: string;
                     /**
                      * Format: uuid
-                     * @description P1. Scope this conversation to one of the user's cases (FR-CASE-6).
+                     * @description Save the conversation to one of the signed-in user's active cases (FR-CASE-5),
+                     *     which also scopes retrieval to that case (FR-CASE-6). A case that is not the
+                     *     caller's, or is archived, is a 400 with `errors[].path` of `caseId`.
                      */
                     caseId?: string;
                 };
@@ -1212,6 +1460,35 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    updateConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationUpdate"];
+            };
+        };
+        responses: {
+            /** @description The conversation after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummary"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     askQuestion: {
         parameters: {
             query?: never;
@@ -1242,6 +1519,163 @@ export interface operations {
             404: components["responses"]["NotFound"];
             429: components["responses"]["TooManyRequests"];
             503: components["responses"]["Unavailable"];
+        };
+    };
+    listCases: {
+        parameters: {
+            query?: {
+                /** @description `active` (the default) hides archived cases, `archived` shows only them, `all` shows both. */
+                state?: components["parameters"]["CaseState"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of cases */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Case"][];
+                        nextCursor?: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: components["parameters"]["CaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: components["parameters"]["CaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseUpdate"];
+            };
+        };
+        responses: {
+            /** @description The case after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    archiveCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: components["parameters"]["CaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The archived case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unarchiveCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: components["parameters"]["CaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The active case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getCitation: {

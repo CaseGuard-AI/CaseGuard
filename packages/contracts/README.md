@@ -40,4 +40,4 @@ npx @redocly/cli lint packages/contracts/openapi/*.yaml     # config: /redocly.y
 
 ## Status
 
-`1.0.0-draft` covers the M1 vertical slice: auth (including password reset), the user's own settings (`/me/settings`: name, language, theme), conversations, asking a question, an answer with verified citations, and fetching a citation or source. TypeScript types for `api.v1` are generated and used by `apps/web` (#79). Types for `ai.v1` and the Python models come with their first consumers.
+`1.0.0-draft` covers the M1 vertical slice: auth (including password reset), the user's own settings (`/me/settings`: name, language, theme), conversations, asking a question, an answer with verified citations, and fetching a citation or source. M3 adds cases (`/cases`: the fields of Deliverable II Table 4.29, archive and unarchive) and saving a conversation to a case (`PATCH /conversations/{conversationId}`, a `caseId` filter on the list). TypeScript types for `api.v1` are generated and used by `apps/web` (#79). Types for `ai.v1` and the Python models come with their first consumers.
