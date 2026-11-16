@@ -5,6 +5,8 @@ info:
   summary: REST API served by apps/api and consumed by apps/web.
   description: |
     M1 vertical slice: auth, ask a question, an answer with verified citations, and opening a cited source.
+    M3 adds cases (FR-CASE): the user's own matters, with the fields of Deliverable II Table 4.29,
+    and saving research to a case.
 
     - **Auth.** A short-lived access token (JWT) is sent as `Authorization: Bearer`. The refresh
       token lives only in an HttpOnly, Secure, SameSite=Strict cookie scoped to `/api/v1/auth`.
@@ -28,6 +30,8 @@ tags:
     description: The signed-in user's own preferences (FR-SET)
   - name: research
     description: Conversations and answers (FR-RES)
+  - name: cases
+    description: The signed-in user's own matters (FR-CASE). Owner only; another user's case is a 404 (FR-AUTH-4)
   - name: sources
     description: Citations and source records (FR-RES-7, FR-TRUST)
   - name: admin
@@ -305,6 +309,7 @@ paths:
       operationId: listConversations
       summary: The user's conversations, newest first (FR-RES-8)
       parameters:
+        - $ref: "#/components/parameters/ConversationCaseId"
         - $ref: "#/components/parameters/Cursor"
         - $ref: "#/components/parameters/Limit"
       responses:
@@ -333,7 +338,10 @@ paths:
               properties:
                 title: { type: string, maxLength: 200 }
                 caseId:
-                  description: P1. Scope this conversation to one of the user's cases (FR-CASE-6).
+                  description: |
+                    Save the conversation to one of the signed-in user's active cases (FR-CASE-5),
+                    which also scopes retrieval to that case (FR-CASE-6). A case that is not the
+                    caller's, or is archived, is a 400 with `errors[].path` of `caseId`.
                   type: string
                   format: uuid
       responses:
@@ -358,6 +366,30 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Conversation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [research]
+      operationId: updateConversation
+      summary: Save a conversation to a case, or detach it (FR-CASE-5, FR-RES-8)
+      description: |
+        Later questions in the conversation are scoped to the new case (FR-CASE-6); earlier
+        answers are unchanged. The case rule is the same as for `createConversation`: it must be
+        the caller's and active, else 400. `null` detaches the conversation from its case.
+      parameters:
+        - $ref: "#/components/parameters/ConversationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ConversationUpdate" }
+      responses:
+        "200":
+          description: The conversation after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversationSummary" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -388,6 +420,131 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
         "503": { $ref: "#/components/responses/Unavailable" }
+
+  /cases:
+    get:
+      tags: [cases]
+      operationId: listCases
+      summary: The user's cases, most recently updated first (FR-CASE-1)
+      parameters:
+        - $ref: "#/components/parameters/CaseState"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of cases
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Case" }
+                  nextCursor: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [cases]
+      operationId: createCase
+      summary: Create a case (FR-CASE-1)
+      description: |
+        The case belongs to the signed-in user (FR-AUTH-4, FR-AUTH-5). The validation rules are
+        the field rules of `CaseFields`; a failure is a 400 with `errors[]` and nothing is saved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CaseInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Case" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /cases/{caseId}:
+    get:
+      tags: [cases]
+      operationId: getCase
+      summary: A case, the root of its dashboard (FR-CASE-4)
+      description: |
+        Research saved to the case is `listConversations` with `caseId`. Documents, drafts and
+        precedents are listed by their own operations with the same filter once they exist.
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      responses:
+        "200":
+          description: Case
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Case" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [cases]
+      operationId: updateCase
+      summary: Change some of a case's fields (FR-CASE-1)
+      description: |
+        Partial update: send only the fields that change. A successful save sets `updatedAt`.
+        An archived case can still be edited. Invalid values are a 400 with `errors[]` and
+        nothing is saved.
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CaseUpdate" }
+      responses:
+        "200":
+          description: The case after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Case" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cases/{caseId}/archive:
+    post:
+      tags: [cases]
+      operationId: archiveCase
+      summary: Archive a case (FR-CASE-1)
+      description: |
+        Sets `archivedAt` and hides the case from `listCases` unless `state` asks for it. Nothing
+        is deleted: its conversations and documents stay, but no new conversation can be saved
+        to it. Archiving an archived case changes nothing and is still a 200.
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      responses:
+        "200":
+          description: The archived case
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Case" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cases/{caseId}/unarchive:
+    post:
+      tags: [cases]
+      operationId: unarchiveCase
+      summary: Bring an archived case back (FR-CASE-1)
+      description: Clears `archivedAt`. Unarchiving an active case changes nothing and is still a 200.
+      parameters:
+        - $ref: "#/components/parameters/CaseId"
+      responses:
+        "200":
+          description: The active case
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Case" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /citations/{citationId}:
     get:
@@ -549,6 +706,21 @@ components:
       schema: { type: string }
 
   parameters:
+    CaseId:
+      name: caseId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CaseState:
+      name: state
+      in: query
+      description: "`active` (the default) hides archived cases, `archived` shows only them, `all` shows both."
+      schema: { type: string, enum: [active, archived, all], default: active }
+    ConversationCaseId:
+      name: caseId
+      in: query
+      description: Only the conversations saved to this case (FR-CASE-4). A case that is not the caller's gives an empty page.
+      schema: { type: string, format: uuid }
     ConversationId:
       name: conversationId
       in: path
@@ -791,6 +963,112 @@ components:
           description: Seconds until the access token expires.
           type: integer
         user: { $ref: "#/components/schemas/User" }
+
+    Party:
+      description: |
+        One party to the matter (Table 4.29 "Parties"). `side` is the column it belongs to and
+        `label` is what the court calls it.
+      type: object
+      required: [side, name]
+      additionalProperties: false
+      properties:
+        side:
+          description: "`claimant`: plaintiff, petitioner, applicant or appellant. `respondent`: defendant, respondent or accused."
+          type: string
+          enum: [claimant, respondent]
+        name: { type: string, minLength: 1, maxLength: 200 }
+        label: { type: string, maxLength: 40, examples: ["Petitioner"] }
+
+    # The editable fields of a case, from Deliverable II Table 4.29 (FR-CASE-1). Their bounds are
+    # the validation rules (Deliverable II TBD-24). They are written once, as the YAML anchor
+    # `caseFields` below, and reused by `CaseInput` and `CaseUpdate`: an `allOf` over a shared
+    # schema would lose `required` and `additionalProperties: false` in the generated types.
+    # Documents, precedents, drafts and strategy are not fields: they are resources that carry a
+    # `caseId` (FR-CASE-4).
+    Case:
+      description: |
+        A case with every field present (`null` or `[]` when empty). `archivedAt` is null while
+        the case is active.
+      allOf:
+        - type: object
+          required:
+            - title
+            - court
+            - caseNumber
+            - caseType
+            - filedOn
+            - status
+            - nextHearingOn
+            - parties
+            - judge
+            - assignedLawyer
+            - relevantLaws
+            - summary
+          properties: &caseFields
+            title: { type: string, minLength: 1, maxLength: 200 }
+            court: { type: [string, "null"], maxLength: 120, examples: ["Sindh High Court, Karachi"] }
+            caseNumber: { type: [string, "null"], maxLength: 80, examples: ["Cr. Bail No. 1234 of 2026"] }
+            caseType:
+              description: |
+                What the court calls the matter. Free text until the case taxonomy (#164) is
+                agreed; its proceeding type and area of law will then be added as separate fields.
+              type: [string, "null"]
+              maxLength: 80
+              examples: ["Cr. Bail"]
+            filedOn: { type: [string, "null"], format: date }
+            status:
+              description: The matter's status before the court. Not archiving, which is `archivedAt`.
+              type: [string, "null"]
+              maxLength: 80
+              examples: ["Reserved for judgment"]
+            nextHearingOn: { type: [string, "null"], format: date }
+            parties:
+              type: array
+              maxItems: 50
+              items: { $ref: "#/components/schemas/Party" }
+            judge: { type: [string, "null"], maxLength: 200 }
+            assignedLawyer:
+              description: The responsible lawyer, by name. The case's owner is always the signed-in user (FR-AUTH-4).
+              type: [string, "null"]
+              maxLength: 120
+            relevantLaws:
+              description: Laws and sections relevant to the case, one per entry.
+              type: array
+              maxItems: 50
+              items: { type: string, minLength: 1, maxLength: 120 }
+              examples: [["s.497 CrPC", "s.9(c) CNSA 1997"]]
+            summary: { type: [string, "null"], maxLength: 4000 }
+        - type: object
+          required: [id, createdAt, updatedAt, archivedAt]
+          properties:
+            id: { type: string, format: uuid }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+            archivedAt: { type: [string, "null"], format: date-time }
+
+    CaseInput:
+      description: Only `title` is required; an omitted field is stored empty. Unknown fields are rejected with 400.
+      type: object
+      required: [title]
+      additionalProperties: false
+      properties: *caseFields
+
+    CaseUpdate:
+      description: |
+        Partial: at least one field. `null` clears a nullable field and `[]` clears a list.
+        Unknown fields are rejected with 400.
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties: *caseFields
+
+    ConversationUpdate:
+      description: Save a conversation to a case, or detach it with `null` (FR-CASE-5).
+      type: object
+      required: [caseId]
+      additionalProperties: false
+      properties:
+        caseId: { type: [string, "null"], format: uuid }
 
     ConversationSummary:
       type: object

@@ -5,6 +5,7 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 ## [Unreleased]
 
 ### Added
+- api.v1 contract: cases (#97, FR-CASE-1, FR-CASE-4, FR-CASE-5). `GET` and `POST /cases`, `GET` and `PATCH /cases/{caseId}`, `POST /cases/{caseId}/archive` and `/unarchive` (archive keeps everything, nothing is deleted), with the editable fields of Deliverable II Table 4.29 (`caseType` is free text until the taxonomy, #164). `GET /conversations` takes a `caseId` filter and `PATCH /conversations/{conversationId}` saves a conversation to a case or detaches it. Owner only: another user's case is a 404
 - api.v1 contract: `refreshSession` (`POST /auth/refresh`) declares `429 Too Many Requests`, which the api already returns when the limit is hit (#83)
 - Model gateway for services/ai (#21): `ModelGateway.chat(role, messages, allowed_providers)` over any OpenAI-compatible endpoint (NVIDIA NIM, Gemini, Groq, OpenRouter, OpenAI, Anthropic, Ollama); one endpoint per role plus local Ollama as the fallback; only providers in `allowedProviders` are used (omitted = local only, no match = 503); one retry on 429/5xx; keys never logged. New settings `LLM_<ROLE>_PROVIDER` and `OLLAMA_MODEL`
 - ADR-0008: embeddings and the reranker run in-process; LLM calls go through the gateway
