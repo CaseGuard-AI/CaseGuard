@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#100](https://github.com/CaseGuard-AI/CaseGuard/issues/100) · **PR:** —
+> **Status:** In progress · **Issue:** [#100](https://github.com/CaseGuard-AI/CaseGuard/issues/100) · **PR:** [#197](https://github.com/CaseGuard-AI/CaseGuard/pull/197)
 
 # #100: documents and the ingestion handoff in the contracts
 
