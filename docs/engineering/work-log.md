@@ -235,3 +235,14 @@ A CLI that runs the Research Hub answer path end to end, without the web and api
 - `--providers` is the api's allow-list, `--json` is for scripts, `--show-prompt` prints the numbered passages; log lines go to stderr.
 
 Found on the way: the NIM preset `nvidia/nemotron-3-super-120b-a12b` is end-of-life (HTTP 410), so `.env.example` and the README move to `nvidia/nemotron-3.5-super-vl-120b-a12b`. The measurement itself is #192: the demo corpus is placeholders, and embedding the real seed laws needs a machine with more memory than the development laptop. Plan: `plans/0042`.
+
+## 2026-11-18
+
+### Dashboard: recent research and cases (FR-DASH-1, #104)
+`/` is no longer the shell placeholder. It now has:
+- a "Start research" card that opens the Research Hub;
+- the five most recent conversations, with a relative date, each opening its thread;
+- the five most recently updated active cases, with case number, court and next hearing, each opening the case (`/cases/<id>` arrives with #99);
+- loading, empty and error-with-retry states for each list on its own.
+
+The trust-badge and API-status demo left the page. Drafts join once they have a contract. The cases list uses a small local query until #99 merges, then switches to the cases module's. The new Urdu strings need native review (#105). Plan: `plans/0047`.
