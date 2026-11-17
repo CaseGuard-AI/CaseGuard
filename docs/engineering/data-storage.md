@@ -8,7 +8,7 @@ Where CaseGuard's data lives, so that **one person crawls and embeds, and everyo
 
 | Data | Who can see it | Where it lives | How you get it |
 |---|---|---|---|
-| **Corpus snapshots**: collector output per partition | Team + supervisor | Private Hugging Face dataset `<org>/corpus`, `snapshots/` | `pnpm data:pull --snapshot <partition>` |
+| **Corpus snapshots**: collector output per partition | Team + supervisor | Private Hugging Face dataset `caseguard/corpus`, `snapshots/` | `pnpm data:pull --snapshot <partition>` |
 | **Corpus dump**: the loaded, embedded `corpus` schema | Team + supervisor | Same repo, `dumps/` | `pnpm data:pull --dump latest` |
 | **User uploads**: case files | **Only their owner, inside their case** | Dev: Docker volume `uploads`. Demo: S3-compatible storage (Supabase preferred) | Through the API only |
 | `app` and `ai` schemas | Each laptop only | Your local Postgres | Never shared |
@@ -31,7 +31,7 @@ Where CaseGuard's data lives, so that **one person crawls and embeds, and everyo
   - Never commit a token. Never share one.
 
 ```
-<org>/corpus
+caseguard/corpus
 ├── snapshots/
 │   └── <partition>/<YYYY-MM-DD>[-N]/
 │       ├── manifest.json
@@ -124,7 +124,7 @@ Decided in [#149](https://github.com/CaseGuard-AI/CaseGuard/issues/149).
 
 - **Keep everything during the FYP.** One full version is about 3 GB of snapshots plus a dump of about 1 GB.
 - **Monitor:** `pnpm data:status` reports usage against the 100 GB limit.
-- **At 75 GB:** start a fresh `<org>/corpus-v2`, seeded with the latest snapshot of each partition plus every `dump/eval-frozen-*`. Move `LATEST` there and retire the old repo. History is never rewritten.
+- **At 75 GB:** start a fresh `caseguard/corpus-v2`, seeded with the latest snapshot of each partition plus every `dump/eval-frozen-*`. Move `LATEST` there and retire the old repo. History is never rewritten.
 - **No off-site copy for now.** Revisit before the final evaluation (Backblaze B2 is the fallback).
 
 ## 6. User uploads
@@ -156,7 +156,7 @@ Decided in [#145](https://github.com/CaseGuard-AI/CaseGuard/issues/145). It beco
 ## Not covered here
 
 - **Building the commands:** see the build issues:
-  - HF org/repo setup: #151
+  - HF org/repo setup: #151 (done: [huggingface.co/caseguard](https://huggingface.co/caseguard), private dataset `caseguard/corpus`)
   - snapshot push/pull/status: #152
   - collector partition support: #153
   - dump build/restore: #154

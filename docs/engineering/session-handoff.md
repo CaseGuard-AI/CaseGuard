@@ -19,7 +19,6 @@ The full corpus is being embedded on one laptop (about 8 hours on CPU). None of 
 
 | Who | Task | Needs the corpus? |
 |---|---|---|
-| Repo lead | **#151:** finish the Hugging Face setup (see below) | No |
 | Taxonomy owner | **#200:** the statute→area classifier and the 200-judgment review. The taxonomy itself is approved (#164, [`case-taxonomy.md`](case-taxonomy.md), vocabulary in `packages/contracts/taxonomy/case-taxonomy.v1.yaml`) | No |
 | One member | **#22, test set:** 60 dev + 40 held-out questions, half civil and half criminal, about 10% unanswerable, each with its gold section (e.g. "PPC s. 302"). Written from the law texts. **Freeze it before any tuning.** | No |
 | One member | **#17, Supreme Court probe:** `uv run python main.py --source supreme_court --probe` from a home or university network; record the result in the collector README §1 | No |
@@ -30,17 +29,15 @@ The full corpus is being embedded on one laptop (about 8 hours on CPU). None of 
 
 ## Hugging Face (`caseguard` org)
 
-The org exists: https://huggingface.co/caseguard. Nothing has been uploaded yet.
+Set up (#151, done 2026-11-18): the org https://huggingface.co/caseguard and the private dataset `caseguard/corpus`. Members have **write**, managed at https://huggingface.co/organizations/caseguard/members.
 
-**One-time setup:**
-1. Create the dataset at https://huggingface.co/new-dataset: owner `caseguard`, name `corpus`, **Private**.
-2. Invite members with **write** at https://huggingface.co/organizations/caseguard/members.
-3. Each member creates a **fine-grained** token (https://huggingface.co/settings/tokens) with write on `caseguard/corpus`, and adds it to `.env` only (never commit it):
+**For each member (once):**
+1. Create a **fine-grained** token (https://huggingface.co/settings/tokens) with write on `caseguard/corpus`, and adds it to `.env` only (never commit it):
    ```
    HF_TOKEN=hf_xxxxxxxx
    HF_CORPUS_REPO=caseguard/corpus
    ```
-4. Install the CLI and log in:
+2. Install the CLI and log in:
    ```powershell
    uv tool install "huggingface_hub[cli]"
    hf auth login
@@ -118,7 +115,7 @@ The reranker downloads on first use (about 2.3 GB). How well a model follows the
 
 ## Open items
 
-- **#152, crawl snapshots:** `pnpm data:push`, `pull` and `status`, which do the Hugging Face steps above automatically. Ready to build now that the org exists.
+- **#152, crawl snapshots:** `pnpm data:push`, `pull` and `status`, which do the Hugging Face steps above automatically. Unblocked: `caseguard/corpus` is live (#151).
 - **#154, database dumps:** `pnpm data:dump` and `data:pull --dump` are built (plan 0038). Next: publish the first real dump once the full embed finishes.
 - **`--full-text-first` for `data:embed`** (not built): embed the laws and full judgments before the 56k short head-notes, so the demo works within minutes.
 - **Small follow-ups:**

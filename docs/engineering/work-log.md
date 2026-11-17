@@ -266,3 +266,6 @@ The trust-badge and API-status demo left the page. Drafts join once they have a 
 
 ### Case taxonomy v1 approved (#164)
 The supervisor approved [`case-taxonomy.md`](case-taxonomy.md) on 2026-11-18 and accepted all six recommendations in §9. The four `(confirm)` SHC codes are still open. The vocabulary is now [`packages/contracts/taxonomy/case-taxonomy.v1.yaml`](../../packages/contracts/taxonomy/case-taxonomy.v1.yaml), and a services/ai test checks it against the collector's `matter_type_map.csv`. Sub-categories can grow inside an area. A new area or proceeding type means a v2. The classifier and the 200-judgment review moved to #200. Plan: `plans/0048`.
+
+### Hugging Face storage set up (#151)
+The `caseguard` org and the private dataset `caseguard/corpus` exist, and members have write access with their own tokens. `.env.example` already had `HF_TOKEN=` and `HF_CORPUS_REPO=caseguard/corpus`. The storage spec and the handoffs now name the real repo instead of `<org>/corpus`. #152 (snapshot push/pull/status) is unblocked.
