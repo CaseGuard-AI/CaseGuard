@@ -263,3 +263,6 @@ Only `apps/web` changed. The new Urdu strings under `Cases` need native review (
 - loading, empty and error-with-retry states for each list on its own.
 
 The trust-badge and API-status demo left the page. Drafts join once they have a contract. The recent-cases query sits under the cases module's query key (#99), so any case change refreshes it. The new Urdu strings need native review (#105). Plan: `plans/0047`.
+
+### Hugging Face storage set up (#151)
+The `caseguard` org and the private dataset `caseguard/corpus` exist, and members have write access with their own tokens. `.env.example` already had `HF_TOKEN=` and `HF_CORPUS_REPO=caseguard/corpus`. The storage spec and the handoffs now name the real repo instead of `<org>/corpus`. #152 (snapshot push/pull/status) is unblocked.

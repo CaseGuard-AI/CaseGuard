@@ -276,7 +276,7 @@ The loader lives in **services/ai** because it shares the #15 table metadata and
 
 | Item | Who | Unblocks |
 |---|---|---|
-| #151: create the free HF org and the private `corpus` dataset (empty `snapshots/`, `dumps/`, README), invite members as write; each member makes a token and adds it to `.env` | Repo lead | Publishing in #152 and #154 (the code is built and tested before this) |
+| ✅ Done 2026-11-18 (`caseguard/corpus`). #151: create the free HF org and the private `corpus` dataset (empty `snapshots/`, `dumps/`, README), invite members as write; each member makes a token and adds it to `.env` | Repo lead | Publishing in #152 and #154 (the code is built and tested before this) |
 | Set `PKLEGAL_USER_AGENT` to a team contact address before any full crawl | Whoever crawls first | Full crawls in #153 |
 | #17: `uv run python main.py --source supreme_court --probe` from a home or university network; record the results in the collector README §1 | Anyone | SCP as a source |
 | #148 + case taxonomy proposal: civil share, the `matter_type` → civil/criminal map, the area and proceeding labels | Team + supervisor | Final selection sizes, test-set balance |
