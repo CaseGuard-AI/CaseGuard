@@ -409,6 +409,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/cases/{caseId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload a file to a case (FR-DOC-1, SEC-6)
+         * @description One file per request, as the `file` part of a `multipart/form-data` body. The file is
+         *     stored outside the web root and queued for processing; nothing is processed on the
+         *     request path (SEC-6). The response is the document in status `queued`; follow it with
+         *     `getDocument` or `listDocuments` (FR-DOC-3).
+         *
+         *     - **Type (FR-DOC-1).** PDF, DOCX, PNG, JPEG or TIFF (`DocumentMediaType`), found by
+         *       sniffing the content. The part's `Content-Type` and the filename's extension are
+         *       ignored. Anything else is a 415 and nothing is stored.
+         *     - **Size.** At most 25 MB (26 214 400 bytes). A larger body is cut off and answered 413.
+         *     - **Case.** It must be the caller's (else 404) and active: an archived case is a 400
+         *       with `errors[].path` of `caseId`.
+         *     - **Filename.** Taken from the part's `filename`, without any directory, with control
+         *       characters removed, at most 255 characters. It is stored only in the database, never
+         *       in the blob key (data-storage §6).
+         *
+         *     Typed clients: the generated type of `file` is `string`. Send a `FormData` through a
+         *     body serializer, for example openapi-fetch's `bodySerializer`.
+         */
+        post: operations["uploadDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The user's documents, newest first (FR-DOC-3, FR-CASE-4)
+         * @description Every document of the caller, in any status, also those of archived cases. With
+         *     `caseId`, the case dashboard's documents. Deleted documents are never listed.
+         */
+        get: operations["listDocuments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A document and its processing status (FR-DOC-3, FR-DOC-4)
+         * @description Poll this while the status is `queued` or `processing`. A `flagged` document is
+         *     retrievable in research, but its `flags` must be shown with it: it is never shown as
+         *     clean (FR-DOC-4).
+         */
+        get: operations["getDocument"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a document, its file and everything derived from it
+         * @description Works in any status, also in an archived case. The document is gone from the API at
+         *     once (`getDocument` is a 404 and research no longer retrieves it); the file and its
+         *     chunks are purged by a background job that is retried until it succeeds
+         *     (data-storage §6). Deleting is final.
+         */
+        delete: operations["deleteDocument"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{documentId}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The original file, as uploaded
+         * @description Streamed through the API after the ownership check; there are no direct storage links
+         *     (data-storage §6). Served with the stored `mediaType`, `Content-Disposition: attachment`
+         *     with the stored filename, and `X-Content-Type-Options: nosniff`. Available in every
+         *     status.
+         */
+        get: operations["downloadDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/documents/{documentId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Process a failed or flagged document again (NFR-13)
+         * @description Starts a new processing attempt from the stored file. Only from `failed` or `flagged`;
+         *     any other status is a 409. The document returns to `queued`, with `flags` and `error`
+         *     cleared. A flagged document stays retrievable with its current chunks until the new
+         *     attempt finishes.
+         */
+        post: operations["retryDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/citations/{citationId}": {
         parameters: {
             query?: never;
@@ -797,6 +931,86 @@ export interface components {
             relevantLaws?: string[];
             summary?: string | null;
         };
+        /**
+         * @description The file types a user can upload (FR-DOC-1): PDF, DOCX, and scanned pages as PNG, JPEG
+         *     or TIFF. Shared with api.v1, which accepts exactly these, so services/ai can process every
+         *     file the API stores. apps/api finds the type by sniffing the content, never from the
+         *     client's header or the file extension.
+         * @enum {string}
+         */
+        DocumentMediaType: "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "image/png" | "image/jpeg" | "image/tiff";
+        /**
+         * @description Something uncertain found while processing (FR-DOC-4). A flagged document is retrievable,
+         *     but the flagged part is never shown as clean. Shared with api.v1.
+         */
+        DocumentFlag: {
+            stage: components["schemas"]["DocumentStage"];
+            /**
+             * @description Machine-readable reason, snake_case. Known codes: `low_ocr_confidence`,
+             *     `unreadable_page`, `no_text`, `not_english`, `table_not_extracted`,
+             *     `encrypted_file`, `truncated`. New codes can be added without a contract change, so a
+             *     consumer shows `message` for a code it doesn't know.
+             * @example low_ocr_confidence
+             */
+            code: string;
+            /**
+             * @description For the user, in English. Says what is uncertain, not how to fix the pipeline.
+             * @example Page 3 was hard to read; check the text against the original.
+             */
+            message: string;
+            /** @description 1-based page number, or null when the flag is about the whole document. */
+            page: number | null;
+        };
+        /**
+         * @description FR-DOC-3. `queued`: stored, waiting to be processed. `processing`: being processed, or
+         *     waiting for an automatic retry (NFR-13). `done`: processed and retrievable in the case's
+         *     research. `flagged`: processed and retrievable, but some parts are uncertain (see
+         *     `flags`); never shown as clean (FR-DOC-4). `failed`: not retrievable, and automatic
+         *     retries are used up or cannot help; the user can retry.
+         * @enum {string}
+         */
+        DocumentStatus: "queued" | "processing" | "done" | "flagged" | "failed";
+        /**
+         * @description A file uploaded to one of the caller's cases. Every field is present (`null` or `[]`
+         *     when empty).
+         */
+        Document: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            caseId: string;
+            /**
+             * @description The original filename, without any directory.
+             * @example FIR 112-2026.pdf
+             */
+            filename: string;
+            mediaType: components["schemas"]["DocumentMediaType"];
+            sizeBytes: number;
+            status: components["schemas"]["DocumentStatus"];
+            /** @description What was uncertain in the latest attempt (FR-DOC-4). Non-empty exactly when `status` is `flagged`. */
+            flags: components["schemas"]["DocumentFlag"][];
+            /** @description Why processing failed, for the user. Set only when `status` is `failed`. */
+            error: string | null;
+            /** @description Page count once known (images count as one page). */
+            pages: number | null;
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Last status change.
+             */
+            updatedAt: string;
+            /**
+             * Format: date-time
+             * @description When the latest attempt finished (`done`, `flagged` or `failed`); null before.
+             */
+            processedAt: string | null;
+        };
+        /** @description The `multipart/form-data` body of `uploadDocument`. Other parts are rejected with 400. */
+        DocumentUpload: {
+            /** @description The file's bytes, at most 25 MB (FR-DOC-1). The part needs a `filename`. */
+            file: string;
+        };
         /** @description Save a conversation to a case, or detach it with `null` (FR-CASE-5). */
         ConversationUpdate: {
             /** Format: uuid */
@@ -925,6 +1139,12 @@ export interface components {
             quoteLanguage?: components["schemas"]["Language"];
             verification: components["schemas"]["Verification"];
         };
+        /**
+         * @description The processing stages of FR-DOC-2, in order. `ocr` runs only where a page has no text
+         *     layer (scans and images); English only in P1.
+         * @enum {string}
+         */
+        DocumentStage: "ocr" | "extract" | "clean" | "structure" | "chunk" | "embed" | "index";
         Source: {
             /** Format: uuid */
             id: string;
@@ -992,8 +1212,26 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description Already exists */
+        /** @description Already exists, or not allowed in the resource's current state */
         Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The upload is larger than the limit (25 MB, FR-DOC-1) */
+        PayloadTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The file's type is not one of `DocumentMediaType` (FR-DOC-1) */
+        UnsupportedMediaType: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1029,6 +1267,9 @@ export interface components {
         ConversationCaseId: string;
         ConversationId: string;
         Cursor: string;
+        /** @description Only the documents of this case (FR-CASE-4). A case that is not the caller's gives an empty page. */
+        DocumentCaseId: string;
+        DocumentId: string;
         KeyProviderId: components["schemas"]["ProviderId"];
         Limit: number;
     };
@@ -1676,6 +1917,170 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    uploadDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                caseId: components["parameters"]["CaseId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["DocumentUpload"];
+            };
+        };
+        responses: {
+            /** @description Stored and queued for processing */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    listDocuments: {
+        parameters: {
+            query?: {
+                /** @description Only the documents of this case (FR-CASE-4). A case that is not the caller's gives an empty page. */
+                caseId?: components["parameters"]["DocumentCaseId"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of documents */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Document"][];
+                        nextCursor?: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. The purge of the file and chunks is queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    downloadDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file */
+            200: {
+                headers: {
+                    /** @description `attachment; filename="…"; filename*=UTF-8''…` */
+                    "Content-Disposition"?: string;
+                    "Content-Length"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
+                    "image/png": string;
+                    "image/jpeg": string;
+                    "image/tiff": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    retryDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued again */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     getCitation: {
