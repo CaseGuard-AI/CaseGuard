@@ -235,3 +235,13 @@ A CLI that runs the Research Hub answer path end to end, without the web and api
 - `--providers` is the api's allow-list, `--json` is for scripts, `--show-prompt` prints the numbered passages; log lines go to stderr.
 
 Found on the way: the NIM preset `nvidia/nemotron-3-super-120b-a12b` is end-of-life (HTTP 410), so `.env.example` and the README move to `nvidia/nemotron-3.5-super-vl-120b-a12b`. The measurement itself is #192: the demo corpus is placeholders, and embedding the real seed laws needs a machine with more memory than the development laptop. Plan: `plans/0042`.
+
+## 2026-11-18
+
+### Documents contract and the ingestion handoff (#100)
+The contracts for uploads (roadmap A8), so the API (#101), the web (#102) and the ingestion workers (Stream C) can be built in parallel:
+- api.v1: upload to a case (multipart, PDF/DOCX/PNG/JPEG/TIFF by content sniffing, 25 MB), list with a `caseId` filter, get, download through the API, delete (purged by a retried job) and retry. Statuses `queued / processing / done / flagged / failed`, and `flags` that name the stage and page, so a flagged document is never shown as clean;
+- ai.v1: apps/api submits each attempt (`POST …/ingestion`, 202, idempotent per attempt) and polls it (`GET …/ingestion`); services/ai never calls apps/api, and apps/api decides on retries from `retryable`. ADR-0010 records why: no callback endpoint, one writer per schema, and a crashed job can just run again;
+- `DocumentFlag` and `DocumentMediaType` live in ai.v1 and api.v1 `$ref`s them, like `Language`.
+
+Only contracts, generated types and docs changed. Plan: `plans/0046`.

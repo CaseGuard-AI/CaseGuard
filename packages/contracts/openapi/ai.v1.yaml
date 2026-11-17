@@ -29,6 +29,10 @@ tags:
     description: Question answering with verified citations (FR-RES, FR-TRUST)
   - name: sources
     description: Corpus records and stored verification results
+  - name: ingestion
+    description: |
+      Processing a user's uploaded document into case chunks (FR-DOC-2, FR-DOC-6, ADR-0010).
+      apps/api submits and polls; services/ai never calls apps/api.
 
 paths:
   /ai/v1/info:
@@ -114,6 +118,94 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /ai/v1/documents/{documentId}/ingestion:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    post:
+      tags: [ingestion]
+      operationId: startIngestion
+      summary: Start processing an uploaded document (FR-DOC-2, ADR-0010)
+      description: |
+        Called by apps/api's document job, never by a browser. Answers 202 at once with the
+        ingestion's status; the work runs in services/ai's own workers, off the request path
+        (SEC-6). services/ai reads the file read-only from the blob store by `storageKey` and
+        writes chunks and embeddings to `ai.case_chunks` with the request's `scope.userId` and
+        `caseId` (FR-DOC-6). It never writes the `app` schema and never calls apps/api.
+
+        **Idempotent per `(documentId, attempt)`:**
+        - the same attempt again (running or finished) changes nothing and returns its status;
+        - a higher attempt supersedes the current one: a running attempt is stopped and its
+          partial output dropped. The document's existing chunks stay retrievable until the new
+          attempt's `index` stage replaces them in one transaction;
+        - a lower attempt than the current one is a 409.
+
+        400 if `storageKey` is not exactly `users/{scope.userId}/cases/{caseId}/{documentId}`,
+        or `scope.allowedCaseIds` is not `[caseId]`, or `mediaType` is not supported.
+
+        Ingestion sends no document data to a remote model provider in P1: OCR runs locally and
+        embeddings in-process (ADR-0008).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IngestionRequest" }
+      responses:
+        "202":
+          description: Accepted. The status of this attempt, usually `queued`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IngestionStatus" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    get:
+      tags: [ingestion]
+      operationId: getIngestion
+      summary: The current attempt's status, for polling (FR-DOC-3, NFR-13)
+      description: |
+        apps/api polls this after `startIngestion` (ADR-0010):
+        - **Backoff.** Every 2 s at first, doubling to at most 30 s. If the attempt has not
+          finished after 30 minutes, apps/api treats it as `failed` and `retryable`.
+        - **Status mapping** to api.v1 `DocumentStatus`: `queued` → `queued`, `running` →
+          `processing`, `done` → `done`, `flagged` → `flagged`, `failed` → `failed`.
+        - **Retries (NFR-13).** On `failed` with `retryable: true`, apps/api submits
+          `attempt + 1` with a delay, up to 3 attempts in all (a deployment setting); the
+          document shows `processing` meanwhile. When attempts run out, or `retryable` is
+          false, the document is `failed` with `error` and stays listed for the user to retry.
+          It is never dropped.
+        - **Stage log (FR-DOC-2).** apps/api stores `stages` with the document, so each stage's
+          outcome is logged per attempt.
+
+        State is persisted by services/ai, so it survives a restart. An attempt interrupted by a
+        restart is reported `failed` with `retryable: true`. 404 if nothing was ever submitted
+        for the document (apps/api then submits again) or it has been purged.
+      responses:
+        "200":
+          description: Ingestion status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IngestionStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /ai/v1/documents/{documentId}:
+    parameters:
+      - $ref: "#/components/parameters/DocumentId"
+    delete:
+      tags: [ingestion]
+      operationId: purgeDocument
+      summary: Remove everything services/ai holds for a document
+      description: |
+        Stops a running ingestion and deletes the document's chunks, embeddings and ingestion
+        records, so it can never be retrieved again. Idempotent: an unknown or already purged
+        document is also a 204. Called by apps/api's retryable purge job (data-storage §6),
+        which deletes the blob itself afterwards; services/ai has read-only access to blobs.
+      responses:
+        "204": { description: Purged }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   securitySchemes:
     serviceToken:
@@ -132,6 +224,12 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      description: The document's id in apps/api (`app.documents`).
+      schema: { type: string, format: uuid }
 
   responses:
     BadRequest:
@@ -146,6 +244,11 @@ components:
           schema: { $ref: "#/components/schemas/Problem" }
     NotFound:
       description: Not found
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Conflict:
+      description: The request conflicts with the resource's current state
       content:
         application/problem+json:
           schema: { $ref: "#/components/schemas/Problem" }
@@ -375,3 +478,132 @@ components:
           description: Text around the cited locator, verbatim.
           type: string
         retrievedAt: { type: string, format: date-time }
+
+    DocumentMediaType:
+      description: |
+        The file types a user can upload (FR-DOC-1): PDF, DOCX, and scanned pages as PNG, JPEG
+        or TIFF. Shared with api.v1, which accepts exactly these, so services/ai can process every
+        file the API stores. apps/api finds the type by sniffing the content, never from the
+        client's header or the file extension.
+      type: string
+      enum:
+        - application/pdf
+        - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+        - image/png
+        - image/jpeg
+        - image/tiff
+
+    DocumentStage:
+      description: |
+        The processing stages of FR-DOC-2, in order. `ocr` runs only where a page has no text
+        layer (scans and images); English only in P1.
+      type: string
+      enum: [ocr, extract, clean, structure, chunk, embed, index]
+
+    DocumentFlag:
+      description: |
+        Something uncertain found while processing (FR-DOC-4). A flagged document is retrievable,
+        but the flagged part is never shown as clean. Shared with api.v1.
+      type: object
+      required: [stage, code, message, page]
+      properties:
+        stage: { $ref: "#/components/schemas/DocumentStage" }
+        code:
+          description: |
+            Machine-readable reason, snake_case. Known codes: `low_ocr_confidence`,
+            `unreadable_page`, `no_text`, `not_english`, `table_not_extracted`,
+            `encrypted_file`, `truncated`. New codes can be added without a contract change, so a
+            consumer shows `message` for a code it doesn't know.
+          type: string
+          pattern: "^[a-z][a-z0-9_]{0,63}$"
+          examples: [low_ocr_confidence]
+        message:
+          description: For the user, in English. Says what is uncertain, not how to fix the pipeline.
+          type: string
+          maxLength: 500
+          examples: ["Page 3 was hard to read; check the text against the original."]
+        page:
+          description: 1-based page number, or null when the flag is about the whole document.
+          type: [integer, "null"]
+          minimum: 1
+
+    IngestionRequest:
+      type: object
+      required: [scope, caseId, storageKey, mediaType, filename, attempt]
+      additionalProperties: false
+      properties:
+        scope:
+          description: |
+            The document owner's scope, resolved by apps/api. `allowedCaseIds` is exactly
+            `[caseId]`; chunks are written with `scope.userId` and `caseId` (FR-DOC-6).
+          allOf: [{ $ref: "#/components/schemas/Scope" }]
+        caseId: { type: string, format: uuid }
+        storageKey:
+          description: |
+            Blob key of the original file (data-storage §6). Must be exactly
+            `users/{scope.userId}/cases/{caseId}/{documentId}`, else 400. Read-only.
+          type: string
+          pattern: "^users/[0-9a-f-]{36}/cases/[0-9a-f-]{36}/[0-9a-f-]{36}$"
+        mediaType: { $ref: "#/components/schemas/DocumentMediaType" }
+        filename:
+          description: The original filename, for logs and locators only. Never used as a path.
+          type: string
+          minLength: 1
+          maxLength: 255
+        attempt:
+          description: 1 for the first run; apps/api increases it for each retry (NFR-13).
+          type: integer
+          minimum: 1
+
+    IngestionState:
+      description: |
+        `flagged`: finished and retrievable, with at least one `DocumentFlag`. `failed`: nothing
+        from this attempt is retrievable; see `error` and `retryable`.
+      type: string
+      enum: [queued, running, done, flagged, failed]
+
+    IngestionStage:
+      description: One stage's outcome in an attempt (FR-DOC-2 "each stage outcome is logged").
+      type: object
+      required: [stage, state, startedAt, finishedAt, flags]
+      properties:
+        stage: { $ref: "#/components/schemas/DocumentStage" }
+        state:
+          description: "`skipped` when the stage isn't needed, such as `ocr` for a page with a text layer."
+          type: string
+          enum: [pending, running, done, flagged, failed, skipped]
+        startedAt: { type: [string, "null"], format: date-time }
+        finishedAt: { type: [string, "null"], format: date-time }
+        flags:
+          type: array
+          items: { $ref: "#/components/schemas/DocumentFlag" }
+
+    IngestionStatus:
+      type: object
+      required: [documentId, attempt, state, stages, flags, error, retryable, pages, chunkCount]
+      properties:
+        documentId: { type: string, format: uuid }
+        attempt: { type: integer, minimum: 1 }
+        state: { $ref: "#/components/schemas/IngestionState" }
+        stages:
+          description: Every stage of `DocumentStage`, in order.
+          type: array
+          items: { $ref: "#/components/schemas/IngestionStage" }
+        flags:
+          description: All flags of the attempt, from every stage.
+          type: array
+          items: { $ref: "#/components/schemas/DocumentFlag" }
+        error:
+          description: Set only when `state` is `failed`. For the user, in English; no stack traces or paths.
+          type: [string, "null"]
+          maxLength: 500
+        retryable:
+          description: |
+            When `failed`: whether another attempt may succeed (a timeout, a restart, a dependency
+            down) or not (a corrupt or encrypted file). False in every other state.
+          type: boolean
+        pages: { type: [integer, "null"], minimum: 0 }
+        chunkCount:
+          description: Chunks indexed, once `done` or `flagged`; null before.
+          type: [integer, "null"]
+          minimum: 0
