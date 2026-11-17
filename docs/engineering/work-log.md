@@ -238,6 +238,14 @@ Found on the way: the NIM preset `nvidia/nemotron-3-super-120b-a12b` is end-of-l
 
 ## 2026-11-18
 
+### Documents contract and the ingestion handoff (#100)
+The contracts for uploads (roadmap A8), so the API (#101), the web (#102) and the ingestion workers (Stream C) can be built in parallel:
+- api.v1: upload to a case (multipart, PDF/DOCX/PNG/JPEG/TIFF by content sniffing, 25 MB), list with a `caseId` filter, get, download through the API, delete (purged by a retried job) and retry. Statuses `queued / processing / done / flagged / failed`, and `flags` that name the stage and page, so a flagged document is never shown as clean;
+- ai.v1: apps/api submits each attempt (`POST …/ingestion`, 202, idempotent per attempt) and polls it (`GET …/ingestion`); services/ai never calls apps/api, and apps/api decides on retries from `retryable`. ADR-0010 records why: no callback endpoint, one writer per schema, and a crashed job can just run again;
+- `DocumentFlag` and `DocumentMediaType` live in ai.v1 and api.v1 `$ref`s them, like `Language`.
+
+Only contracts, generated types and docs changed. Plan: `plans/0046`.
+
 ### Cases in the web app (FR-CASE-1, FR-CASE-4, FR-CASE-5, #99)
 `/cases` is no longer a placeholder. A user can now keep each matter as a case and its research with it:
 - a list of active cases, with archived ones on their own tab, showing the case number, court, next hearing and when it was last updated;
