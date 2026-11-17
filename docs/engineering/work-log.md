@@ -238,11 +238,28 @@ Found on the way: the NIM preset `nvidia/nemotron-3-super-120b-a12b` is end-of-l
 
 ## 2026-11-18
 
+### Documents contract and the ingestion handoff (#100)
+The contracts for uploads (roadmap A8), so the API (#101), the web (#102) and the ingestion workers (Stream C) can be built in parallel:
+- api.v1: upload to a case (multipart, PDF/DOCX/PNG/JPEG/TIFF by content sniffing, 25 MB), list with a `caseId` filter, get, download through the API, delete (purged by a retried job) and retry. Statuses `queued / processing / done / flagged / failed`, and `flags` that name the stage and page, so a flagged document is never shown as clean;
+- ai.v1: apps/api submits each attempt (`POST …/ingestion`, 202, idempotent per attempt) and polls it (`GET …/ingestion`); services/ai never calls apps/api, and apps/api decides on retries from `retryable`. ADR-0010 records why: no callback endpoint, one writer per schema, and a crashed job can just run again;
+- `DocumentFlag` and `DocumentMediaType` live in ai.v1 and api.v1 `$ref`s them, like `Language`.
+
+Only contracts, generated types and docs changed. Plan: `plans/0046`.
+
+### Cases in the web app (FR-CASE-1, FR-CASE-4, FR-CASE-5, #99)
+`/cases` is no longer a placeholder. A user can now keep each matter as a case and its research with it:
+- a list of active cases, with archived ones on their own tab, showing the case number, court, next hearing and when it was last updated;
+- a form for a new case and for editing one, with the fields of Table 4.29; parties and relevant laws are lists, and the limits match the API's, so most mistakes show before anything is sent;
+- a case dashboard with the details, the research saved to the case, Edit, Archive (after a confirmation) and Unarchive, and "Ask in this case"; Documents, Drafts and Precedents say when they arrive;
+- in the Research Hub, a question asked from a case starts its conversation in that case, and an open conversation can be saved to a case or taken out of one.
+
+Only `apps/web` changed. The new Urdu strings under `Cases` need native review (#105). Plan: `plans/0045`.
+
 ### Dashboard: recent research and cases (FR-DASH-1, #104)
 `/` is no longer the shell placeholder. It now has:
 - a "Start research" card that opens the Research Hub;
 - the five most recent conversations, with a relative date, each opening its thread;
-- the five most recently updated active cases, with case number, court and next hearing, each opening the case (`/cases/<id>` arrives with #99);
+- the five most recently updated active cases, with case number, court and next hearing, each opening the case;
 - loading, empty and error-with-retry states for each list on its own.
 
-The trust-badge and API-status demo left the page. Drafts join once they have a contract. The cases list uses a small local query until #99 merges, then switches to the cases module's. The new Urdu strings need native review (#105). Plan: `plans/0047`.
+The trust-badge and API-status demo left the page. Drafts join once they have a contract. The recent-cases query sits under the cases module's query key (#99), so any case change refreshes it. The new Urdu strings need native review (#105). Plan: `plans/0047`.

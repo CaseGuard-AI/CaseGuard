@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#104](https://github.com/CaseGuard-AI/CaseGuard/issues/104) · **PR:** [#196](https://github.com/CaseGuard-AI/CaseGuard/pull/196)
+> **Status:** Done · **Issue:** [#104](https://github.com/CaseGuard-AI/CaseGuard/issues/104) · **PR:** [#196](https://github.com/CaseGuard-AI/CaseGuard/pull/196)
 
 # #104: dashboard with recent research and cases
 
@@ -15,7 +15,7 @@ This issue runs in parallel with #99 (cases web) and #100 (documents contract). 
 - **One client component, `components/dashboard/dashboard.tsx`,** under the page's existing `PageIntro`. The page stays a server component.
 - **Quick ask is a "Start research" link to `/research`**, not a live ask box. Prefilling a question would mean reading a new query parameter in `research-hub.tsx`, which #99 is changing; it can follow after the join.
 - **Recent research reuses `useConversations`** from `components/research/queries.ts` (read-only use, same query key, so the Research Hub's history is already warm). It shows the first 5 items of the first page, with the relative time `history-list.tsx` uses. Rows link to `/research?c=<id>`; "See all" goes to `/research`.
-- **Recent cases use a local `useRecentCases()`** in `components/dashboard/queries.ts`: `GET /cases?limit=5` (active cases, most recently updated first). It is not a `components/cases/` module, which is #99's. At the join it is replaced by #99's hook in `components/cases/queries.ts`. Rows link to `/cases/<id>` (the route arrives with #99) and show the case number, court and next hearing date when set; "See all" goes to `/cases`.
+- **Recent cases use a local `useRecentCases()`** in `components/dashboard/queries.ts`: `GET /cases?limit=5` (active cases, most recently updated first). It is not a `components/cases/` module, which is #99's. At the join it kept its own query (it fetches 5, `useCases` pages 20) but moved under #99's `casesKey`, so case changes refresh it. Rows link to `/cases/<id>` and show the case number, court and next hearing date when set; "See all" goes to `/cases`.
 - **Each section has its own loading, error (with retry) and empty state**, so one failing request doesn't blank the page.
 - **The `Home.*` strings go**, since nothing else uses them. `TrustBadge` stays (the Research Hub uses it). `ApiStatus` is only removed from the page; the component file stays as a dev aid.
 - **i18n:** a new top-level `Dashboard` namespace appended to `messages/en.json` and `messages/ur.json`; no other keys move.
@@ -34,7 +34,6 @@ This issue runs in parallel with #99 (cases web) and #100 (documents contract). 
 
 - **Drafts** on the dashboard: no drafts contract yet (A12, FR-DRAFT-*). A section is added when it exists.
 - **Prefilled quick ask** (`/research?q=…`), after #99 merges and `research-hub.tsx` is free.
-- **At the join with #99:** replace `useRecentCases` with #99's cases hook and delete `components/dashboard/queries.ts`, so one query key covers cases and mutations refresh the dashboard.
 - The new Urdu strings need native review (#105).
 
 ## Verification

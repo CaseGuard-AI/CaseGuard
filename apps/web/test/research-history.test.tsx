@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ur from "../messages/ur.json";
 
@@ -8,6 +9,11 @@ const nav = vi.hoisted(() => ({ replace: vi.fn(), search: "" }));
 
 vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ replace: nav.replace }),
+  Link: ({ href, children, ...props }: { href: string; children: ReactNode }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(nav.search) }));
 

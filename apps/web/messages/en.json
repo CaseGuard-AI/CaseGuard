@@ -360,6 +360,137 @@
       "generic": "The change wasn't saved. Try again."
     }
   },
+  "Cases": {
+    "new": "New case",
+    "tabs": {
+      "active": "Active",
+      "archived": "Archived"
+    },
+    "sides": {
+      "claimant": "Claimant side",
+      "respondent": "Respondent side"
+    },
+    "fields": {
+      "title": "Title",
+      "court": "Court",
+      "caseNumber": "Case number",
+      "caseType": "Case type",
+      "filedOn": "Filing date",
+      "status": "Current status",
+      "nextHearingOn": "Next hearing",
+      "parties": "Parties",
+      "judge": "Judge or bench",
+      "assignedLawyer": "Assigned lawyer",
+      "relevantLaws": "Relevant laws and sections",
+      "summary": "Description"
+    },
+    "list": {
+      "label": "Cases",
+      "loading": "Loading cases…",
+      "error": "Your cases can't be loaded right now.",
+      "retry": "Try again",
+      "emptyActive": "No cases yet. Create one to keep its research in one place.",
+      "emptyArchived": "No archived cases.",
+      "loadMore": "Load more",
+      "updated": "Updated {time}",
+      "nextHearing": "Next hearing {date}"
+    },
+    "form": {
+      "createTitle": "New case",
+      "createSubtitle": "Only the title is required. You can fill in the rest later.",
+      "editTitle": "Edit case",
+      "details": "Details",
+      "detailsBody": "What the matter is and where it stands.",
+      "caseTypeHint": "What the court calls the matter, such as Cr. Bail.",
+      "statusHint": "The matter's status before the court, such as Reserved for judgment.",
+      "court": "Court and hearings",
+      "courtBody": "Where the case is heard, who hears it and the key dates.",
+      "partiesBody": "Everyone on each side of the case.",
+      "noParties": "No parties added.",
+      "party": "Party {n}",
+      "partySide": "Side of party {n}",
+      "partyName": "Name of party {n}",
+      "partyLabel": "Role of party {n} (optional)",
+      "partyLabelExample": "Petitioner",
+      "addParty": "Add party",
+      "removeParty": "Remove party {n}",
+      "lawsBody": "One law or section per entry.",
+      "noLaws": "No laws added.",
+      "law": "Law or section {n}",
+      "lawExample": "s.497 CrPC",
+      "addLaw": "Add law",
+      "removeLaw": "Remove law {n}",
+      "create": "Create case",
+      "save": "Save changes",
+      "cancel": "Cancel",
+      "errors": {
+        "titleRequired": "Enter a title.",
+        "tooLong": "At most {max} characters.",
+        "tooMany": "At most {max} entries.",
+        "partyName": "Enter the party's name, or remove this party.",
+        "law": "Enter a law or section, or remove this entry.",
+        "rejected": "This value wasn't accepted. Check it and try again.",
+        "server": "Some details weren't accepted. Check the form and try again.",
+        "network": "Can't reach the server. Check your connection and try again.",
+        "generic": "The case wasn't saved. Try again."
+      }
+    },
+    "dashboard": {
+      "loading": "Loading the case…",
+      "loadError": "This case can't be loaded right now.",
+      "networkError": "Can't reach the server. Check your connection and try again.",
+      "retry": "Try again",
+      "notFoundTitle": "Case not found",
+      "notFoundBody": "This case doesn't exist, or it isn't yours.",
+      "back": "Back to cases",
+      "updated": "Updated {time}",
+      "ask": "Ask in this case",
+      "edit": "Edit",
+      "archive": "Archive",
+      "unarchive": "Unarchive",
+      "archiveTitle": "Archive this case?",
+      "archiveBody": "It leaves your active cases. Nothing is deleted, and you can unarchive it at any time.",
+      "archiveConfirm": "Archive case",
+      "cancel": "Cancel",
+      "archiveError": "The case wasn't changed. Try again.",
+      "archivedBanner": "This case is archived. Its research is kept, but no new research can be saved to it.",
+      "details": "Case details",
+      "notSet": "Not set",
+      "research": {
+        "title": "Research",
+        "body": "Conversations saved to this case.",
+        "loading": "Loading research…",
+        "error": "The research for this case can't be loaded right now.",
+        "retry": "Try again",
+        "empty": "No research saved to this case yet.",
+        "loadMore": "Load more"
+      },
+      "documents": {
+        "title": "Documents",
+        "body": "Case files will be listed here once document uploads are available."
+      },
+      "drafts": {
+        "title": "Drafts",
+        "body": "Drafts for this case will be listed here once drafting is available."
+      },
+      "precedents": {
+        "title": "Precedents",
+        "body": "Precedents saved to this case will be listed here once precedent search is available."
+      }
+    },
+    "research": {
+      "askingIn": "Asking in case",
+      "loading": "Loading the case…",
+      "clear": "Ask without a case",
+      "unavailable": "That case is archived or can't be found, so new questions won't be saved to it.",
+      "saveLabel": "Saved to case",
+      "none": "Not saved to a case",
+      "archivedOption": "{title} (archived)",
+      "openCase": "Open case",
+      "saveError": "The conversation wasn't moved. Try again.",
+      "network": "Can't reach the server. Check your connection and try again."
+    }
+  },
   "Dashboard": {
     "loading": "Loading…",
     "error": "This couldn't be loaded.",
