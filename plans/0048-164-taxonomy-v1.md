@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#164](https://github.com/CaseGuard-AI/CaseGuard/issues/164) · **PR:** [#201](https://github.com/CaseGuard-AI/CaseGuard/pull/201)
+> **Status:** Done · **Issue:** [#164](https://github.com/CaseGuard-AI/CaseGuard/issues/164) · **PR:** [#201](https://github.com/CaseGuard-AI/CaseGuard/pull/201)
 
 # #164: case taxonomy v1 (approved)
 
