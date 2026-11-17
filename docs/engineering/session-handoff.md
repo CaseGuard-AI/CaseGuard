@@ -20,7 +20,7 @@ The full corpus is being embedded on one laptop (about 8 hours on CPU). None of 
 | Who | Task | Needs the corpus? |
 |---|---|---|
 | Repo lead | **#151:** finish the Hugging Face setup (see below) | No |
-| Taxonomy owner | **#164:** send [`case-taxonomy.md`](case-taxonomy.md) to the supervisor, with the full-crawl numbers (9,491 civil, 19,090 criminal, 27,947 constitutional petitions) | No |
+| Taxonomy owner | **#200:** the statute→area classifier and the 200-judgment review. The taxonomy itself is approved (#164, [`case-taxonomy.md`](case-taxonomy.md), vocabulary in `packages/contracts/taxonomy/case-taxonomy.v1.yaml`) | No |
 | One member | **#22, test set:** 60 dev + 40 held-out questions, half civil and half criminal, about 10% unanswerable, each with its gold section (e.g. "PPC s. 302"). Written from the law texts. **Freeze it before any tuning.** | No |
 | One member | **#17, Supreme Court probe:** `uv run python main.py --source supreme_court --probe` from a home or university network; record the result in the collector README §1 | No |
 | One member | **Demo model:** install Ollama and `ollama pull qwen2.5:7b`, or get a free NVIDIA NIM or Gemini key | No |
@@ -106,7 +106,7 @@ uv run python main.py --partition shc-civil --limit 300
 Then pass all four partition folders to one `pnpm data:load` command.
 
 - **If downloads fail** because the court site is down: `--requeue-failed-downloads`, then rerun the partition.
-- **The selection files** (`selections/shc-criminal.csv`, `shc-civil.csv`) aren't committed yet. They go in their own PR after the supervisor answers #164, so everyone gets the same judgments. Until then, each machine generates its own.
+- **The selection files** (`selections/shc-criminal.csv`, `shc-civil.csv`) aren't committed yet. The taxonomy is approved (#164), so they can go in their own PR now, and everyone gets the same judgments. Until then, each machine generates its own.
 
 ## Running the demo
 
@@ -126,7 +126,7 @@ The reranker downloads on first use (about 2.3 GB). How well a model follows the
   - look into the "not a PDF" downloads (about 10%; maybe Word files);
   - records with status "invalid"/"duplicate" are re-processed on every run;
   - a retry of `research/answer` with the same `requestId` replaces the earlier trace and its citations.
-- **Waiting on people:** #164 (supervisor), #17 (network).
+- **Waiting on people:** #17 (network); the 4 `confirmed=no` SHC codes in `matter_type_map.csv` (taxonomy §9 q7).
 
 ## How to work here (gotchas)
 

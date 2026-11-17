@@ -6,6 +6,7 @@ The **source of truth** for every interface between services ([ADR-0002](../../d
 |---|---|---|
 | `openapi/api.v1.yaml` | Public REST `/api/v1` | `apps/api` → `apps/web` |
 | `openapi/ai.v1.yaml` | Internal REST `/ai/v1` | `services/ai` → `apps/api` |
+| `taxonomy/case-taxonomy.v1.yaml` | Case taxonomy vocabulary: areas of law, proceeding types, statute→area rules ([doc](../../docs/engineering/case-taxonomy.md), #164) | everyone → collector, `services/ai`, `apps/api`, `apps/web` |
 
 ## Rules
 

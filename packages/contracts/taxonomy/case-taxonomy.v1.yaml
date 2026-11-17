@@ -1,0 +1,200 @@
+# Case taxonomy v1: the shared vocabulary for judgments and user cases (#164).
+#
+# Source of truth for the words; docs/engineering/case-taxonomy.md explains them. Approved by the
+# supervisor on 2026-11-18. Sub-categories may be added inside an area. Adding, renaming or removing
+# an area or proceeding type is a new version (case-taxonomy.v2.yaml) and a re-label, never a
+# silent edit (doc §6).
+#
+# - areas: what a case is about. Each belongs to one branch. `seed` = covered by the PRD §15.3 seed
+#   statutes (used to balance the test set, doc §7).
+# - proceeding_types: what is asked of the court. `either` means the branch comes from the area
+#   (constitutional petitions) or from the court's own case type (transfers).
+# - statute_rules: cited statute (and, for the PPC, section range) -> area, the strongest signal for
+#   the area classifier (doc §5). `area: procedure` marks procedural law: it never decides an area.
+# - The civil/criminal branch is derived from these labels and never stored.
+# - The SHC case-type map is source-specific and lives with the collector:
+#   services/collector/selections/matter_type_map.csv.
+
+version: v1
+
+branches: [criminal, civil]
+
+areas:
+  # ── Criminal ──
+  - id: offences_against_person
+    branch: criminal
+    seed: true
+    subcategories: [homicide, hurt, kidnapping_abduction, sexual_offences]
+    anchor_law: "PPC ss.299-338-H, 359-374, 375-377-B"
+  - id: offences_against_property
+    branch: criminal
+    seed: true
+    subcategories:
+      - theft
+      - robbery_dacoity
+      - extortion
+      - criminal_breach_of_trust
+      - cheating_fraud
+      - dishonoured_cheque
+      - criminal_trespass
+      - illegal_dispossession
+    anchor_law: "PPC ss.378-462, 489-F; Illegal Dispossession Act 2005"
+  - id: documents_and_forgery
+    branch: criminal
+    seed: true
+    subcategories: [forgery, counterfeiting]
+    anchor_law: "PPC ss.463-477-A, 489-A-E"
+  - id: public_order_and_state
+    branch: criminal
+    seed: true
+    subcategories: [unlawful_assembly_rioting, offences_against_public_servants, offences_against_state]
+    anchor_law: "PPC ss.121-229"
+  - id: narcotics
+    branch: criminal
+    seed: false
+    subcategories: [possession, trafficking]
+    anchor_law: "Control of Narcotic Substances Act 1997 (and Sindh 2024 Act)"
+  - id: terrorism
+    branch: criminal
+    seed: false
+    subcategories: []
+    anchor_law: "Anti-Terrorism Act 1997"
+  - id: arms_and_explosives
+    branch: criminal
+    seed: false
+    subcategories: []
+    anchor_law: "Sindh Arms Act 2013, Explosive Substances Act 1908"
+  - id: corruption_and_accountability
+    branch: criminal
+    seed: false
+    subcategories: []
+    anchor_law: "National Accountability Ordinance 1999, Prevention of Corruption Act 1947"
+  - id: other_criminal
+    branch: criminal
+    seed: false
+    subcategories: []
+    anchor_law: "other special laws"
+
+  # ── Civil ──
+  - id: contract_and_commercial
+    branch: civil
+    seed: true
+    subcategories: [specific_performance, recovery_of_money, injunctions, banking_recovery]
+    anchor_law: "Contract Act 1872, Specific Relief Act 1877, Financial Institutions (Recovery) Ordinance 2001"
+  - id: property_and_land
+    branch: civil
+    seed: true
+    subcategories: [title_possession, partition, pre_emption, land_revenue]
+    anchor_law: "Transfer of Property Act 1882, Specific Relief Act, Sindh land laws"
+  - id: family
+    branch: civil
+    seed: false
+    subcategories: [dissolution_khula, maintenance, custody_guardianship, dower]
+    anchor_law: "Muslim Family Laws Ordinance 1961, Family Courts Act 1964, Guardians and Wards Act 1890"
+  - id: succession
+    branch: civil
+    seed: false
+    subcategories: [letters_of_administration, inheritance]
+    anchor_law: "Succession Act 1925"
+  - id: rent_and_tenancy
+    branch: civil
+    seed: false
+    subcategories: [ejectment, fair_rent]
+    anchor_law: "Sindh Rented Premises Ordinance 1979"
+  - id: service_and_employment
+    branch: civil
+    seed: false
+    subcategories: [appointment, promotion, pension, regularisation, labour]
+    anchor_law: "Sindh Civil Servants Act 1973, service rules"
+  - id: tax_customs_revenue
+    branch: civil
+    seed: false
+    subcategories: [income_tax, sales_tax, customs]
+    anchor_law: "Income Tax Ordinance 2001, Sales Tax Act 1990, Customs Act 1969"
+  - id: company_and_insolvency
+    branch: civil
+    seed: false
+    subcategories: [winding_up, insolvency, admiralty]
+    anchor_law: "Companies Act 2017, Insolvency Acts"
+  - id: public_and_administrative
+    branch: civil
+    seed: false
+    subcategories: [elections, local_government, planning_building, education, utilities]
+    anchor_law: "Elections Act 2017, local laws"
+  - id: torts_and_damages
+    branch: civil
+    seed: false
+    subcategories: [damages, malicious_prosecution, defamation]
+    anchor_law: "general law"
+  - id: other_civil
+    branch: civil
+    seed: false
+    subcategories: []
+    anchor_law: ""
+
+  # ── Cross-cutting ──
+  - id: unclassified
+    branch: null # no confident area yet; never forced into a wrong one
+    seed: false
+    subcategories: []
+    anchor_law: ""
+
+proceeding_types:
+  - { id: constitutional_petition, branch: either, subtypes: [] }
+  - { id: bail, branch: criminal, subtypes: [pre_arrest, post_arrest, special_court] }
+  - { id: criminal_appeal, branch: criminal, subtypes: [jail_appeal, anti_terrorism, accountability, special_court] }
+  - { id: criminal_misc, branch: criminal, subtypes: [quashing, original_side, special_court] }
+  - { id: criminal_revision, branch: criminal, subtypes: [] }
+  - { id: transfer, branch: either, subtypes: [] }
+  - { id: acquittal_appeal, branch: criminal, subtypes: [anti_terrorism, accountability] }
+  - { id: confirmation_reference, branch: criminal, subtypes: [anti_terrorism] }
+  - { id: intra_court_appeal, branch: civil, subtypes: [] }
+  - { id: suit, branch: civil, subtypes: [banking, admiralty] }
+  - { id: succession_petition, branch: civil, subtypes: [] }
+  - { id: first_appeal, branch: civil, subtypes: [against_order, admiralty] }
+  - { id: civil_revision, branch: civil, subtypes: [] }
+  - { id: second_appeal, branch: civil, subtypes: [] }
+  - { id: statutory_appeal, branch: civil, subtypes: [rent, election, family, succession, wealth_tax] }
+  - { id: civil_misc, branch: civil, subtypes: [] }
+  - { id: tax_reference, branch: civil, subtypes: [income_tax, sales_tax, customs] }
+  - { id: execution, branch: civil, subtypes: [] }
+  - { id: company_insolvency, branch: civil, subtypes: [companies, insolvency] }
+
+# Cited statute -> area. PPC rules are by inclusive section range (`from`/`to`, as the sections
+# are numbered in the Code, e.g. 338-H). `procedure` = procedural or evidence law, counted for the
+# proceeding, not the area.
+statute_rules:
+  - { statute: PPC, sections: { from: "121", to: "229" }, area: public_order_and_state }
+  - { statute: PPC, sections: { from: "299", to: "338-H" }, area: offences_against_person }
+  - { statute: PPC, sections: { from: "359", to: "374" }, area: offences_against_person, subcategory: kidnapping_abduction }
+  - { statute: PPC, sections: { from: "375", to: "377-B" }, area: offences_against_person, subcategory: sexual_offences }
+  - { statute: PPC, sections: { from: "378", to: "462" }, area: offences_against_property }
+  - { statute: PPC, sections: { from: "463", to: "477-A" }, area: documents_and_forgery, subcategory: forgery }
+  - { statute: PPC, sections: { from: "489-A", to: "489-E" }, area: documents_and_forgery, subcategory: counterfeiting }
+  - { statute: PPC, sections: { from: "489-F", to: "489-F" }, area: offences_against_property, subcategory: dishonoured_cheque }
+  - { statute: Illegal Dispossession Act 2005, area: offences_against_property, subcategory: illegal_dispossession }
+  - { statute: Control of Narcotic Substances Act 1997, area: narcotics }
+  - { statute: Anti-Terrorism Act 1997, area: terrorism }
+  - { statute: Sindh Arms Act 2013, area: arms_and_explosives }
+  - { statute: Explosive Substances Act 1908, area: arms_and_explosives }
+  - { statute: National Accountability Ordinance 1999, area: corruption_and_accountability }
+  - { statute: Prevention of Corruption Act 1947, area: corruption_and_accountability }
+  - { statute: Contract Act 1872, area: contract_and_commercial }
+  - { statute: Specific Relief Act 1877, area: contract_and_commercial }
+  - { statute: Financial Institutions (Recovery of Finances) Ordinance 2001, area: contract_and_commercial, subcategory: banking_recovery }
+  - { statute: Transfer of Property Act 1882, area: property_and_land }
+  - { statute: Muslim Family Laws Ordinance 1961, area: family }
+  - { statute: Family Courts Act 1964, area: family }
+  - { statute: Guardians and Wards Act 1890, area: family, subcategory: custody_guardianship }
+  - { statute: Succession Act 1925, area: succession }
+  - { statute: Sindh Rented Premises Ordinance 1979, area: rent_and_tenancy }
+  - { statute: Sindh Civil Servants Act 1973, area: service_and_employment }
+  - { statute: Income Tax Ordinance 2001, area: tax_customs_revenue, subcategory: income_tax }
+  - { statute: Sales Tax Act 1990, area: tax_customs_revenue, subcategory: sales_tax }
+  - { statute: Customs Act 1969, area: tax_customs_revenue, subcategory: customs }
+  - { statute: Companies Act 2017, area: company_and_insolvency }
+  - { statute: Elections Act 2017, area: public_and_administrative, subcategory: elections }
+  - { statute: CrPC, area: procedure }
+  - { statute: CPC, area: procedure }
+  - { statute: Qanun-e-Shahadat Order 1984, area: procedure }
+  - { statute: Limitation Act 1908, area: procedure }

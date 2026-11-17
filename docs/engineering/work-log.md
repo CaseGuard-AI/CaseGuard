@@ -263,3 +263,6 @@ Only `apps/web` changed. The new Urdu strings under `Cases` need native review (
 - loading, empty and error-with-retry states for each list on its own.
 
 The trust-badge and API-status demo left the page. Drafts join once they have a contract. The recent-cases query sits under the cases module's query key (#99), so any case change refreshes it. The new Urdu strings need native review (#105). Plan: `plans/0047`.
+
+### Case taxonomy v1 approved (#164)
+The supervisor approved [`case-taxonomy.md`](case-taxonomy.md) on 2026-11-18 and accepted all six recommendations in §9. The four `(confirm)` SHC codes are still open. The vocabulary is now [`packages/contracts/taxonomy/case-taxonomy.v1.yaml`](../../packages/contracts/taxonomy/case-taxonomy.v1.yaml), and a services/ai test checks it against the collector's `matter_type_map.csv`. Sub-categories can grow inside an area. A new area or proceeding type means a v2. The classifier and the 200-judgment review moved to #200. Plan: `plans/0048`.
