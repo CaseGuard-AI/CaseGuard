@@ -532,9 +532,9 @@ export interface paths {
         /**
          * Process a failed or flagged document again (NFR-13)
          * @description Starts a new processing attempt from the stored file. Only from `failed` or `flagged`;
-         *     any other status is a 409. The document returns to `queued`, with `flags` and `error`
-         *     cleared. A flagged document stays retrievable with its current chunks until the new
-         *     attempt finishes.
+         *     any other status is a 409. The document returns to `queued` and `error` is cleared. A
+         *     flagged document stays retrievable with its current chunks until the new attempt
+         *     finishes, so its `flags` stay too, until the new attempt replaces them (FR-DOC-4).
          */
         post: operations["retryDocument"];
         delete?: never;
@@ -987,11 +987,15 @@ export interface components {
             mediaType: components["schemas"]["DocumentMediaType"];
             sizeBytes: number;
             status: components["schemas"]["DocumentStatus"];
-            /** @description What was uncertain in the latest attempt (FR-DOC-4). Non-empty exactly when `status` is `flagged`. */
+            /**
+             * @description What is uncertain in the chunks that are retrievable now (FR-DOC-4): the flags of the
+             *     last finished attempt. Non-empty when `status` is `flagged`, and while a retry of a
+             *     flagged document is `queued` or `processing`; empty otherwise.
+             */
             flags: components["schemas"]["DocumentFlag"][];
             /** @description Why processing failed, for the user. Set only when `status` is `failed`. */
             error: string | null;
-            /** @description Page count once known (images count as one page). */
+            /** @description Page count once known (a PNG or JPEG is one page; a TIFF has one per frame). */
             pages: number | null;
             /** Format: date-time */
             createdAt: string;
