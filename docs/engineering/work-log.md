@@ -245,3 +245,12 @@ The contracts for uploads (roadmap A8), so the API (#101), the web (#102) and th
 - `DocumentFlag` and `DocumentMediaType` live in ai.v1 and api.v1 `$ref`s them, like `Language`.
 
 Only contracts, generated types and docs changed. Plan: `plans/0046`.
+
+### Cases in the web app (FR-CASE-1, FR-CASE-4, FR-CASE-5, #99)
+`/cases` is no longer a placeholder. A user can now keep each matter as a case and its research with it:
+- a list of active cases, with archived ones on their own tab, showing the case number, court, next hearing and when it was last updated;
+- a form for a new case and for editing one, with the fields of Table 4.29; parties and relevant laws are lists, and the limits match the API's, so most mistakes show before anything is sent;
+- a case dashboard with the details, the research saved to the case, Edit, Archive (after a confirmation) and Unarchive, and "Ask in this case"; Documents, Drafts and Precedents say when they arrive;
+- in the Research Hub, a question asked from a case starts its conversation in that case, and an open conversation can be saved to a case or taken out of one.
+
+Only `apps/web` changed. The new Urdu strings under `Cases` need native review (#105). Plan: `plans/0045`.
