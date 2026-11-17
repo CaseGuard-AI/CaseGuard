@@ -160,11 +160,6 @@
       "retry": "Try again"
     }
   },
-  "Home": {
-    "heading": "Ask a legal question",
-    "placeholder": "e.g. What are the grounds for bail in a non-bailable offence?",
-    "comingSoon": "Research is being built. This shell is ready for the first feature."
-  },
   "Trust": {
     "verified": "Verified",
     "needs_review": "Needs review",
@@ -494,6 +489,27 @@
       "openCase": "Open case",
       "saveError": "The conversation wasn't moved. Try again.",
       "network": "Can't reach the server. Check your connection and try again."
+    }
+  },
+  "Dashboard": {
+    "loading": "Loading…",
+    "error": "This couldn't be loaded.",
+    "retry": "Try again",
+    "ask": {
+      "title": "Ask a legal question",
+      "body": "Get an answer from Pakistani statutes and judgments, with every source cited.",
+      "start": "Start research"
+    },
+    "research": {
+      "title": "Recent research",
+      "seeAll": "See all",
+      "empty": "No research yet. Your questions will show here."
+    },
+    "cases": {
+      "title": "Recent cases",
+      "seeAll": "See all",
+      "empty": "No active cases yet. Cases you create will show here.",
+      "nextHearing": "Next hearing {date}"
     }
   }
 }

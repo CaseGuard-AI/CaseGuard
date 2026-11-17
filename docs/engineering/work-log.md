@@ -254,3 +254,12 @@ Only contracts, generated types and docs changed. Plan: `plans/0046`.
 - in the Research Hub, a question asked from a case starts its conversation in that case, and an open conversation can be saved to a case or taken out of one.
 
 Only `apps/web` changed. The new Urdu strings under `Cases` need native review (#105). Plan: `plans/0045`.
+
+### Dashboard: recent research and cases (FR-DASH-1, #104)
+`/` is no longer the shell placeholder. It now has:
+- a "Start research" card that opens the Research Hub;
+- the five most recent conversations, with a relative date, each opening its thread;
+- the five most recently updated active cases, with case number, court and next hearing, each opening the case;
+- loading, empty and error-with-retry states for each list on its own.
+
+The trust-badge and API-status demo left the page. Drafts join once they have a contract. The recent-cases query sits under the cases module's query key (#99), so any case change refreshes it. The new Urdu strings need native review (#105). Plan: `plans/0047`.
