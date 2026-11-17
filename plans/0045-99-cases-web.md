@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#99](https://github.com/CaseGuard-AI/CaseGuard/issues/99) · **PR:** [#198](https://github.com/CaseGuard-AI/CaseGuard/pull/198)
+> **Status:** Done · **Issue:** [#99](https://github.com/CaseGuard-AI/CaseGuard/issues/99) · **PR:** [#198](https://github.com/CaseGuard-AI/CaseGuard/pull/198)
 
 # #99: Cases list and case dashboard (web)
 
