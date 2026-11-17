@@ -30,9 +30,9 @@ Branch: `feature/99-cases-web` off `origin/staging`. PR title: `feat(web): cases
 3. **`apps/web/src/components/cases/case-form.tsx`** (new): create and edit, parties and laws as add/remove lists, validation and 400 mapping, changed-fields PATCH.
 4. **`apps/web/src/components/cases/case-dashboard.tsx`** (new) and **`case-edit.tsx`** (new, loads the case for the form).
 5. **Routes**: `app/[locale]/(app)/cases/page.tsx` (replaces `ComingSoon`), `cases/new/page.tsx`, `cases/[caseId]/page.tsx`, `cases/[caseId]/edit/page.tsx`.
-6. **`apps/web/src/components/research/`**: `queries.ts` (`useAsk` takes `caseId`; new `useSaveToCase`), `research-hub.tsx` (reads `?case=`, renders the chip or the select), new `case-picker.tsx`.
+6. **`apps/web/src/components/research/`**: `queries.ts` (`useAsk` takes `caseId`; new `useSaveToCase`), `research-hub.tsx` (reads `?case=`, renders the chip or the select), new `case-picker.tsx`. A `?case=` that turns out archived or missing says so, and the question is asked without a case rather than failing with the API's 400.
 7. **`apps/web/messages/en.json`, `ur.json`**: the `Cases` namespace, appended.
-8. **Tests**: `apps/web/test/cases-list.test.tsx`, `cases-form.test.tsx`, `cases-dashboard.test.tsx`, `research-case.test.tsx`, patterned on `research-history.test.tsx`.
+8. **Tests**: `apps/web/test/cases.test.tsx` (list, form, dashboard) and `research-case.test.tsx`, patterned on `research-history.test.tsx`. The two existing Research Hub tests mock `Link` too, since the hub now renders case links.
 9. **Docs**: `CHANGELOG.md` Unreleased → Added; a heading in `docs/engineering/work-log.md`; A7 moves to Done in `docs/engineering/stream-a-roadmap.md`; this plan.
 
 ## Verification

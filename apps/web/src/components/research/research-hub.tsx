@@ -10,6 +10,7 @@ import { useRouter } from "@/i18n/navigation";
 import { statusOf } from "@/lib/api-query";
 import { AnswerCard } from "./answer-card";
 import { AskBox } from "./ask-box";
+import { CasePicker, NewCaseChip, useCaseAvailable } from "./case-picker";
 import { HistoryList } from "./history-list";
 import { researchErrorKey, useAsk, useConversation } from "./queries";
 import { SourcePanel } from "./source-panel";
@@ -23,7 +24,11 @@ export function ResearchHub() {
   const tCommon = useTranslations("Common");
   const router = useRouter();
   // The URL alone decides the conversation, so the sidebar's Research link starts a fresh one.
-  const conversationId = useSearchParams().get("c");
+  // `?case=` starts the next new conversation in that case (FR-CASE-5, FR-CASE-6).
+  const params = useSearchParams();
+  const conversationId = params.get("c");
+  const newCaseId = conversationId ? null : params.get("case");
+  const caseAvailable = useCaseAvailable(newCaseId);
   const conversation = useConversation(conversationId);
   const ask = useAsk((id) => router.replace(`/research?c=${id}`));
   const [open, setOpen] = useState<Numbered | null>(null);
@@ -37,7 +42,12 @@ export function ResearchHub() {
 
   async function onAsk(question: string, lawAsOf?: string) {
     try {
-      await ask.mutateAsync({ conversationId: missing ? null : conversationId, question, lawAsOf });
+      await ask.mutateAsync({
+        conversationId: missing ? null : conversationId,
+        question,
+        lawAsOf,
+        caseId: newCaseId && caseAvailable ? newCaseId : undefined,
+      });
       return true;
     } catch {
       return false;
@@ -76,6 +86,10 @@ export function ResearchHub() {
           <History aria-hidden />
           {t("history.open")}
         </Button>
+        {conversation.data && <CasePicker conversation={conversation.data} />}
+        {newCaseId && (
+          <NewCaseChip caseId={newCaseId} onClear={() => router.replace("/research")} />
+        )}
         {conversation.isLoading && (
           <p aria-busy="true" className="flex items-center gap-2 text-sm text-muted-foreground">
             <LoaderCircle className="size-4 animate-spin" aria-hidden />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { casesKey } from "@/components/cases/queries";
 import { api, type Schemas } from "@/lib/api";
 import { ApiError, statusOf, unwrap } from "@/lib/api-query";
 
@@ -59,15 +60,20 @@ export function useAsk(onConversation: (id: string) => void) {
       conversationId,
       question,
       lawAsOf,
+      caseId,
     }: {
       conversationId: string | null;
       question: string;
       /** "Law as of" date, YYYY-MM-DD (FR-RES-11). Sent only when set. */
       lawAsOf?: string;
+      /** A new conversation is saved to this case and scoped to it (FR-CASE-5, FR-CASE-6). */
+      caseId?: string;
     }) => {
       let id = conversationId;
       if (!id) {
-        const created = await unwrap(api.POST("/conversations", { body: {} }));
+        const created = await unwrap(
+          api.POST("/conversations", { body: caseId ? { caseId } : {} }),
+        );
         client.setQueryData(conversationKey(created.id), created);
         id = created.id;
         onConversation(id);
@@ -91,8 +97,32 @@ export function useAsk(onConversation: (id: string) => void) {
       client.setQueryData<Conversation>(conversationKey(id), (old) =>
         old ? { ...old, messages: [...old.messages, asked, answer] } : old,
       );
-      // A new conversation, or one that just moved to the top, shows in the history at once.
+      // A new conversation, or one that just moved to the top, shows in the history at once,
+      // and on its case's dashboard.
       void client.invalidateQueries({ queryKey: historyKey });
+      void client.invalidateQueries({ queryKey: casesKey });
+    },
+  });
+}
+
+// Saves an open conversation to one of the user's active cases, or detaches it with `null`
+// (FR-CASE-5). Later questions in it are scoped to the new case (FR-CASE-6).
+export function useSaveToCase(conversationId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (caseId: string | null) =>
+      unwrap(
+        api.PATCH("/conversations/{conversationId}", {
+          params: { path: { conversationId } },
+          body: { caseId },
+        }),
+      ),
+    onSuccess: (summary) => {
+      client.setQueryData<Conversation>(conversationKey(conversationId), (old) =>
+        old ? { ...old, ...summary } : old,
+      );
+      void client.invalidateQueries({ queryKey: historyKey });
+      void client.invalidateQueries({ queryKey: casesKey });
     },
   });
 }
