@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#104](https://github.com/CaseGuard-AI/CaseGuard/issues/104) · **PR:** —
+> **Status:** In progress · **Issue:** [#104](https://github.com/CaseGuard-AI/CaseGuard/issues/104) · **PR:** [#196](https://github.com/CaseGuard-AI/CaseGuard/pull/196)
 
 # #104: dashboard with recent research and cases
 
