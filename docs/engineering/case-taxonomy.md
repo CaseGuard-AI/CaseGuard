@@ -1,6 +1,6 @@
-# Case taxonomy: proposal
+# Case taxonomy (v1)
 
-> **Status:** Proposal for supervisor review, 2026-11-10. **Issue:** [#164](https://github.com/CaseGuard-AI/CaseGuard/issues/164). **Owner:** team. Source of the request: handoff §3 ("the supervisor asked for sub-categories"). Related: #148 (enough civil judgments?), #153 (selection files), #22 (test set).
+> **Status:** **Approved** by the supervisor, 2026-11-18 (proposed 2026-11-10). The vocabulary is [`packages/contracts/taxonomy/case-taxonomy.v1.yaml`](../../packages/contracts/taxonomy/case-taxonomy.v1.yaml). The lists can grow: sub-categories may be added inside an area at any time; a new, renamed or removed area or proceeding type is a new version (§6). **Issue:** [#164](https://github.com/CaseGuard-AI/CaseGuard/issues/164). **Owner:** team. Source of the request: handoff §3 ("the supervisor asked for sub-categories"). Related: #148 (enough civil judgments?), #153 (selection files), #22 (test set).
 
 ## In one paragraph
 
@@ -190,21 +190,21 @@ An LLM classifier is **not** proposed for M1. It would be harder to reproduce an
 
 ## 9. Decisions for the supervisor
 
-| # | Question | Our recommendation |
-|---|---|---|
-| 1 | Is **area of law + sub-category** plus **proceeding type**, with civil/criminal derived, the right shape? | Yes. It separates what a case is about from what is being asked, and that is what the filters, test set and linter need. |
-| 2 | Do **constitutional petitions** (45% of judgments) count? | Yes, **labelled by their subject**: a writ on FIR quashing is criminal, one on service or land is civil. Leaving them out would drop almost half the court's output. |
-| 3 | What about **civil areas outside the seed statutes** (family, rent, service, tax, company)? | Keep and label them in the corpus, but leave them **out of the M1 civil target and the test set**, which focus on contract, property and procedure. |
-| 4 | Do **special criminal laws** (narcotics, anti-terrorism, arms, NAB) count as criminal? | Yes. They are a large part of bail practice (bail is 25% of all judgments). |
-| 5 | Is the **granularity** right: 9 criminal and 11 civil areas, 19 proceeding types? | Yes for v1. Sub-categories can grow inside an area without changing the shape. |
-| 6 | Is **85% accuracy** on a 200-judgment reviewed sample the bar for showing area filters? | Yes, and the team does the review. |
-| 7 | Can the supervisor (or SHC's case-type list) confirm the codes marked *(confirm)* in §4? | — |
+| # | Question | Our recommendation | Decision (2026-11-18) |
+|---|---|---|---|
+| 1 | Is **area of law + sub-category** plus **proceeding type**, with civil/criminal derived, the right shape? | Yes. It separates what a case is about from what is being asked, and that is what the filters, test set and linter need. | **Accepted.** |
+| 2 | Do **constitutional petitions** (45% of judgments) count? | Yes, **labelled by their subject**: a writ on FIR quashing is criminal, one on service or land is civil. Leaving them out would drop almost half the court's output. | **Accepted.** |
+| 3 | What about **civil areas outside the seed statutes** (family, rent, service, tax, company)? | Keep and label them in the corpus, but leave them **out of the M1 civil target and the test set**, which focus on contract, property and procedure. | **Accepted.** |
+| 4 | Do **special criminal laws** (narcotics, anti-terrorism, arms, NAB) count as criminal? | Yes. They are a large part of bail practice (bail is 25% of all judgments). | **Accepted.** |
+| 5 | Is the **granularity** right: 9 criminal and 11 civil areas, 19 proceeding types? | Yes for v1. Sub-categories can grow inside an area without changing the shape. | **Accepted.** |
+| 6 | Is **85% accuracy** on a 200-judgment reviewed sample the bar for showing area filters? | Yes, and the team does the review. | **Accepted.** |
+| 7 | Can the supervisor (or SHC's case-type list) confirm the codes marked *(confirm)* in §4? | — | **Open.** Not confirmed yet: the 4 codes stay `confirmed=no` in `matter_type_map.csv`. |
 
-## 10. Next steps once agreed
+## 10. Next steps
 
-1. Commit `case-taxonomy.v1.yaml` (contracts) and `matter_type_map.csv` (collector).
+1. ✅ Commit `case-taxonomy.v1.yaml` (contracts, #164) and `matter_type_map.csv` (collector, #153).
 2. Run the full `shc-meta` pass (#153) and publish the exact civil, criminal and constitutional counts.
-3. Build the statute→area classifier and run the 200-judgment review.
+3. Build the statute→area classifier and run the 200-judgment review ([#200](https://github.com/CaseGuard-AI/CaseGuard/issues/200)).
 4. Rebalance the test set (#22) and the selection files against the agreed labels.
 
 ---
