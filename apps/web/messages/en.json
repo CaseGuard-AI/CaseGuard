@@ -581,5 +581,25 @@
       "body": "Files in this case and their processing status.",
       "bodyArchived": "This case is archived. Its files are kept, but no new ones can be added."
     }
+  },
+  "Notifications": {
+    "title": "Notifications",
+    "subtitle": "When your documents finish processing.",
+    "open": "Notifications",
+    "openUnread": "Notifications, {count} unread",
+    "close": "Close notifications",
+    "markAllRead": "Mark all as read",
+    "unread": "Unread",
+    "loading": "Loading notifications…",
+    "error": "Notifications could not be loaded.",
+    "retry": "Try again",
+    "empty": "Nothing yet. You will be told here when a document finishes processing.",
+    "loadMore": "Load more",
+    "kind": {
+      "document_done": "{filename} is processed and ready to use.",
+      "document_flagged": "{filename} is processed, but some parts are flagged for review.",
+      "document_failed": "{filename} could not be processed.",
+      "other": "There is an update about {filename}."
+    }
   }
 }

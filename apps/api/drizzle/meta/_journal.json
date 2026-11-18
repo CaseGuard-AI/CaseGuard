@@ -92,6 +92,13 @@
       "when": 1795036516860,
       "tag": "0012_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795040783766,
+      "tag": "0013_notifications",
+      "breakpoints": true
     }
   ]
 }

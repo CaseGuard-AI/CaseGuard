@@ -298,3 +298,10 @@ The API half of roadmap A8, on the #100 contract:
 - every status change goes through `setDocumentStatus`, the hook for notifications (#103).
 
 pg-boss can't create its own schema as `caseguard_app` (ADR-0007), so `bootstrap.sql` now creates `pgboss`; an existing volume needs `pnpm db:rebootstrap`. services/ai has no ingestion yet (Stream C), so a real upload currently ends `failed` with "processing service is unavailable". Plan: `plans/0049`.
+
+### Notifications: store, routes and the header bell (FR-NOT-1, #103)
+- apps/api keeps each user's notifications in `app.notifications` and serves the contract's list, mark-read and mark-all-read; another user's notification is a 404.
+- The header has a bell again. It asks for the unread count once a minute and shows a dot only when something is unread, so the dot `plans/0017` worried about is never permanent. It opens a sheet listing what happened to which document, in English or Urdu, each linking to its case.
+- The document jobs (#101) create one, in the same transaction as the status change, when a document enters `done`, `flagged` or `failed`; never for `queued` or `processing`. A deleted document's notifications stay, with the filename, and lose only the link to it.
+
+The new Urdu strings need native review (#105). Plan: `plans/0051`.

@@ -70,3 +70,11 @@ The work runs in parallel with #101 (documents API) and #102 (documents web). Un
 - **API:** `pnpm --filter ./apps/api run lint`, `typecheck`, and `test` with `APP_TEST_DATABASE_URL` pointed at `caseguard_test_103` on `127.0.0.1:5433`.
 - **Web:** `pnpm --filter @caseguard/web run lint`, `typecheck`, `test` and `build`.
 - **CI:** `ci-ok` is green on both PRs. Merging needs the user's explicit go-ahead (`--squash`, never `--delete-branch`).
+
+## Notes from implementation
+
+- **Migration number:** the migration is `0012_notifications` on this branch for now. After rebasing onto #101 it is deleted and regenerated as `0013_notifications`, with the `document_id` FK to `app.documents` (`ON DELETE SET NULL`). Until then `document_id` is a plain uuid, marked `TODO(#101)` in `schema.ts`.
+- **Bell position:** the bell sits after `LanguageSwitch`, not before it, so the switch keeps its `ms-auto` on small screens.
+- **Bell visibility:** the bell is always visible. Only its dot depends on the unread count.
+- **Shell test:** `shell.test.tsx`'s language-switch ordering test now leaves out the bell's own GET.
+- **Deleted-document test:** the test that a deleted document leaves `documentId` null comes with the rebase, because `app.documents` doesn't exist yet.

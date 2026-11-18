@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useSession } from "@/components/auth/session-provider";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -73,6 +74,8 @@ export function AppHeader({ onMenu }: { onMenu: () => void }) {
       </div>
 
       <LanguageSwitch className="ms-auto md:ms-0" />
+
+      <NotificationBell />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

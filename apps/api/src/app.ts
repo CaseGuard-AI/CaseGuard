@@ -14,6 +14,7 @@ import { errorHandler, notFound } from "./middleware/errors.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { casesRouter } from "./routes/cases.js";
+import { notificationsRouter } from "./routes/notifications.js";
 import { conversationsRouter } from "./routes/conversations.js";
 import { documentsRouter } from "./routes/documents.js";
 import { healthRouter } from "./routes/health.js";
@@ -75,6 +76,7 @@ export function createApp(deps: AppDeps) {
       maxUploadBytes: (deps.env.UPLOAD_MAX_MB ?? 25) * 1024 * 1024,
     }),
   );
+  v1.use(notificationsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
   v1.use(adminRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
   v1.use(
     conversationsRouter({

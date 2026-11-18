@@ -3,6 +3,7 @@ import type { DocumentFlag, IngestionStage } from "../clients/ai.js";
 import type { Db } from "../db/client.js";
 import { documentStages, documents, type Document, type DocumentStatus } from "../db/schema.js";
 import { decodeCursor, encodeCursor, isUuid } from "../lib/cursor.js";
+import { createNotification } from "../notifications/store.js";
 
 interface Owner {
   userId: string;
@@ -15,6 +16,10 @@ export type NewDocument = Pick<
 >;
 
 const visible = isNull(documents.deletedAt);
+
+const FINAL = ["done", "flagged", "failed"] as const;
+const isFinal = (status: DocumentStatus): status is (typeof FINAL)[number] =>
+  (FINAL as readonly string[]).includes(status);
 
 export async function insertDocument(db: Db, owner: Owner, doc: NewDocument): Promise<Document> {
   const [row] = await db
@@ -118,7 +123,21 @@ export async function setDocumentStatus(
       })
       .where(eq(documents.id, documentId))
       .returning();
-    // Notifications (#103) hook in here, inside this transaction, on entering a final status.
+    // Entering a final status tells the owner (FR-NOT-1), in this transaction, so the change and
+    // its notification commit together. An automatic retry passes through `processing`, so a
+    // `failed` here is the last attempt's.
+    if (current.status !== status && isFinal(status)) {
+      await createNotification(
+        tx,
+        { userId: document!.ownerUserId, accountId: document!.accountId },
+        {
+          kind: `document_${status}`,
+          documentId,
+          caseId: document!.caseId,
+          filename: document!.filename,
+        },
+      );
+    }
     return { document: document!, previous: current.status };
   });
 }
