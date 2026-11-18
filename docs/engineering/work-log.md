@@ -269,3 +269,11 @@ The supervisor approved [`case-taxonomy.md`](case-taxonomy.md) on 2026-11-18 and
 
 ### Hugging Face storage set up (#151)
 The `caseguard` org and the private dataset `caseguard/corpus` exist, and members have write access with their own tokens. `.env.example` already had `HF_TOKEN=` and `HF_CORPUS_REPO=caseguard/corpus`. The storage spec and the handoffs now name the real repo instead of `<org>/corpus`. #152 (snapshot push/pull/status) is unblocked.
+
+### Notifications contract (#103)
+The contract for roadmap A9, so the API and the web bell can be built while the document jobs (#101) land:
+- `GET /notifications` lists the caller's notifications newest first, optionally only the unread ones, and always returns the unread total, so the bell shows a dot only when there is something to read;
+- `POST /notifications/{id}/read` and `POST /notifications/read-all` mark them read;
+- a notification says what happened to which document (`document_done`, `document_flagged`, `document_failed`) and carries no display text, so the web words it in English or Urdu.
+
+Only contracts, generated types and docs changed. Plan: `plans/0051`.

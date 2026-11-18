@@ -543,6 +543,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The user's notifications, newest first (FR-NOT-1)
+         * @description The header bell polls this. `unreadCount` is the caller's unread total, whatever the
+         *     filter and the page, so the bell can show a dot without loading the list. A notification
+         *     carries no display text: the client words it from `kind` and `filename`, in the user's
+         *     language.
+         */
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/{notificationId}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark one notification read
+         * @description Idempotent; a notification that is already read keeps its first `readAt`.
+         */
+        post: operations["markNotificationRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark every notification of the caller read */
+        post: operations["markAllNotificationsRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/citations/{citationId}": {
         parameters: {
             query?: never;
@@ -1015,6 +1075,36 @@ export interface components {
             /** @description The file's bytes, at most 25 MB (FR-DOC-1). The part needs a `filename`. */
             file: string;
         };
+        /**
+         * @description What happened. A document's processing finished `done`, finished `flagged` (uncertain
+         *     parts, FR-DOC-4) or `failed` after its retries (NFR-13). Created once per attempt's final
+         *     outcome, never for an automatic retry in between. New kinds (other long jobs) are
+         *     additive, so a client shows a generic text for a kind it does not know.
+         * @enum {string}
+         */
+        NotificationKind: "document_done" | "document_flagged" | "document_failed";
+        /** @description Every field is present (`null` when empty). */
+        Notification: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["NotificationKind"];
+            /**
+             * Format: uuid
+             * @description The document it is about; null once that document is deleted.
+             */
+            documentId: string | null;
+            /**
+             * Format: uuid
+             * @description The document's case, for the link to the case dashboard.
+             */
+            caseId: string;
+            /** @description The document's filename when the notification was made, kept after a delete. */
+            filename: string;
+            /** Format: date-time */
+            readAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
         /** @description Save a conversation to a case, or detach it with `null` (FR-CASE-5). */
         ConversationUpdate: {
             /** Format: uuid */
@@ -1275,6 +1365,9 @@ export interface components {
         DocumentCaseId: string;
         DocumentId: string;
         KeyProviderId: components["schemas"]["ProviderId"];
+        NotificationId: string;
+        /** @description `true` lists only the unread notifications; omitted or `false` lists all. */
+        NotificationUnread: boolean;
         Limit: number;
     };
     requestBodies: never;
@@ -2085,6 +2178,78 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                /** @description `true` lists only the unread notifications; omitted or `false` lists all. */
+                unread?: components["parameters"]["NotificationUnread"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of notifications */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["Notification"][];
+                        nextCursor?: string | null;
+                        unreadCount: number;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    markNotificationRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notificationId: components["parameters"]["NotificationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Read */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    markAllNotificationsRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All read */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     getCitation: {
