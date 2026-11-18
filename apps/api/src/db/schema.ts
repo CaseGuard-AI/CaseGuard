@@ -390,6 +390,43 @@ export const aiAuditRecords = app.table(
   ],
 );
 
+export const NOTIFICATION_KINDS = ["document_done", "document_flagged", "document_failed"] as const;
+
+// The user's notifications (FR-NOT-1, #103): one per document attempt's final outcome. Made by
+// the document jobs, which see every status change (ADR-0010). No display text: the web words
+// it from kind and filename. The filename is copied so it still reads after a delete.
+export const notifications = app.table(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: NOTIFICATION_KINDS }).notNull(),
+    // Null once the document's row is purged; the notification keeps its filename.
+    documentId: uuid("document_id").references(() => documents.id, { onDelete: "set null" }),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("notifications_owner_created_idx").on(t.ownerUserId, t.createdAt, t.id),
+    index("notifications_owner_unread_idx")
+      .on(t.ownerUserId)
+      .where(sql`${t.readAt} is null`),
+    check(
+      "notifications_kind_check",
+      sql`kind in ('document_done', 'document_flagged', 'document_failed')`,
+    ),
+  ],
+);
+
 export type Account = typeof accounts.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -401,4 +438,6 @@ export type NewCase = typeof cases.$inferInsert;
 export type Document = typeof documents.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export type { Language };

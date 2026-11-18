@@ -169,7 +169,9 @@ describe("AppShell with a signed-in user", () => {
     const order: string[] = [];
     fetchMock.mockImplementation(async (input) => {
       const request = input as Request;
-      order.push(`${request.method} ${new URL(request.url).pathname}`);
+      const path = new URL(request.url).pathname;
+      // The header bell polls on its own; only the save and the switch are ordered.
+      if (path !== "/api/v1/notifications") order.push(`${request.method} ${path}`);
       const settings = { name: "Ayesha Khan", locale: "en", theme: "system", defaultModel: null };
       return new Response(JSON.stringify(settings), {
         headers: { "Content-Type": "application/json" },

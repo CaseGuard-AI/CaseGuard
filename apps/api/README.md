@@ -47,6 +47,9 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 | `DELETE /api/v1/documents/{id}`            | Delete (202); the file and chunks are purged by a background job                    |
 | `GET /api/v1/documents/{id}/file`          | Download the original (attachment, `nosniff`)                                       |
 | `POST /api/v1/documents/{id}/retry`        | Process a `failed` or `flagged` document again (409 from any other status)          |
+| `GET /api/v1/notifications`                | The user's notifications, newest first (`unread=true`, `cursor`, `limit`), with `unreadCount` |
+| `POST /api/v1/notifications/{id}/read`     | Mark one read (idempotent; 404 if it isn't yours)                                     |
+| `POST /api/v1/notifications/read-all`      | Mark all of yours read                                                              |
 | `GET /api/v1/conversations`                | The user's conversations, most recently active first (`cursor`, `limit`, `caseId`)  |
 | `POST /api/v1/conversations`               | Start a conversation (`title`, `caseId`: one of your active cases)                  |
 | `GET /api/v1/conversations/{id}`           | A conversation with its messages (404 if it isn't yours)                            |

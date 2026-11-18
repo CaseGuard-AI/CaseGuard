@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#103](https://github.com/CaseGuard-AI/CaseGuard/issues/103) · **PR:** contract [#204](https://github.com/CaseGuard-AI/CaseGuard/pull/204), implementation —
+> **Status:** In progress · **Issue:** [#103](https://github.com/CaseGuard-AI/CaseGuard/issues/103) · **PR:** contract [#204](https://github.com/CaseGuard-AI/CaseGuard/pull/204), implementation [#206](https://github.com/CaseGuard-AI/CaseGuard/pull/206)
 
 # #103: notifications for document processing
 
@@ -70,3 +70,11 @@ The work runs in parallel with #101 (documents API) and #102 (documents web). Un
 - **API:** `pnpm --filter ./apps/api run lint`, `typecheck`, and `test` with `APP_TEST_DATABASE_URL` pointed at `caseguard_test_103` on `127.0.0.1:5433`.
 - **Web:** `pnpm --filter @caseguard/web run lint`, `typecheck`, `test` and `build`.
 - **CI:** `ci-ok` is green on both PRs. Merging needs the user's explicit go-ahead (`--squash`, never `--delete-branch`).
+
+## Notes from implementation
+
+- **Migration and FK:** after the rebase onto #101 the migration was regenerated as `0013_notifications` on top of `0012_documents`, with the `document_id` FK to `app.documents` (`ON DELETE SET NULL`). The document row is dropped only when the purge finishes, so `documentId` turns null then, not at the API delete.
+- **Bell position:** the bell sits after `LanguageSwitch`, not before it, so the switch keeps its `ms-auto` on small screens.
+- **Bell visibility:** the bell is always visible. Only its dot depends on the unread count.
+- **Shell test:** `shell.test.tsx`'s language-switch ordering test now leaves out the bell's own GET.
+- **Hook:** `setDocumentStatus` (`documents/store.ts`) creates the notification inside its transaction when the status changes into `done`, `flagged` or `failed`. #101's ingest job moves an automatic retry through `processing`, so `failed` there is always the last attempt's. Tests: one per final transition, none for `queued` or `processing` or a repeated final status, a retry that finishes notifies again, and a purged document leaves `documentId` null.

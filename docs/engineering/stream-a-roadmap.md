@@ -43,7 +43,7 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 |---|---|---|---|
 | A6 | **Research history** | FR-RES-8 (UI) | Issue #86 |
 | A8 | **Documents and uploads** (contract, storage, job queue, status, web) | FR-DOC-1, FR-DOC-2, FR-DOC-3, FR-DOC-4, FR-DOC-6, SEC-6, NFR-13 | Stream A owns uploads and jobs. OCR, chunking and embedding run in services/ai ingestion workers (Stream C), so the handoff needs a contract. Contract done (#100): apps/api submits and polls ([ADR-0010](../adr/0010-document-ingestion-handoff.md)). API done (#101): uploads, `fs` blob store, pg-boss ingest and purge jobs. Web page and case uploads: #102. Cut order: last of the P1s to be cut. |
-| A9 | **Notifications** | FR-NOT-1 | Driven by A8's job events. |
+| A9 | **Notifications** | FR-NOT-1 | Driven by A8's job events. Done (#103): the document jobs create one when a document finishes `done`, `flagged` or `failed`; the header bell polls the unread count. |
 | A11 | **Urdu UI review** | FR-I18N-2 | Every string is translated, but none reviewed by a native speaker (flagged on #11, #12, #62 and #14, and the role names and register strings from FR-AUTH-2). This is a review task, not code. |
 | A12 | **Screens over Stream C features**: precedent search (M3), drafting (M3), linter (M3) | FR-PREC-*, FR-DRAFT-*, FR-LINT-* | Each waits for its ai.v1 operations, which aren't in the contract yet. Cut order: drafting, then linter, then precedent UI. |
 
