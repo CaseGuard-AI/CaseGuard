@@ -7,6 +7,7 @@ import type { Pool } from "pg";
 import type { AiClient } from "./clients/ai.js";
 import type { Env } from "./config/env.js";
 import type { Db } from "./db/client.js";
+import type { JobQueue } from "./jobs/queue.js";
 import type { Logger } from "./lib/logger.js";
 import type { Mailer } from "./lib/mailer.js";
 import { errorHandler, notFound } from "./middleware/errors.js";
@@ -14,18 +15,25 @@ import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { casesRouter } from "./routes/cases.js";
 import { conversationsRouter } from "./routes/conversations.js";
+import { documentsRouter } from "./routes/documents.js";
 import { healthRouter } from "./routes/health.js";
 import { keysRouter } from "./routes/keys.js";
 import { settingsRouter } from "./routes/settings.js";
 import { sourcesRouter } from "./routes/sources.js";
+import type { BlobStore } from "./storage/blob-store.js";
 
 export interface AppDeps {
-  env: Pick<Env, "CORS_ORIGIN" | "JWT_SECRET" | "RESET_URL_BASE" | "KEY_ENCRYPTION_KEY">;
+  env: Pick<Env, "CORS_ORIGIN" | "JWT_SECRET" | "RESET_URL_BASE" | "KEY_ENCRYPTION_KEY"> &
+    Partial<Pick<Env, "UPLOAD_MAX_MB">>;
   logger: Logger;
   db: Pick<Pool, "query">;
   orm: Db;
   ai: AiClient;
   mailer: Mailer;
+  /** Uploaded files (data-storage §6). */
+  storage: BlobStore;
+  /** The document jobs (pg-boss in production). */
+  jobs: JobQueue;
 }
 
 // Dependencies are injected so tests can run the app without a real DB or AI service.
@@ -58,6 +66,15 @@ export function createApp(deps: AppDeps) {
   v1.use(settingsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
   v1.use(keysRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, encryptionKey }));
   v1.use(casesRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
+  v1.use(
+    documentsRouter({
+      db: deps.orm,
+      jwtSecret: deps.env.JWT_SECRET,
+      storage: deps.storage,
+      jobs: deps.jobs,
+      maxUploadBytes: (deps.env.UPLOAD_MAX_MB ?? 25) * 1024 * 1024,
+    }),
+  );
   v1.use(adminRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET }));
   v1.use(
     conversationsRouter({

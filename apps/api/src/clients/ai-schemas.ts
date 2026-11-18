@@ -1,7 +1,13 @@
 // Runtime checks for what services/ai returns (packages/contracts ai.v1). Nothing from the AI
 // service reaches a user unchecked. Objects are loose: required fields are checked, extras pass.
 import { z } from "zod";
-import type { Answer, Citation, Source } from "./ai.js";
+import {
+  DOCUMENT_STAGES,
+  type Answer,
+  type Citation,
+  type IngestionStatus,
+  type Source,
+} from "./ai.js";
 
 export const languageSchema = z.enum(["en", "ur", "roman_ur"]);
 
@@ -37,3 +43,36 @@ export const sourceSchema = z.looseObject({
 export const parseCitation = (raw: unknown) => citationSchema.parse(raw) as Citation;
 export const parseSource = (raw: unknown) => sourceSchema.parse(raw) as Source;
 export const parseAnswer = (raw: unknown) => answerSchema.parse(raw) as Answer;
+
+// Document ingestion (ADR-0010). Flags and errors reach the user, so their sizes are checked.
+export const documentFlagSchema = z.looseObject({
+  stage: z.enum(DOCUMENT_STAGES),
+  code: z.string().regex(/^[a-z][a-z0-9_]{0,63}$/),
+  message: z.string().max(500),
+  page: z.number().int().min(1).nullable(),
+});
+
+const timestamp = z.iso.datetime({ offset: true }).nullable();
+
+export const ingestionStatusSchema = z.looseObject({
+  documentId: z.uuid(),
+  attempt: z.number().int().min(1),
+  state: z.enum(["queued", "running", "done", "flagged", "failed"]),
+  stages: z.array(
+    z.looseObject({
+      stage: z.enum(DOCUMENT_STAGES),
+      state: z.enum(["pending", "running", "done", "flagged", "failed", "skipped"]),
+      startedAt: timestamp,
+      finishedAt: timestamp,
+      flags: z.array(documentFlagSchema),
+    }),
+  ),
+  flags: z.array(documentFlagSchema),
+  error: z.string().max(500).nullable(),
+  retryable: z.boolean(),
+  pages: z.number().int().min(0).nullable(),
+  chunkCount: z.number().int().min(0).nullable(),
+});
+
+export const parseIngestionStatus = (raw: unknown) =>
+  ingestionStatusSchema.parse(raw) as IngestionStatus;

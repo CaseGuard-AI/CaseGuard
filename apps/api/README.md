@@ -11,7 +11,7 @@ Auth (Lawyer/Researcher/Admin), sessions, **the access decision**, cases, docume
 - Writes only the `app` schema (DB role `caseguard_app`). It reads `corpus` through granted SELECT only.
 - Every call to `services/ai` carries the service token and the **resolved scope** (`user_id`, `account_id`, `allowed_case_ids`). The AI service never decides access.
 - Keys are encrypted with AES-256-GCM, never returned and never logged (SEC-4).
-- Rate limiting is applied to the auth and AI routes (SEC-15).
+- Rate limiting is applied to the auth, AI and upload routes (SEC-15).
 
 ## Run locally
 
@@ -41,6 +41,12 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 | `PATCH /api/v1/cases/{id}`                 | Partial edit; `null` and `[]` clear                                                 |
 | `POST /api/v1/cases/{id}/archive`          | Archive (idempotent; nothing is deleted)                                            |
 | `POST /api/v1/cases/{id}/unarchive`        | Restore an archived case (idempotent)                                               |
+| `POST /api/v1/cases/{id}/documents`        | Upload one file (`multipart/form-data`, part `file`) to an active case; 201 `queued` |
+| `GET /api/v1/documents`                    | The user's documents, newest first (`caseId`, `cursor`, `limit`)                    |
+| `GET /api/v1/documents/{id}`               | One document and its processing status (poll while `queued`/`processing`)           |
+| `DELETE /api/v1/documents/{id}`            | Delete (202); the file and chunks are purged by a background job                    |
+| `GET /api/v1/documents/{id}/file`          | Download the original (attachment, `nosniff`)                                       |
+| `POST /api/v1/documents/{id}/retry`        | Process a `failed` or `flagged` document again (409 from any other status)          |
 | `GET /api/v1/conversations`                | The user's conversations, most recently active first (`cursor`, `limit`, `caseId`)  |
 | `POST /api/v1/conversations`               | Start a conversation (`title`, `caseId`: one of your active cases)                  |
 | `GET /api/v1/conversations/{id}`           | A conversation with its messages (404 if it isn't yours)                            |
@@ -97,6 +103,19 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 
 `services/ai` doesn't serve `research/answer` yet (#20), so in the running stack an ask returns 503 for now. The tests use a fake that follows ai.v1.
 
+## Documents and jobs
+
+Uploads (#101) follow [data-storage §6](../../docs/engineering/data-storage.md) and [ADR-0010](../../docs/adr/0010-document-ingestion-handoff.md).
+
+- **Upload** (FR-DOC-1, SEC-6): one `file` part, read into memory with a hard limit of `UPLOAD_MAX_MB` (at most 25; larger is 413). The type is sniffed from the content with `file-type`: PDF, DOCX, PNG, JPEG or TIFF, else 415. The part's `Content-Type` and the extension are ignored. The case must be the caller's (404) and active (400 on `caseId`). The filename loses any directory and control characters and lives only in `app.documents`. 60 uploads per user per 15 minutes.
+- **Storage:** `src/storage/blob-store.ts`, `STORAGE_DRIVER=fs` (the only driver so far). Files are kept at `UPLOADS_DIR/users/{userId}/cases/{caseId}/{documentId}`: the Compose `uploads` volume (read-write in api, read-only in ai), or the git-ignored `/uploads` at the repo root for native runs. Downloads stream through the API after the ownership check.
+- **Jobs:** pg-boss on the `pgboss` schema, which `bootstrap.sql` creates (`caseguard_app` can't CREATE SCHEMA, so pg-boss runs with `createSchema: false`). The workers run in the api process when `WORKERS_ENABLED` (default on).
+  - `document.ingest` (`src/jobs/ingest.ts`) is one step per job: submit the attempt to services/ai, or poll it once, then enqueue the next step with a delay (2 s doubling to 30 s; an attempt gives up after 30 minutes). Each poll copies the stage outcomes into `app.document_stages` (FR-DOC-2). A retryable failure, or services/ai being unreachable, starts the next attempt after 30 s × n, up to `DOCUMENT_MAX_ATTEMPTS` (3); the document shows `processing` meanwhile. Then it's `failed` with an `error`, and stays listed for the user to retry (NFR-13).
+  - `document.purge` (`src/jobs/purge.ts`), after a delete: ai `purgeDocument`, then the blob, then the row. Retried by pg-boss for about four days.
+  - Every status change goes through `setDocumentStatus` (`src/documents/store.ts`), which is where notifications (#103) hook in.
+- **Existing databases:** a volume bootstrapped before #101 has no `pgboss` schema, and the api won't start. Run `pnpm db:rebootstrap` (or `CREATE SCHEMA pgboss AUTHORIZATION caseguard_app;` as the superuser).
+- `services/ai` doesn't serve ingestion yet (Stream C), so in the running stack an upload ends `failed` after its retries. The tests use a fake that follows ai.v1.
+
 ## Settings
 
 - `GET`/`PATCH /api/v1/me/settings` (FR-SET-1) read and change the signed-in user's `name`, `locale` and `theme`. There's no user id in the path, so a user can only ever reach their own (FR-AUTH-4).
@@ -133,7 +152,10 @@ src/
   app.ts               createApp(deps): middleware + /api/v1 router (dependencies injected, so it's testable)
   config/env.ts        Zod-validated environment
   clients/ai.ts        /ai/v1 client (bearer service token)
-  routes/              one router per contract tag (health, auth, settings, admin, cases, conversations, sources)
+  routes/              one router per contract tag (health, auth, settings, admin, cases, documents, conversations, sources)
+  documents/           document store (incl. setDocumentStatus) and the multipart upload reader
+  storage/             blob store for uploaded files (fs driver)
+  jobs/                pg-boss queue and the document.ingest / document.purge workers
   auth/                passwords (argon2id), tokens (JWT + refresh), store, requireAuth/requireRole
   settings/            store for the user's own settings (FR-SET-1)
   middleware/          errors (RFC 9457 problem+json), rate limits

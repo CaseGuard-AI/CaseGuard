@@ -9,6 +9,7 @@ import { createOrPromoteAdmin, parseCliArgs } from "../src/db/create-admin.js";
 import { migrateUp } from "../src/db/migrate.js";
 import { createLogger } from "../src/lib/logger.js";
 import { errorHandler } from "../src/middleware/errors.js";
+import { documentDeps } from "./stubs.js";
 
 describe("create-admin arguments", () => {
   it("parses --email and --name", () => {
@@ -81,6 +82,7 @@ describe.skipIf(!url)("createOrPromoteAdmin", () => {
       orm: db,
       ai: { info: async () => ({ service: "caseguard-ai", version: "test" }) } as AppDeps["ai"],
       mailer: { send: async () => {} },
+      ...documentDeps(),
     });
   });
 

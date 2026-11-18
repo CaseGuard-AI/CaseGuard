@@ -48,6 +48,8 @@ services:
       AI_DATABASE_URL: postgresql+psycopg://caseguard_ai:${AI_DB_PASSWORD}@db:5432/${POSTGRES_DB}
     depends_on:
       db: { condition: service_healthy }
+    volumes:
+      - uploads:/data/uploads:ro # uploaded files, read-only (data-storage §6, ADR-0010)
     networks: [internal, ai-egress]
     # HEALTHCHECK on /health is defined in services/ai/Dockerfile
 
@@ -64,6 +66,10 @@ services:
       AI_SERVICE_URL: http://ai:8000
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
+      STORAGE_DRIVER: fs
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads # uploaded files, outside the web root (SEC-6, data-storage §6)
     depends_on:
       db: { condition: service_healthy }
       ai: { condition: service_healthy }
@@ -112,6 +118,7 @@ services:
 
 volumes:
   pgdata:
+  uploads: # apps/api writes, services/ai reads (#101)
   # ollama:
 
 networks:

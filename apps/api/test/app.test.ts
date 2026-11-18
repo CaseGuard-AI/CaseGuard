@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest";
 import { createApp, type AppDeps } from "../src/app.js";
 import { parseEnv } from "../src/config/env.js";
 import { createLogger } from "../src/lib/logger.js";
+import { documentDeps, noIngestion } from "./stubs.js";
 
 const upAi: AppDeps["ai"] = {
+  ...noIngestion,
   info: async () => ({ service: "caseguard-ai", version: "test" }),
   answer: async () => {
     throw new Error("not used");
@@ -37,6 +39,7 @@ function app(overrides: Partial<AppDeps> = {}) {
     orm: {} as AppDeps["orm"],
     ai: upAi,
     mailer: { send: async () => {} },
+    ...documentDeps(),
     ...overrides,
   });
 }
@@ -85,6 +88,29 @@ describe("env", () => {
         JWT_SECRET: "x".repeat(32),
       }),
     ).toThrow(/AI_SERVICE_TOKEN/);
+  });
+
+  describe("upload settings (#101)", () => {
+    const base = {
+      API_DATABASE_URL: "postgresql://x@localhost/db",
+      AI_SERVICE_TOKEN: "t".repeat(16),
+      JWT_SECRET: "x".repeat(32),
+    };
+
+    it("defaults: fs under the repo's /uploads, 25 MB, 3 attempts, workers on", () => {
+      const env = parseEnv({ ...base, UPLOADS_DIR: "" });
+      expect(env).toMatchObject({
+        STORAGE_DRIVER: "fs",
+        UPLOAD_MAX_MB: 25,
+        DOCUMENT_MAX_ATTEMPTS: 3,
+        WORKERS_ENABLED: true,
+      });
+      expect(env.UPLOADS_DIR.replaceAll("\\", "/")).toMatch(/\/uploads$/);
+    });
+
+    it("rejects a limit above the contract's 25 MB", () => {
+      expect(() => parseEnv({ ...base, UPLOAD_MAX_MB: "26" })).toThrow(/UPLOAD_MAX_MB/);
+    });
   });
 });
 

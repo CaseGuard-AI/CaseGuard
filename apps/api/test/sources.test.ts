@@ -7,6 +7,7 @@ import { createDb } from "../src/db/client.js";
 import { migrateUp } from "../src/db/migrate.js";
 import { createLogger } from "../src/lib/logger.js";
 import { expectContract } from "./contract.js";
+import { documentDeps, noIngestion } from "./stubs.js";
 
 // Runs as caseguard_app against a bootstrapped database (CI sets APP_TEST_DATABASE_URL).
 // services/ai serves these ai.v1 endpoints with #15/#20; here the AI is a fake following ai.v1.
@@ -47,6 +48,7 @@ describe.skipIf(!url)("citations and sources (api.v1)", () => {
   let onSource: (id: string) => Promise<unknown>;
 
   const ai: AiClient = {
+    ...noIngestion,
     info: async () => ({ service: "caseguard-ai", version: "test" }),
     // The answer stored with Alice's message: the citation was "verified" at the time.
     answer: async (req) => ({
@@ -106,6 +108,7 @@ describe.skipIf(!url)("citations and sources (api.v1)", () => {
       orm: createDb(pool),
       ai,
       mailer: { send: async () => {} },
+      ...documentDeps(),
     });
     aliceToken = await register("alice@example.com");
     bobToken = await register("bob@example.com");

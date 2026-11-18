@@ -15,7 +15,13 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { Citation, Language } from "../clients/ai.js";
+import {
+  DOCUMENT_MEDIA_TYPES,
+  DOCUMENT_STAGES,
+  type Citation,
+  type DocumentFlag,
+  type Language,
+} from "../clients/ai.js";
 
 // The app schema, written only by apps/api as caseguard_app (ADR-0002, ADR-0007).
 //
@@ -216,6 +222,78 @@ export const cases = app.table(
   ],
 );
 
+// Documents uploaded to a case (FR-DOC-1, #101). The file lives in the blob store under
+// storage_key (data-storage §6); the filename lives only here. A deleted document keeps its row
+// (deleted_at set, invisible to the API) until the purge job has removed the file and chunks.
+export const DOCUMENT_STATUSES = ["queued", "processing", "done", "flagged", "failed"] as const;
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+
+export const documents = app.table(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id")
+      .notNull()
+      .references(() => cases.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    mediaType: text("media_type", { enum: DOCUMENT_MEDIA_TYPES }).notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    storageKey: text("storage_key").notNull(),
+    status: text("status", { enum: DOCUMENT_STATUSES }).notNull().default("queued"),
+    flags: jsonb("flags").$type<DocumentFlag[]>().notNull().default([]),
+    error: text("error"),
+    pages: integer("pages"),
+    // The current processing attempt (NFR-13): 1 at upload, +1 for each retry.
+    attempt: integer("attempt").notNull().default(1),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Last status change (api.v1 Document.updatedAt).
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("documents_owner_created_idx").on(t.ownerUserId, t.createdAt),
+    index("documents_case_created_idx").on(t.caseId, t.createdAt),
+    check(
+      "documents_status_check",
+      sql`status in ('queued', 'processing', 'done', 'flagged', 'failed')`,
+    ),
+    check("documents_flags_check", sql`jsonb_typeof(${t.flags}) = 'array'`),
+    check("documents_size_check", sql`size_bytes > 0`),
+  ],
+);
+
+// FR-DOC-2 "each stage outcome is logged": one row per document, attempt and stage, copied from
+// services/ai's ingestion status while the document job polls it.
+export const documentStages = app.table(
+  "document_stages",
+  {
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    attempt: integer("attempt").notNull(),
+    stage: text("stage", { enum: DOCUMENT_STAGES }).notNull(),
+    state: text("state").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    flags: jsonb("flags").$type<DocumentFlag[]>().notNull().default([]),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.documentId, t.attempt, t.stage] })],
+);
+
 // Conversations and their messages (FR-RES-8, #13). A conversation saved to a case (FR-CASE-5)
 // is scoped to it on every question (FR-CASE-6).
 export const conversations = app.table(
@@ -320,6 +398,7 @@ export type Provider = typeof providers.$inferSelect;
 export type UserApiKey = typeof userApiKeys.$inferSelect;
 export type Case = typeof cases.$inferSelect;
 export type NewCase = typeof cases.$inferInsert;
+export type Document = typeof documents.$inferSelect;
 export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type { Language };

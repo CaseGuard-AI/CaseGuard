@@ -35,9 +35,15 @@ export function expectContract(res: Response, method: string, path: string) {
     expect(res.text ?? "").toBe("");
     return;
   }
-  const [mediaType, media] = Object.entries(content)[0]!;
+  // An operation may declare several media types (downloadDocument): use the one served.
+  const served = String(res.headers["content-type"] ?? "")
+    .split(";")[0]!
+    .trim();
+  const entries = Object.entries(content);
+  const [mediaType, media] = entries.find(([type]) => type === served) ?? entries[0]!;
   expect(res.headers["content-type"]).toContain(mediaType);
-  if (media.schema) {
+  // A binary body (`contentMediaType`) has no JSON to validate.
+  if (media.schema && !("contentMediaType" in media.schema)) {
     const validate = ajv.compile(media.schema);
     const ok = validate(res.body);
     expect(ok, `${method} ${path} ${res.status}: ${ajv.errorsText(validate.errors)}`).toBe(true);
