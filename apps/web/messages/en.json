@@ -465,10 +465,6 @@
         "empty": "No research saved to this case yet.",
         "loadMore": "Load more"
       },
-      "documents": {
-        "title": "Documents",
-        "body": "Case files will be listed here once document uploads are available."
-      },
       "drafts": {
         "title": "Drafts",
         "body": "Drafts for this case will be listed here once drafting is available."
@@ -510,6 +506,80 @@
       "seeAll": "See all",
       "empty": "No active cases yet. Cases you create will show here.",
       "nextHearing": "Next hearing {date}"
+    }
+  },
+  "Documents": {
+    "status": {
+      "queued": "Queued",
+      "processing": "Processing",
+      "done": "Done",
+      "flagged": "Flagged",
+      "failed": "Failed"
+    },
+    "flagCount": "{count, plural, one {# flag} other {# flags}}",
+    "flaggedNote": "Some parts are uncertain. Check them against the original before relying on them.",
+    "flagsLabel": "What is uncertain",
+    "stages": {
+      "ocr": "OCR",
+      "extract": "Text extraction",
+      "clean": "Cleaning",
+      "structure": "Structure",
+      "chunk": "Chunking",
+      "embed": "Embedding",
+      "index": "Indexing"
+    },
+    "page": "Page {page}",
+    "wholeDocument": "Whole document",
+    "pages": "{count, plural, one {# page} other {# pages}}",
+    "uploaded": "Uploaded {time}",
+    "openCase": "Open case",
+    "failedNoReason": "Processing failed. Try again.",
+    "list": {
+      "label": "Documents",
+      "loading": "Loading documents…",
+      "error": "Documents can't be loaded right now.",
+      "networkError": "Can't reach the server. Check your connection and try again.",
+      "retry": "Try again",
+      "empty": "No documents yet.",
+      "emptyCase": "No documents in this case yet.",
+      "loadMore": "Load more",
+      "uploadHint": "To add a document, open its case and upload it there."
+    },
+    "actions": {
+      "download": "Download",
+      "retry": "Retry processing",
+      "delete": "Delete",
+      "deleteTitle": "Delete this document?",
+      "deleteBody": "{name} and everything extracted from it will be removed. This can't be undone.",
+      "deleteConfirm": "Delete document",
+      "cancel": "Cancel",
+      "downloadError": "The file couldn't be downloaded. Try again.",
+      "retryError": "Processing couldn't be restarted. Try again.",
+      "deleteError": "The document wasn't deleted. Try again.",
+      "networkError": "Can't reach the server. Check your connection and try again."
+    },
+    "upload": {
+      "drop": "Drop a file here, or",
+      "choose": "Choose a file",
+      "uploading": "Uploading…",
+      "hint": "PDF, DOCX, PNG, JPEG or TIFF, up to 25 MB.",
+      "queued": "{name} was uploaded and is queued for processing.",
+      "errors": {
+        "type": "This file type isn't supported. Upload a PDF, DOCX, PNG, JPEG or TIFF.",
+        "size": "This file is larger than 25 MB.",
+        "empty": "This file is empty.",
+        "tooLarge": "The server refused the file: it is larger than 25 MB.",
+        "unsupported": "The server couldn't recognise this file as a PDF, DOCX, PNG, JPEG or TIFF.",
+        "archived": "This case is archived, so no new documents can be added.",
+        "notFound": "This case doesn't exist, or it isn't yours.",
+        "network": "Can't reach the server. Check your connection and try again.",
+        "generic": "The file wasn't uploaded. Try again."
+      }
+    },
+    "card": {
+      "title": "Documents",
+      "body": "Files in this case and their processing status.",
+      "bodyArchived": "This case is archived. Its files are kept, but no new ones can be added."
     }
   }
 }

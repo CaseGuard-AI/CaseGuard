@@ -277,3 +277,15 @@ The contract for roadmap A9, so the API and the web bell can be built while the 
 - a notification says what happened to which document (`document_done`, `document_flagged`, `document_failed`) and carries no display text, so the web words it in English or Urdu.
 
 Only contracts, generated types and docs changed. Plan: `plans/0051`.
+
+## 2026-11-19
+
+### Documents page and case uploads (FR-DOC-1, FR-DOC-3, FR-DOC-4, #102)
+`/documents` and the case dashboard's Documents card are no longer placeholders:
+- on a case, a file can be dropped or picked; the type (PDF, DOCX, PNG, JPEG, TIFF) and the 25 MB limit are checked before sending, and the API's refusals (too large, not a recognised type, archived case) are shown in words; an archived case shows its files but no uploader;
+- every document shows its processing status, and the list refreshes itself while anything is queued or processing;
+- a flagged document has a warning badge and lists what is uncertain (stage, page, message), so it never reads as clean; a failed one shows why;
+- download (through the API, with the session), retry for failed or flagged documents, and delete after a confirmation;
+- `/documents` lists all of the user's documents with a link to each case.
+
+Built against the documents contract (#100) with stubbed API calls; the end-to-end check waits for the API (#101). Only `apps/web` changed. The new Urdu strings need native review (#105). Plan: `plans/0050`.

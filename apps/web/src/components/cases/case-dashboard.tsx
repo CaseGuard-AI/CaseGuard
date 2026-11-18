@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { CaseDocuments } from "@/components/documents/case-documents";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { statusOf } from "@/lib/api-query";
@@ -21,7 +22,7 @@ import { formatDay } from "./format";
 import { useArchiveCase, useCase, useCaseConversations, type Case, type Party } from "./queries";
 import { CaseLoadState } from "./states";
 
-// The case dashboard (FR-CASE-4): the case's fields, its research, and the places documents,
+// The case dashboard (FR-CASE-4): the case's fields, its research, its documents, and the places
 // drafts and precedents will appear once those modules exist. Nothing here is sample data.
 export function CaseDashboard({ caseId }: { caseId: string }) {
   const found = useCase(caseId);
@@ -41,8 +42,8 @@ export function CaseDashboard({ caseId }: { caseId: string }) {
       <Header item={item} />
       <Details item={item} />
       <CaseResearch caseId={item.id} />
-      <div className="grid gap-6 md:grid-cols-3">
-        <Placeholder area="documents" />
+      <CaseDocuments caseId={item.id} archived={item.archivedAt !== null} />
+      <div className="grid gap-6 md:grid-cols-2">
         <Placeholder area="drafts" />
         <Placeholder area="precedents" />
       </div>
@@ -295,7 +296,7 @@ function CaseResearch({ caseId }: { caseId: string }) {
   );
 }
 
-function Placeholder({ area }: { area: "documents" | "drafts" | "precedents" }) {
+function Placeholder({ area }: { area: "drafts" | "precedents" }) {
   const t = useTranslations(`Cases.dashboard.${area}`);
   return <Card title={t("title")} body={t("body")} />;
 }
