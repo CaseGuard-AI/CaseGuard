@@ -7,7 +7,8 @@ info:
     M1 vertical slice: auth, ask a question, an answer with verified citations, and opening a cited source.
     M3 adds cases (FR-CASE): the user's own matters, with the fields of Deliverable II Table 4.29,
     and saving research to a case. It also adds documents (FR-DOC): files uploaded to a case,
-    processed in the background, with their status and any uncertain parts flagged.
+    processed in the background, with their status and any uncertain parts flagged. And it adds
+    notifications (FR-NOT-1): a document's processing finished, was flagged or failed.
 
     - **Auth.** A short-lived access token (JWT) is sent as `Authorization: Bearer`. The refresh
       token lives only in an HttpOnly, Secure, SameSite=Strict cookie scoped to `/api/v1/auth`.
@@ -35,6 +36,8 @@ tags:
     description: The signed-in user's own matters (FR-CASE). Owner only; another user's case is a 404 (FR-AUTH-4)
   - name: documents
     description: Files uploaded to a case and their processing (FR-DOC). Owner only; another user's document is a 404 (FR-AUTH-4)
+  - name: notifications
+    description: The signed-in user's own notifications (FR-NOT-1). Owner only; another user's notification is a 404 (FR-AUTH-4)
   - name: sources
     description: Citations and source records (FR-RES-7, FR-TRUST)
   - name: admin
@@ -713,6 +716,59 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /notifications:
+    get:
+      tags: [notifications]
+      operationId: listNotifications
+      summary: The user's notifications, newest first (FR-NOT-1)
+      description: |
+        The header bell polls this. `unreadCount` is the caller's unread total, whatever the
+        filter and the page, so the bell can show a dot without loading the list. A notification
+        carries no display text: the client words it from `kind` and `filename`, in the user's
+        language.
+      parameters:
+        - $ref: "#/components/parameters/NotificationUnread"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, unreadCount]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Notification" }
+                  nextCursor: { type: [string, "null"] }
+                  unreadCount: { type: integer, minimum: 0 }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /notifications/{notificationId}/read:
+    post:
+      tags: [notifications]
+      operationId: markNotificationRead
+      summary: Mark one notification read
+      description: Idempotent; a notification that is already read keeps its first `readAt`.
+      parameters:
+        - $ref: "#/components/parameters/NotificationId"
+      responses:
+        "204": { description: Read }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /notifications/read-all:
+    post:
+      tags: [notifications]
+      operationId: markAllNotificationsRead
+      summary: Mark every notification of the caller read
+      responses:
+        "204": { description: All read }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /citations/{citationId}:
     get:
       tags: [sources]
@@ -912,6 +968,16 @@ components:
       in: path
       required: true
       schema: { $ref: "#/components/schemas/ProviderId" }
+    NotificationId:
+      name: notificationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    NotificationUnread:
+      name: unread
+      in: query
+      description: "`true` lists only the unread notifications; omitted or `false` lists all."
+      schema: { type: boolean, default: false }
     Limit:
       name: limit
       in: query
@@ -1320,6 +1386,38 @@ components:
           type: string
           contentMediaType: application/octet-stream
           maxLength: 26214400
+
+    NotificationKind:
+      description: |
+        What happened. A document's processing finished `done`, finished `flagged` (uncertain
+        parts, FR-DOC-4) or `failed` after its retries (NFR-13). Created once per attempt's final
+        outcome, never for an automatic retry in between. New kinds (other long jobs) are
+        additive, so a client shows a generic text for a kind it does not know.
+      type: string
+      enum: [document_done, document_flagged, document_failed]
+
+    Notification:
+      description: Every field is present (`null` when empty).
+      type: object
+      required: [id, kind, documentId, caseId, filename, readAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/NotificationKind" }
+        documentId:
+          description: The document it is about; null once that document is deleted.
+          type: [string, "null"]
+          format: uuid
+        caseId:
+          description: The document's case, for the link to the case dashboard.
+          type: string
+          format: uuid
+        filename:
+          description: The document's filename when the notification was made, kept after a delete.
+          type: string
+          minLength: 1
+          maxLength: 255
+        readAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
 
     ConversationUpdate:
       description: Save a conversation to a case, or detach it with `null` (FR-CASE-5).
