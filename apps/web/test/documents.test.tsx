@@ -199,24 +199,23 @@ describe("Upload (FR-DOC-1)", () => {
   });
 
   it("sends the file as multipart to the case and says it is queued", async () => {
-    let part: FormDataEntryValue | null = null;
-    const { calls } = await renderCase(async (seen) => {
-      if (seen.method === "POST" && seen.path === `/cases/${CASE}/documents`) {
-        expect(seen.request.headers.get("content-type")).toContain("multipart/form-data");
-        part = (await seen.request.formData()).get("file");
+    // What reaches the wire depends on how jsdom's FormData crosses into Node's Request, which
+    // differs between Node versions. So the test checks the FormData the code builds: one `file`
+    // part with the file's name. The browser then sends it as multipart with its own boundary.
+    const append = vi.spyOn(FormData.prototype, "append");
+    const file = pdf();
+    const { calls } = await renderCase((seen) => {
+      if (seen.method === "POST" && seen.path === `/cases/${CASE}/documents`)
         return json(doc(DOC, { filename: "FIR.pdf", status: "queued", processedAt: null }), 201);
-      }
       return listRoute(seen);
     });
     await screen.findByText(m.list.emptyCase);
-    pick(pdf());
-    expect(
-      await screen.findByText(m.upload.queued.replace("{name}", "FIR.pdf")),
-    ).toBeTruthy();
+    pick(file);
+    expect(await screen.findByText(m.upload.queued.replace("{name}", "FIR.pdf"))).toBeTruthy();
     expect(calls("POST", `/cases/${CASE}/documents`)).toHaveLength(1);
-    // The one `file` part is there. (Its filename is lost between jsdom's File and Node's
-    // FormData, so it isn't checked here; a browser sends it.)
-    expect(part).not.toBeNull();
+    expect(append).toHaveBeenCalledTimes(1);
+    expect(append).toHaveBeenCalledWith("file", file, "FIR.pdf");
+    append.mockRestore();
   });
 
   it.each([
