@@ -7,6 +7,7 @@ import { createDb } from "../src/db/client.js";
 import { migrateUp } from "../src/db/migrate.js";
 import { createLogger } from "../src/lib/logger.js";
 import { expectContract } from "./contract.js";
+import { documentDeps, noIngestion } from "./stubs.js";
 
 // Runs as caseguard_app against a bootstrapped database (CI sets APP_TEST_DATABASE_URL).
 const url = process.env.APP_TEST_DATABASE_URL;
@@ -36,6 +37,7 @@ const unused = async () => {
   throw new Error("not used");
 };
 const ai: AiClient = {
+  ...noIngestion,
   info: async () => ({ service: "caseguard-ai", version: "test" }),
   answer: unused,
   getCitation: unused,
@@ -92,6 +94,7 @@ describe.skipIf(!url)("cases (api.v1 /cases*)", () => {
       orm: createDb(pool),
       ai,
       mailer: { send: async () => {} },
+      ...documentDeps(),
     });
     alice = await register("alice@example.com");
     bob = await register("bob@example.com");

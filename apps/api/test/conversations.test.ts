@@ -7,6 +7,7 @@ import { createDb } from "../src/db/client.js";
 import { migrateUp } from "../src/db/migrate.js";
 import { createLogger } from "../src/lib/logger.js";
 import { expectContract } from "./contract.js";
+import { documentDeps, noIngestion } from "./stubs.js";
 
 // Runs as caseguard_app against a bootstrapped database (CI sets APP_TEST_DATABASE_URL).
 // services/ai's research/answer arrives with #20, so the AI here is a fake that follows ai.v1.
@@ -46,6 +47,7 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
   let bob: { token: string };
 
   const ai: AiClient = {
+    ...noIngestion,
     info: async () => ({ service: "caseguard-ai", version: "test" }),
     answer: async (req) => {
       calls.push(req);
@@ -133,6 +135,7 @@ describe.skipIf(!url)("conversations (api.v1 /conversations*)", () => {
       orm: createDb(pool),
       ai,
       mailer: { send: async () => {} },
+      ...documentDeps(),
     });
     alice = await register("alice@example.com");
     bob = await register("bob@example.com");

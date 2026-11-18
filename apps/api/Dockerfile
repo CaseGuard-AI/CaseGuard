@@ -20,6 +20,10 @@ COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/package.json ./
 COPY --from=build /repo/apps/api/dist ./dist
 COPY --from=build /repo/apps/api/drizzle ./drizzle
+# Uploaded files (#101): the Compose `uploads` volume is mounted here. Created in the image so
+# a new volume starts out owned by the user the api runs as.
+RUN mkdir -p /data/uploads && chown node:node /data/uploads
+ENV UPLOADS_DIR=/data/uploads
 USER node
 EXPOSE 4000
 HEALTHCHECK --interval=15s --timeout=3s CMD node -e "fetch('http://127.0.0.1:4000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

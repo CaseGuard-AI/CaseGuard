@@ -6,6 +6,7 @@ import { createDb, type Db } from "../src/db/client.js";
 import { migrateUp } from "../src/db/migrate.js";
 import { createLogger } from "../src/lib/logger.js";
 import { expectContract } from "./contract.js";
+import { documentDeps } from "./stubs.js";
 
 // Runs as caseguard_app against a bootstrapped database (CI sets APP_TEST_DATABASE_URL).
 const url = process.env.APP_TEST_DATABASE_URL;
@@ -67,6 +68,7 @@ describe.skipIf(!url)("settings (api.v1 /me/settings)", () => {
       orm: db,
       ai: { info: async () => ({ service: "caseguard-ai", version: "test" }) } as AppDeps["ai"],
       mailer: { send: async () => {} },
+      ...documentDeps(),
     });
     const user = await register("ayesha@example.com");
     token = user.accessToken;

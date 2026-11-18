@@ -79,6 +79,66 @@ export interface Source {
   retrievedAt?: string;
 }
 
+// Document ingestion (FR-DOC-2, ADR-0010).
+export const DOCUMENT_MEDIA_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/png",
+  "image/jpeg",
+  "image/tiff",
+] as const;
+export type DocumentMediaType = (typeof DOCUMENT_MEDIA_TYPES)[number];
+
+export const DOCUMENT_STAGES = [
+  "ocr",
+  "extract",
+  "clean",
+  "structure",
+  "chunk",
+  "embed",
+  "index",
+] as const;
+export type DocumentStage = (typeof DOCUMENT_STAGES)[number];
+
+export interface DocumentFlag {
+  stage: DocumentStage;
+  code: string;
+  message: string;
+  page: number | null;
+}
+
+export interface IngestionRequest {
+  scope: Scope;
+  caseId: string;
+  storageKey: string;
+  mediaType: DocumentMediaType;
+  filename: string;
+  attempt: number;
+}
+
+export type IngestionState = "queued" | "running" | "done" | "flagged" | "failed";
+export type IngestionStageState = "pending" | "running" | "done" | "flagged" | "failed" | "skipped";
+
+export interface IngestionStage {
+  stage: DocumentStage;
+  state: IngestionStageState;
+  startedAt: string | null;
+  finishedAt: string | null;
+  flags: DocumentFlag[];
+}
+
+export interface IngestionStatus {
+  documentId: string;
+  attempt: number;
+  state: IngestionState;
+  stages: IngestionStage[];
+  flags: DocumentFlag[];
+  error: string | null;
+  retryable: boolean;
+  pages: number | null;
+  chunkCount: number | null;
+}
+
 /** A non-2xx response from services/ai. `status` lets routes tell a 404 from an outage. */
 export class AiHttpError extends Error {
   constructor(
@@ -98,6 +158,12 @@ export interface AiClient {
   getCitation(citationId: string): Promise<Citation>;
   /** A corpus source record (FR-RES-7). */
   getSource(sourceId: string): Promise<Source>;
+  /** Submits an ingestion attempt (202). Idempotent per (documentId, attempt). */
+  startIngestion(documentId: string, req: IngestionRequest): Promise<IngestionStatus>;
+  /** The current attempt's status, for polling. */
+  getIngestion(documentId: string): Promise<IngestionStatus>;
+  /** Removes the document's chunks and ingestion records (204). Idempotent. */
+  purgeDocument(documentId: string): Promise<void>;
 }
 
 export function createAiClient(
@@ -113,8 +179,10 @@ export function createAiClient(
       signal: AbortSignal.timeout(ms),
     });
     if (!res.ok) throw new AiHttpError(path, res.status);
+    if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   }
+  const doc = (id: string) => `/ai/v1/documents/${encodeURIComponent(id)}`;
   return {
     info: () => call("/ai/v1/info"),
     answer: (req) =>
@@ -129,5 +197,13 @@ export function createAiClient(
       ),
     getCitation: (id) => call(`/ai/v1/citations/${encodeURIComponent(id)}`),
     getSource: (id) => call(`/ai/v1/sources/${encodeURIComponent(id)}`),
+    startIngestion: (id, req) =>
+      call(`${doc(id)}/ingestion`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(req),
+      }),
+    getIngestion: (id) => call(`${doc(id)}/ingestion`),
+    purgeDocument: (id) => call(doc(id), { method: "DELETE" }),
   };
 }

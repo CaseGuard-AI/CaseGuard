@@ -7,6 +7,7 @@ import { migrateUp } from "../src/db/migrate.js";
 import { createLogger } from "../src/lib/logger.js";
 import { createMailer, type MailMessage, type Mailer } from "../src/lib/mailer.js";
 import { expectContract } from "./contract.js";
+import { documentDeps } from "./stubs.js";
 
 // Runs as caseguard_app against a bootstrapped database (CI sets APP_TEST_DATABASE_URL).
 const url = process.env.APP_TEST_DATABASE_URL;
@@ -44,6 +45,7 @@ describe.skipIf(!url)("password reset (api.v1 /auth/password-reset*)", () => {
       orm: createDb(pool),
       ai: { info: async () => ({ service: "caseguard-ai", version: "test" }) } as AppDeps["ai"],
       mailer,
+      ...documentDeps(),
     });
   }
 

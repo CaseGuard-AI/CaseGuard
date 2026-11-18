@@ -9,6 +9,7 @@ import { createDb } from "../src/db/client.js";
 import { migrateUp } from "../src/db/migrate.js";
 import { createLogger, type Logger } from "../src/lib/logger.js";
 import { expectContract } from "./contract.js";
+import { documentDeps, noIngestion } from "./stubs.js";
 
 // User API keys, the model list and the default model (FR-SET-2, SEC-4, SEC-11, ADR-0009).
 // Runs as caseguard_app against a bootstrapped database (CI sets APP_TEST_DATABASE_URL).
@@ -44,6 +45,7 @@ describe.skipIf(!url)("user keys and models (api.v1 /me/keys, /models)", () => {
   let bob: { token: string; userId: string };
 
   const ai: AiClient = {
+    ...noIngestion,
     info: async () => ({ service: "caseguard-ai", version: "test" }),
     answer: async (req) => {
       calls.push(req);
@@ -71,6 +73,7 @@ describe.skipIf(!url)("user keys and models (api.v1 /me/keys, /models)", () => {
       orm: createDb(pool),
       ai,
       mailer: { send: async () => {} },
+      ...documentDeps(),
     });
   }
 

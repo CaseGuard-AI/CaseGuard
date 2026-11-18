@@ -46,6 +46,22 @@ const schema = z.object({
       .refine(isBase64Key32, "KEY_ENCRYPTION_KEY must be base64 that decodes to exactly 32 bytes")
       .optional(),
   ),
+  // Uploads (#101, data-storage §6). Only the `fs` driver exists so far; `s3` comes with the
+  // hosted demo. Native runs default to the git-ignored /uploads folder at the repo root.
+  STORAGE_DRIVER: z.enum(["fs"]).default("fs"),
+  UPLOADS_DIR: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z
+      .string()
+      .min(1)
+      .default(fileURLToPath(new URL("../../../../uploads", import.meta.url))),
+  ),
+  // The contract caps uploads at 25 MB (FR-DOC-1), so a deployment may only lower it.
+  UPLOAD_MAX_MB: z.coerce.number().int().min(1).max(25).default(25),
+  // Processing attempts per run, automatic retries included (NFR-13, ADR-0010).
+  DOCUMENT_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+  // Runs the pg-boss workers (document ingest and purge) in this process.
+  WORKERS_ENABLED: z.stringbool().default(true),
 });
 
 export type Env = z.infer<typeof schema>;

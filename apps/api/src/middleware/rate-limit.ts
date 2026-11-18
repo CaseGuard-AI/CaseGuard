@@ -79,6 +79,18 @@ export function refreshLimiter() {
   });
 }
 
+/** Uploads per signed-in user: 60 per 15 minutes. Mount after requireAuth. */
+export function uploadLimiter() {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit: 60,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    keyGenerator: (req) => req.auth?.userId ?? ip(req),
+    handler: tooMany,
+  });
+}
+
 /** Questions to the AI per signed-in user: 30 per 15 minutes. Mount after requireAuth. */
 export function aiLimiter() {
   return rateLimit({

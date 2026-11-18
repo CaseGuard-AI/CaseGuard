@@ -24,8 +24,12 @@ SELECT format('ALTER ROLE caseguard_ai LOGIN PASSWORD %L', :'ai_pw') \gexec
 CREATE SCHEMA IF NOT EXISTS app    AUTHORIZATION caseguard_app;
 CREATE SCHEMA IF NOT EXISTS corpus AUTHORIZATION caseguard_ai;
 CREATE SCHEMA IF NOT EXISTS ai     AUTHORIZATION caseguard_ai;
+-- apps/api's job queue (pg-boss, #101). pg-boss creates its own tables here at startup, but not
+-- the schema itself (createSchema: false), since caseguard_app cannot CREATE SCHEMA (ADR-0007).
+CREATE SCHEMA IF NOT EXISTS pgboss AUTHORIZATION caseguard_app;
 
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
+REVOKE ALL ON SCHEMA pgboss FROM PUBLIC;
 REVOKE ALL ON SCHEMA app    FROM PUBLIC;
 REVOKE ALL ON SCHEMA corpus FROM PUBLIC;
 REVOKE ALL ON SCHEMA ai     FROM PUBLIC;
