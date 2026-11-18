@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#101](https://github.com/CaseGuard-AI/CaseGuard/issues/101) · **PR:** [#207](https://github.com/CaseGuard-AI/CaseGuard/pull/207)
+> **Status:** Done · **Issue:** [#101](https://github.com/CaseGuard-AI/CaseGuard/issues/101) · **PR:** [#207](https://github.com/CaseGuard-AI/CaseGuard/pull/207)
 
 # #101: document uploads, storage and the job queue (API)
 
