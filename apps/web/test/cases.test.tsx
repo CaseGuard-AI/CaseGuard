@@ -320,7 +320,7 @@ describe("Case dashboard (FR-CASE-4)", () => {
     expect(screen.getByRole("link", { name: m.dashboard.ask }).getAttribute("href")).toBe(
       `/research?case=${CASE}`,
     );
-    expect(screen.getByText(m.dashboard.documents.body)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: en.Documents.card.title })).toBeTruthy();
   });
 
   it("archives only after the confirmation, then hides asking in the case", async () => {
