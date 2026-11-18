@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#102](https://github.com/CaseGuard-AI/CaseGuard/issues/102) · **PR:** —
+> **Status:** In progress · **Issue:** [#102](https://github.com/CaseGuard-AI/CaseGuard/issues/102) · **PR:** [#205](https://github.com/CaseGuard-AI/CaseGuard/pull/205)
 
 # #102: Documents page with processing status (web)
 
