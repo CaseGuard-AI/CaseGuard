@@ -132,8 +132,8 @@ Decided in [#149](https://github.com/CaseGuard-AI/CaseGuard/issues/149).
 Decided in [#145](https://github.com/CaseGuard-AI/CaseGuard/issues/145). It becomes the storage section of #101. User uploads **never** enter a snapshot or dump.
 
 - **Blob-store interface** in `apps/api` (put / get / delete / deletePrefix), with backends selected by `STORAGE_DRIVER`:
-  - `fs` for dev and CI. In Compose, a named volume `uploads`: `api` mounts it read-write, `ai` read-only. Native runs use a git-ignored folder.
-  - `s3` for the hosted demo. The provider (Supabase preferred) is decided with demo hosting.
+  - `fs` for dev and CI. In Compose, a named volume `uploads` at `/data/uploads`: `api` mounts it read-write, `ai` read-only. Native runs use the git-ignored `/uploads` at the repo root (`UPLOADS_DIR`). **Implemented in #101** (`apps/api/src/storage/blob-store.ts`). Files are world-readable inside the volume because `ai` runs as another user; only `api` and `ai` mount it.
+  - `s3` for the hosted demo. The provider (Supabase preferred) is decided with demo hosting. Not built yet: a follow-up once hosting is decided.
 - **Access:** upload and download go **through the API**, with an ownership check on every request. No presigned URLs in P1.
 - **Keys:** `users/{user_id}/cases/{case_id}/{document_id}`. The original filename lives only in the database. Jobs carry `{document_id, user_id, case_id, storage_key}`.
 - **Derived chunks and embeddings** live in the private **`ai` schema** (e.g. `ai.case_chunks`), never in `corpus`. That is what keeps the corpus dump public. Retrieval combines the corpus with the active case only (FR-CASE-6).

@@ -289,3 +289,12 @@ Only contracts, generated types and docs changed. Plan: `plans/0051`.
 - `/documents` lists all of the user's documents with a link to each case.
 
 Built against the documents contract (#100) with stubbed API calls; the end-to-end check waits for the API (#101). Only `apps/web` changed. The new Urdu strings need native review (#105). Plan: `plans/0050`.
+
+### Document uploads, storage and jobs in the API (#101)
+The API half of roadmap A8, on the #100 contract:
+- uploads to a case, up to 25 MB, with the type taken from the file's bytes (PDF, DOCX, PNG, JPEG, TIFF); anything else is a 415 and nothing is stored;
+- files in a blob store outside the web root (`fs` driver on the Compose `uploads` volume; `s3` waits for demo hosting), downloads only through the API after the ownership check;
+- pg-boss jobs: `document.ingest` submits each attempt to services/ai and polls it one step at a time, logs every stage per attempt, and retries up to 3 attempts before a document is `failed`, never dropped; `document.purge` removes the chunks, the file and the row after a delete;
+- every status change goes through `setDocumentStatus`, the hook for notifications (#103).
+
+pg-boss can't create its own schema as `caseguard_app` (ADR-0007), so `bootstrap.sql` now creates `pgboss`; an existing volume needs `pnpm db:rebootstrap`. services/ai has no ingestion yet (Stream C), so a real upload currently ends `failed` with "processing service is unavailable". Plan: `plans/0049`.
