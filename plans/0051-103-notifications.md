@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#103](https://github.com/CaseGuard-AI/CaseGuard/issues/103) · **PR:** contract [#204](https://github.com/CaseGuard-AI/CaseGuard/pull/204), implementation [#206](https://github.com/CaseGuard-AI/CaseGuard/pull/206)
+> **Status:** Done · **Issue:** [#103](https://github.com/CaseGuard-AI/CaseGuard/issues/103) · **PR:** contract [#204](https://github.com/CaseGuard-AI/CaseGuard/pull/204), implementation [#206](https://github.com/CaseGuard-AI/CaseGuard/pull/206)
 
 # #103: notifications for document processing
 
