@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#210](https://github.com/CaseGuard-AI/CaseGuard/issues/210) · **PR:** pending
+> **Status:** In progress · **Issue:** [#210](https://github.com/CaseGuard-AI/CaseGuard/issues/210) · **PR:** [#219](https://github.com/CaseGuard-AI/CaseGuard/pull/219)
 
 # #210: knowledge graph tables, graph build and precedent search (services/ai)
 
