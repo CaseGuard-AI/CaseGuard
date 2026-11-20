@@ -603,6 +603,242 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/precedents/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search judgments, with graph-derived precedents labelled (FR-PREC-1, FR-PREC-3)
+         * @description Searches the public corpus's judgments and, unless `includeGraphDerived` is false, adds
+         *     judgments one hop away in the knowledge graph. Graph-derived hits have `origin:
+         *     graph_derived` and a `via` edge, and the UI labels them as such (FR-PREC-3). Flags such as
+         *     `overruled` come from the graph (§9.3). No model provider is called, so this works when AI
+         *     features are disabled for the user. Each search writes an audit record.
+         */
+        post: operations["searchPrecedents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/precedents/{sourceId}/relationships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A judgment's typed relationships with provenance and status (FR-PREC-2, FR-PREC-4) */
+        get: operations["getPrecedentRelationships"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drafting/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The drafting templates (FR-DRAFT-1) */
+        get: operations["listDraftTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The user's drafts, most recently updated first (FR-CASE-4) */
+        get: operations["listDrafts"];
+        put?: never;
+        /**
+         * Start a draft from a template, optionally filled from a case (FR-DRAFT-1, FR-DRAFT-2)
+         * @description With `caseId`, every template field with a `caseField` is filled from the case, and the
+         *     draft is saved to the case (FR-CASE-5); the case must be the caller's and active, else 400
+         *     with `errors[].path` of `caseId`. Without it, the fields start empty: drafting works
+         *     without a case. Sections start empty. `title` defaults to the template's title, followed
+         *     by the case's title when there is one.
+         */
+        post: operations["createDraft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drafts/{draftId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draftId: components["parameters"]["DraftId"];
+            };
+            cookie?: never;
+        };
+        /** A draft, with its citations' current stored statuses (FR-TRUST-10) */
+        get: operations["getDraft"];
+        /**
+         * Save a draft (FR-DRAFT-4)
+         * @description Replaces the title, fields and sections. `version` must be the draft's current version,
+         *     else 409 (someone saved it in between); a successful save increments it.
+         *
+         *     - **Sections** are the template's, by key: an unknown key is a 400, and a missing one is
+         *       saved empty.
+         *     - **Citations.** Every `[[c:<citationId>]]` marker in a section must be a citation that
+         *       `assistDraftSection` returned for this draft, else 400 with `errors[].path` of the
+         *       section. A citation whose marker was removed is no longer part of the draft.
+         *     - **Case.** `caseId` may be changed or set to `null`, with the same rule as
+         *       `createDraft`. Fields are not refilled.
+         */
+        put: operations["updateDraft"];
+        post?: never;
+        /**
+         * Delete a draft
+         * @description Final. The draft's citations stay in the trust store, which is an audit trail (FR-TRUST-12).
+         */
+        delete: operations["deleteDraft"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drafts/{draftId}/sections/{sectionKey}/assist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draft one section with AI, with verified citations (FR-DRAFT-3)
+         * @description Drafts the section from the draft's saved fields and other sections, retrieving within
+         *     the public corpus and only the draft's case (FR-CASE-6). Every citation goes through the
+         *     trust layer; the response carries their stored statuses (FR-TRUST-10). Nothing is saved
+         *     into the draft: the user inserts the text, edits it, and saves with `updateDraft`.
+         *
+         *     400 if the section is not in the template or not `assistable`. 403 if AI features are
+         *     disabled for the user (FR-AUTH-3). Providers and the user's own key are applied as for
+         *     `askQuestion` (SEC-11, ADR-0009).
+         */
+        post: operations["assistDraftSection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/drafts/{draftId}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export a draft as DOCX or PDF (FR-DRAFT-4)
+         * @description The saved draft, rendered with its template's headings. Each citation marker becomes a
+         *     footnote with the source, locator and its stored status and last-verified date at the time
+         *     of export (FR-TRUST-5, FR-TRUST-10). Sent with `Content-Disposition: attachment` and
+         *     `X-Content-Type-Options: nosniff`.
+         */
+        get: operations["exportDraft"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lint/rulesets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The linter's rule sets and each rule's source (FR-LINT-1, FR-LINT-2) */
+        get: operations["listLintRulesets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lint-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The user's lint reports, newest first (FR-CASE-4) */
+        get: operations["listLintReports"];
+        put?: never;
+        /**
+         * Lint a document and keep the report (FR-LINT-1, FR-LINT-3, FR-CASE-5)
+         * @description Lints `text` against the rule set for `documentType` and stores the report with the text
+         *     exactly as sent. The text is never modified: `inputSha256` is the SHA-256 of its UTF-8
+         *     bytes (FR-LINT-3). No model provider is called, so this works when AI features are
+         *     disabled for the user.
+         *
+         *     - **Case.** With `caseId`, the report is saved to the case (FR-CASE-5); the case must be
+         *       the caller's and active, else 400 with `errors[].path` of `caseId`.
+         *     - **Draft.** `draftId` only records which draft the text came from. It must be the
+         *       caller's, else 400 with `errors[].path` of `draftId`. The text is always sent, never
+         *       read from the draft.
+         */
+        post: operations["createLintReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lint-reports/{reportId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reportId: components["parameters"]["LintReportId"];
+            };
+            cookie?: never;
+        };
+        /** A lint report with its text and findings */
+        get: operations["getLintReport"];
+        put?: never;
+        post?: never;
+        /** Delete a lint report */
+        delete: operations["deleteLintReport"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/citations/{citationId}": {
         parameters: {
             query?: never;
@@ -1075,6 +1311,131 @@ export interface components {
             /** @description The file's bytes, at most 25 MB (FR-DOC-1). The part needs a `filename`. */
             file: string;
         };
+        PrecedentSearch: {
+            query: string;
+            filters?: components["schemas"]["PrecedentFilters"];
+            /** @default true */
+            includeGraphDerived: boolean;
+            /** @default 20 */
+            limit: number;
+        };
+        PrecedentSearchResult: {
+            /** Format: uuid */
+            requestId: string;
+            hits: components["schemas"]["PrecedentHit"][];
+            /** @description False when the graph has not been built, so no hit can be graph-derived. */
+            graphAvailable: boolean;
+        };
+        DraftSummary: {
+            /** Format: uuid */
+            id: string;
+            templateId: components["schemas"]["DraftTemplateId"];
+            title: string;
+            /** Format: uuid */
+            caseId: string | null;
+            version: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /**
+         * @description Every field is present. `fields` has every key of the template (`null` when empty) and
+         *     `sections` every section of the template, in order (`""` when empty).
+         */
+        Draft: {
+            /** Format: uuid */
+            id: string;
+            templateId: components["schemas"]["DraftTemplateId"];
+            /** @description The template version the draft was created from. */
+            templateVersion: string;
+            title: string;
+            /** Format: uuid */
+            caseId: string | null;
+            fields: {
+                [key: string]: string | null;
+            };
+            sections: components["schemas"]["DraftSectionBody"][];
+            /** @description The citations whose markers are in the sections, with their current stored verification (FR-TRUST-10). */
+            citations: components["schemas"]["Citation"][];
+            /** @description Increments on every save; send it back with `updateDraft`. */
+            version: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        DraftCreate: {
+            templateId: components["schemas"]["DraftTemplateId"];
+            title?: string;
+            /** Format: uuid */
+            caseId?: string | null;
+        };
+        DraftUpdate: {
+            version: number;
+            title: string;
+            /** Format: uuid */
+            caseId: string | null;
+            /** @description Values by template field key. An unknown key is a 400. */
+            fields: {
+                [key: string]: string | null;
+            };
+            sections: components["schemas"]["DraftSectionBody"][];
+        };
+        DraftAssistRequest: {
+            /** @description Optional guidance for this section, e.g. "stress that the accused is a first offender". */
+            instruction?: string;
+        };
+        DraftAssist: {
+            sectionKey: string;
+            /** @description Citation markers appear as `[[c:<citationId>]]`. */
+            text: string;
+            citations: components["schemas"]["Citation"][];
+        };
+        LintReportCreate: {
+            documentType: components["schemas"]["LintDocumentType"];
+            text: string;
+            /** @description Defaults to the document type and date. */
+            title?: string;
+            /** Format: uuid */
+            caseId?: string | null;
+            /** Format: uuid */
+            draftId?: string | null;
+        };
+        LintReportSummary: {
+            /** Format: uuid */
+            id: string;
+            documentType: components["schemas"]["LintDocumentType"];
+            title: string;
+            /** Format: uuid */
+            caseId: string | null;
+            /** Format: uuid */
+            draftId: string | null;
+            findingCounts: {
+                error: number;
+                warning: number;
+                info: number;
+            };
+            /** Format: date-time */
+            createdAt: string;
+        };
+        /** @description Every field is present (`null` when empty). */
+        LintReport: {
+            /** Format: uuid */
+            id: string;
+            documentType: components["schemas"]["LintDocumentType"];
+            title: string;
+            /** Format: uuid */
+            caseId: string | null;
+            /** Format: uuid */
+            draftId: string | null;
+            /** @description The text exactly as linted, byte for byte (FR-LINT-3). */
+            text: string;
+            inputSha256: string;
+            rulesetId: string;
+            rulesetVersion: string;
+            findings: components["schemas"]["LintFinding"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
         /**
          * @description What happened. A document's processing finished `done`, finished `flagged` (uncertain
          *     parts, FR-DOC-4) or `failed` after its retries (NFR-13). Created once per attempt's final
@@ -1195,11 +1556,21 @@ export interface components {
         };
         /** @enum {string} */
         Language: "en" | "ur" | "roman_ur";
+        /**
+         * @description The trust-layer status (§7.2). Exactly one per citation (FR-TRUST-4).
+         * @enum {string}
+         */
+        TrustStatus: "verified" | "needs_review" | "unverified";
+        /**
+         * @description A trust-layer flag (§7.2). Blocking flags force `needs_review`: `overruled`, `repealed`,
+         *     `superseded_version`, `conflict`. The others are non-blocking and shown as chips.
+         * @enum {string}
+         */
+        TrustFlag: "overruled" | "repealed" | "superseded_version" | "conflict" | "stale" | "third_party_source" | "headnote_only" | "amended_since";
         /** @description Stored trust-layer result (§7). Exactly one status per citation (FR-TRUST-4). */
         Verification: {
-            /** @enum {string} */
-            status: "verified" | "needs_review" | "unverified";
-            flags: ("overruled" | "repealed" | "superseded_version" | "conflict" | "stale" | "third_party_source" | "headnote_only" | "amended_since")[];
+            status: components["schemas"]["TrustStatus"];
+            flags: components["schemas"]["TrustFlag"][];
             /** Format: date-time */
             lastVerifiedAt: string;
             checks?: {
@@ -1239,6 +1610,236 @@ export interface components {
          * @enum {string}
          */
         DocumentStage: "ocr" | "extract" | "clean" | "structure" | "chunk" | "embed" | "index";
+        /** @description All optional; an omitted filter doesn't narrow the search. */
+        PrecedentFilters: {
+            /** @description Exact court name as stored, e.g. "Sindh High Court". */
+            court?: string;
+            /** @description Area of law from the case taxonomy (`case-taxonomy.v1.yaml`). */
+            area?: string;
+            /** Format: date */
+            decidedFrom?: string;
+            /** Format: date */
+            decidedTo?: string;
+            /** @description Only judgments citing this statute section, e.g. "s.497 CrPC". */
+            sectionRef?: string;
+        };
+        /**
+         * @description Edge types of the P0 graph taxonomy (§9.2). `OVERRULES` edges are created only from an
+         *     explicit statement in the source metadata or with human confirmation, never from model
+         *     inference alone.
+         * @enum {string}
+         */
+        GraphEdgeType: "CITES_SECTION" | "CITES_JUDGMENT" | "AMENDS" | "SUBSTITUTES" | "INSERTS" | "OMITS" | "REPEALS" | "OVERRULES" | "CONNECTED_CASE";
+        /** @description The graph edge that brought a graph-derived hit in. */
+        PrecedentVia: {
+            /** Format: uuid */
+            edgeId: string;
+            type: components["schemas"]["GraphEdgeType"];
+            /**
+             * Format: uuid
+             * @description The retrieved judgment this hit is linked to.
+             */
+            relatedSourceId: string;
+            /**
+             * @description For `CITES_SECTION`, the section both judgments cite; null otherwise.
+             * @example s.497 CrPC
+             */
+            sectionLabel: string | null;
+        };
+        /** @description One judgment. Every field is present (`null` when unknown). */
+        PrecedentHit: {
+            /** Format: uuid */
+            sourceId: string;
+            title: string;
+            /** @example 2023 SCMR 100 */
+            citation: string | null;
+            court: string | null;
+            /** Format: date */
+            decidedOn: string | null;
+            /**
+             * @description `graph_derived` hits are labelled as such wherever they are shown (FR-PREC-3).
+             * @enum {string}
+             */
+            origin: "retrieved" | "graph_derived";
+            /** @description Set only when `origin` is `graph_derived`. */
+            via: components["schemas"]["PrecedentVia"] | null;
+            /** @description Graph flags on the judgment, e.g. `overruled` (§9.3). */
+            flags: components["schemas"]["TrustFlag"][];
+            /**
+             * @description The best-matching passage's locator; null for graph-derived hits.
+             * @example para 14
+             */
+            locator: string | null;
+            /** @description The best-matching passage, verbatim, at most 500 characters; null for graph-derived hits. */
+            snippet: string | null;
+            /** @description Ranking score, higher is better. Only comparable within one result. */
+            score: number;
+        };
+        /**
+         * @description Entity types of the P0 graph taxonomy (§9.2).
+         * @enum {string}
+         */
+        GraphEntityType: "statute" | "section" | "judgment" | "court" | "amendment_act";
+        GraphEntityRef: {
+            entityType: components["schemas"]["GraphEntityType"];
+            /**
+             * Format: uuid
+             * @description The corpus record, when the entity is one (a judgment or statute); else null.
+             */
+            sourceId: string | null;
+            /**
+             * @example s.497 CrPC
+             * @example 2019 SCMR 1234
+             */
+            label: string;
+        };
+        /** @description Where a graph edge comes from (FR-GRAPH-1). */
+        EdgeProvenance: {
+            /**
+             * Format: uuid
+             * @description The corpus document the edge was extracted from.
+             */
+            documentId: string | null;
+            /**
+             * @description `metadata`: the collector's structured metadata. `regex`: matched in the text. `human`: entered or confirmed by a person.
+             * @enum {string}
+             */
+            extractionMethod: "metadata" | "regex" | "human";
+            confidence: number;
+            humanConfirmed: boolean;
+        };
+        /** @description One graph edge seen from a judgment. Every field is present (`null` when unknown). */
+        Relationship: {
+            /** Format: uuid */
+            id: string;
+            type: components["schemas"]["GraphEdgeType"];
+            /**
+             * @description `outgoing`: this judgment → `other`. `incoming`: `other` → this judgment.
+             * @enum {string}
+             */
+            direction: "outgoing" | "incoming";
+            other: components["schemas"]["GraphEntityRef"];
+            provenance: components["schemas"]["EdgeProvenance"];
+            verificationStatus: components["schemas"]["TrustStatus"];
+            /** Format: date */
+            validFrom: string | null;
+            /** Format: date */
+            validTo: string | null;
+            /** Format: date-time */
+            recordedAt: string;
+        };
+        RelationshipList: {
+            /** Format: uuid */
+            sourceId: string;
+            items: components["schemas"]["Relationship"][];
+        };
+        /** @enum {string} */
+        DraftTemplateId: "bail_application" | "plaint" | "legal_notice";
+        /**
+         * @description A field of api.v1 `Case` that can fill a template field (FR-DRAFT-2). List fields
+         *     (`parties`, `relevantLaws`) are filled as one line per entry.
+         * @enum {string}
+         */
+        CaseField: "title" | "court" | "caseNumber" | "caseType" | "filedOn" | "status" | "nextHearingOn" | "parties" | "judge" | "assignedLawyer" | "relevantLaws" | "summary";
+        DraftTemplateField: {
+            key: string;
+            label: string;
+            required: boolean;
+            /** @description The case field that fills this one when a case is selected; null if none. */
+            caseField: components["schemas"]["CaseField"] | null;
+        };
+        DraftTemplateSection: {
+            key: string;
+            /** @example Grounds for bail */
+            heading: string;
+            required: boolean;
+            /** @description Whether `draftSection` can draft it. */
+            assistable: boolean;
+            /** @description What the section should contain, for the user. */
+            guidance: string;
+        };
+        DraftTemplate: {
+            id: components["schemas"]["DraftTemplateId"];
+            /** @example 1 */
+            version: string;
+            /** @example Bail application (s.497 CrPC) */
+            title: string;
+            description: string;
+            /** @description The particulars the user fills in, in display order. */
+            fields: components["schemas"]["DraftTemplateField"][];
+            /** @description The document's sections, in document order. */
+            sections: components["schemas"]["DraftTemplateSection"][];
+        };
+        DraftTemplateList: {
+            items: components["schemas"]["DraftTemplate"][];
+        };
+        DraftSectionBody: {
+            key: string;
+            /** @description Plain text. Citation markers appear as `[[c:<citationId>]]`. */
+            body: string;
+        };
+        /** @enum {string} */
+        LintDocumentType: "bail_application" | "plaint";
+        /** @enum {string} */
+        LintFindingKind: "missing_section" | "missing_particular" | "structure";
+        /**
+         * @description `error`: the court is likely to return the document. `warning`: probably a defect. `info`: good practice.
+         * @enum {string}
+         */
+        LintSeverity: "error" | "warning" | "info";
+        /** @description Where a rule comes from (FR-LINT-2). */
+        LintRuleSource: {
+            /**
+             * @example s.497 CrPC
+             * @example Order VII r.1 CPC
+             */
+            provision: string;
+            /**
+             * Format: uuid
+             * @description The corpus source for the provision, when it is in the corpus; else null.
+             */
+            reference: string | null;
+        };
+        LintRule: {
+            /** @example bail.grounds */
+            id: string;
+            kind: components["schemas"]["LintFindingKind"];
+            severity: components["schemas"]["LintSeverity"];
+            title: string;
+            /** @description Null means no rule source was identified (FR-LINT-2). */
+            source: components["schemas"]["LintRuleSource"] | null;
+        };
+        LintRuleset: {
+            /** @example bail_application */
+            id: string;
+            documentType: components["schemas"]["LintDocumentType"];
+            /** @example 1 */
+            version: string;
+            title: string;
+            rules: components["schemas"]["LintRule"][];
+        };
+        LintRulesetList: {
+            items: components["schemas"]["LintRuleset"][];
+        };
+        /**
+         * @description A range of the text, `[start, end)`, in UTF-16 code units, so a JavaScript client can
+         *     slice the string directly.
+         */
+        LintSpan: {
+            start: number;
+            end: number;
+        };
+        LintFinding: {
+            ruleId: string;
+            kind: components["schemas"]["LintFindingKind"];
+            severity: components["schemas"]["LintSeverity"];
+            /** @description For the user, in English. */
+            message: string;
+            /** @description Where the problem is; null when something is missing from the whole document. */
+            span: components["schemas"]["LintSpan"] | null;
+            /** @description The rule's source; null means none was identified (FR-LINT-2). */
+            source: components["schemas"]["LintRuleSource"] | null;
+        };
         Source: {
             /** Format: uuid */
             id: string;
@@ -1364,6 +1965,12 @@ export interface components {
         /** @description Only the documents of this case (FR-CASE-4). A case that is not the caller's gives an empty page. */
         DocumentCaseId: string;
         DocumentId: string;
+        /** @description Only the drafts saved to this case (FR-CASE-4). A case that is not the caller's gives an empty page. */
+        DraftCaseId: string;
+        DraftId: string;
+        /** @description Only the reports saved to this case (FR-CASE-4). A case that is not the caller's gives an empty page. */
+        LintReportCaseId: string;
+        LintReportId: string;
         KeyProviderId: components["schemas"]["ProviderId"];
         NotificationId: string;
         /** @description `true` lists only the unread notifications; omitted or `false` lists all. */
@@ -2250,6 +2857,404 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    searchPrecedents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrecedentSearch"];
+            };
+        };
+        responses: {
+            /** @description Hits, best first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrecedentSearchResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getPrecedentRelationships: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sourceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relationships, outgoing first, then incoming */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationshipList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listDraftTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftTemplateList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listDrafts: {
+        parameters: {
+            query?: {
+                /** @description Only the drafts saved to this case (FR-CASE-4). A case that is not the caller's gives an empty page. */
+                caseId?: components["parameters"]["DraftCaseId"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of drafts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["DraftSummary"][];
+                        nextCursor?: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftCreate"];
+            };
+        };
+        responses: {
+            /** @description The new draft, at `version` 1 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Draft"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draftId: components["parameters"]["DraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Draft"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    updateDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draftId: components["parameters"]["DraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftUpdate"];
+            };
+        };
+        responses: {
+            /** @description The saved draft */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Draft"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteDraft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draftId: components["parameters"]["DraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    assistDraftSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                draftId: components["parameters"]["DraftId"];
+                sectionKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftAssistRequest"];
+            };
+        };
+        responses: {
+            /** @description The drafted section */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DraftAssist"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    exportDraft: {
+        parameters: {
+            query: {
+                format: "docx" | "pdf";
+            };
+            header?: never;
+            path: {
+                draftId: components["parameters"]["DraftId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The exported file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": string;
+                    "application/pdf": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listLintRulesets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rule sets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintRulesetList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listLintReports: {
+        parameters: {
+            query?: {
+                /** @description Only the reports saved to this case (FR-CASE-4). A case that is not the caller's gives an empty page. */
+                caseId?: components["parameters"]["LintReportCaseId"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Page of reports */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["LintReportSummary"][];
+                        nextCursor?: string | null;
+                    };
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createLintReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LintReportCreate"];
+            };
+        };
+        responses: {
+            /** @description The report */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getLintReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reportId: components["parameters"]["LintReportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintReport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteLintReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reportId: components["parameters"]["LintReportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getCitation: {

@@ -305,3 +305,13 @@ pg-boss can't create its own schema as `caseguard_app` (ADR-0007), so `bootstrap
 - The document jobs (#101) create one, in the same transaction as the status change, when a document enters `done`, `flagged` or `failed`; never for `queued` or `processing`. A deleted document's notifications stay, with the filename, and lose only the link to it.
 
 The new Urdu strings need native review (#105). Plan: `plans/0051`.
+
+## 2026-11-21
+
+### Contracts for precedents, drafting and the linter (#209)
+The three remaining M3 screens (#106, #107, #108) were waiting on operations that didn't exist. One contract PR now adds all of them, so that three tracks can be built in parallel without conflicts in the specs.
+- **Precedents.** Search is hybrid retrieval plus one graph hop, with every hit labelled `retrieved` or `graph_derived` and its graph flags (ADR-0011). A judgment's relationships come with provenance and status.
+- **Drafting.** Templates for the bail application, plaint and legal notice. Drafts can be filled from a case and are saved with a version (409 if stale). AI assist for a section puts its citations through the trust layer. Drafts export to DOCX and PDF.
+- **Linter.** It is deterministic and read-only (ADR-0012). Rule sets cite their sources, and a stored report keeps the text as sent, with its SHA-256.
+
+Plan: `plans/0052`.
