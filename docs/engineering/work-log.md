@@ -315,3 +315,11 @@ The three remaining M3 screens (#106, #107, #108) were waiting on operations tha
 - **Linter.** It is deterministic and read-only (ADR-0012). Rule sets cite their sources, and a stored report keeps the text as sent, with its SHA-256.
 
 Plan: `plans/0052`.
+
+### Knowledge graph and precedent search in services/ai (#210)
+The graph now exists in Postgres (ADR-0003). Migration `0002_graph` adds the entity and edge tables of PRD §9.1. `pnpm ai:graph-build` fills them from what the collector already gives us: cited cases, cited laws, connected cases, and citations and section references found in the text. Every edge records where it came from, how (`metadata` or `regex`) and how sure we are. `OVERRULES` edges come only from explicit metadata, never from inference. Re-running the build changes nothing.
+- **Precedent search** is hybrid retrieval over judgments, then one graph hop (ADR-0011). Hits found through the graph are labelled `graph_derived` with the edge that brought them in (FR-PREC-3), and an overruled judgment is flagged.
+- **Relationships** of a judgment come with provenance and status (FR-PREC-4).
+- A corpus dump restore now empties the graph, which is derived data; rebuild it afterwards.
+
+Plan: `plans/0053`.

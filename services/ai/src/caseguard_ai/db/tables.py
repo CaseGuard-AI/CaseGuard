@@ -22,6 +22,7 @@ from sqlalchemy import (
     Column,
     Computed,
     Date,
+    Double,
     ForeignKey,
     Index,
     Integer,
@@ -52,6 +53,20 @@ FLAGS = (
     "amended_since",
 )
 DOCUMENT_KINDS = ("statute", "judgment", "rule", "other")  # ai.v1 Source.kind
+# The P0 graph taxonomy (PRD §9.2, ai.v1 GraphEntityType / GraphEdgeType).
+ENTITY_TYPES = ("statute", "section", "judgment", "court", "amendment_act")
+EDGE_TYPES = (
+    "CITES_SECTION",
+    "CITES_JUDGMENT",
+    "AMENDS",
+    "SUBSTITUTES",
+    "INSERTS",
+    "OMITS",
+    "REPEALS",
+    "OVERRULES",
+    "CONNECTED_CASE",
+)
+EXTRACTION_METHODS = ("metadata", "regex", "human")  # ai.v1 EdgeProvenance.extractionMethod
 
 metadata = MetaData()
 
@@ -173,6 +188,76 @@ corpus_meta = Table(
     Column("input_snapshots", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
     Column("built_at", TIMESTAMP(timezone=True)),
     CheckConstraint("id = 1", name="corpus_meta_single_row"),
+    schema="corpus",
+)
+
+# The knowledge graph (PRD §9.1, ADR-0003, #210). Derived from corpus.documents by
+# caseguard_ai.graph.build, so it is not part of a corpus dump: rebuild it after a restore.
+#
+# An entity is a corpus record (``ref_table``/``ref_id``) or something only named in the text,
+# such as an unresolved citation or a statute section. ``key`` makes the build idempotent.
+graph_entities = Table(
+    "graph_entities",
+    metadata,
+    _id(),
+    Column("type", Text, nullable=False),
+    Column("ref_table", Text),  # "documents" when the entity is (or belongs to) a corpus record
+    Column("ref_id", UUID(as_uuid=True)),  # no FK: a dump restore truncates the graph too
+    Column("label", Text, nullable=False),  # "2019 SCMR 984", "s.497 CrPC"
+    Column("key", Text, nullable=False),  # "doc:<uuid>", "cite:2019 SCMR 984", "s.497 CrPC"
+    _now(),
+    CheckConstraint(_in("type", ENTITY_TYPES), name="graph_entities_type_check"),
+    UniqueConstraint("type", "key", name="graph_entities_type_key_key"),
+    Index("graph_entities_ref_id_idx", "ref_id"),
+    schema="corpus",
+)
+
+# Every edge carries its provenance (FR-GRAPH-1): the document it came from, how, and how sure.
+# OVERRULES edges only from explicit metadata or a human (§9.2), never inferred.
+graph_edges = Table(
+    "graph_edges",
+    metadata,
+    _id(),
+    Column("type", Text, nullable=False),
+    Column(
+        "src_entity",
+        UUID(as_uuid=True),
+        ForeignKey("corpus.graph_entities.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column(
+        "dst_entity",
+        UUID(as_uuid=True),
+        ForeignKey("corpus.graph_entities.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("valid_from", Date),
+    Column("valid_to", Date),
+    Column("recorded_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")),
+    Column(
+        "provenance_doc_id",
+        UUID(as_uuid=True),
+        ForeignKey("corpus.documents.id", ondelete="CASCADE"),
+    ),
+    Column("extraction_method", Text, nullable=False),
+    Column("confidence", Double, nullable=False),
+    Column("human_confirmed", Boolean, nullable=False, server_default=text("false")),
+    Column("verification_status", Text, nullable=False, server_default=text("'unverified'")),
+    CheckConstraint(_in("type", EDGE_TYPES), name="graph_edges_type_check"),
+    CheckConstraint(
+        _in("extraction_method", EXTRACTION_METHODS), name="graph_edges_extraction_method_check"
+    ),
+    CheckConstraint("confidence >= 0 AND confidence <= 1", name="graph_edges_confidence_check"),
+    CheckConstraint(
+        _in("verification_status", STATUSES), name="graph_edges_verification_status_check"
+    ),
+    # One edge per relation and source document: what makes a re-run of the build a no-op.
+    UniqueConstraint(
+        "type", "src_entity", "dst_entity", "provenance_doc_id", name="graph_edges_identity_key"
+    ),
+    Index("graph_edges_src_entity_idx", "src_entity"),
+    Index("graph_edges_dst_entity_idx", "dst_entity"),
+    Index("graph_edges_type_idx", "type"),
     schema="corpus",
 )
 
