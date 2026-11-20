@@ -212,6 +212,16 @@ def test_complete_documents_have_no_findings(name: str) -> None:
     assert not [f for f in result.findings if f.severity == "error"]
 
 
+@pytest.mark.parametrize("rule_id", ["bail.accused_particulars", "plaint.defendant_particulars"])
+def test_windows_line_endings_lint_the_same(rule_id: str) -> None:
+    # Text pasted from a Windows file has CRLF; blank lines must still end a party block.
+    name, mutate = SEEDED[rule_id]
+    crlf = fixture(name).replace("\n", "\r\n")
+    assert lint(DOC_TYPE[name], crlf).findings == ()
+    findings = lint(DOC_TYPE[name], mutate(fixture(name)).replace("\n", "\r\n")).findings
+    assert [f.rule_id for f in findings] == [rule_id]
+
+
 def test_every_rule_has_a_seeded_defect() -> None:
     assert sorted(SEEDED) == sorted(all_rule_ids())
 

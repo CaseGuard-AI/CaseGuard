@@ -31,8 +31,8 @@ rules:
     message: Could not find the plaintiff's description (parentage) and place of residence next to the plaintiff's name.
     detect:
       allOf:
-        - ['\b(?:s/o|son\s+of|d/o|daughter\s+of|w/o|wife\s+of)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\bplaintiffs?\b']
-        - ['\b(?:r/o|resident\s+of|residing\s+at)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\bplaintiffs?\b']
+        - ['\b(?:s/o|son\s+of|d/o|daughter\s+of|w/o|wife\s+of)\b(?:[^\n]|\n(?![\t \r]*\n)){0,300}?\bplaintiffs?\b']
+        - ['\b(?:r/o|resident\s+of|residing\s+at)\b(?:[^\n]|\n(?![\t \r]*\n)){0,300}?\bplaintiffs?\b']
       near: { anchor: ['\bplaintiffs?\b'], window: 400 }
     source: { provision: "Order VII r.1(b) CPC", reference: null }
 
@@ -43,8 +43,8 @@ rules:
     message: Could not find the defendant's description (parentage) and place of residence next to the defendant's name.
     detect:
       allOf:
-        - ['\b(?:s/o|son\s+of|d/o|daughter\s+of|w/o|wife\s+of)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\bdefendants?\b']
-        - ['\b(?:r/o|resident\s+of|residing\s+at)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\bdefendants?\b']
+        - ['\b(?:s/o|son\s+of|d/o|daughter\s+of|w/o|wife\s+of)\b(?:[^\n]|\n(?![\t \r]*\n)){0,300}?\bdefendants?\b']
+        - ['\b(?:r/o|resident\s+of|residing\s+at)\b(?:[^\n]|\n(?![\t \r]*\n)){0,300}?\bdefendants?\b']
       near: { anchor: ['\bdefendants?\b'], window: 400 }
     source: { provision: "Order VII r.1(c) CPC", reference: null }
 

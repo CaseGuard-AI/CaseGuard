@@ -88,8 +88,8 @@ rules:
     message: Could not find the accused's parentage and residence next to the applicant's name.
     detect:
       allOf:
-        - ['\b(?:s/o|son\s+of|d/o|daughter\s+of|w/o|wife\s+of)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\b(?:applicant|accused|petitioner)s?\b']
-        - ['\b(?:r/o|resident\s+of|residing\s+at)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\b(?:applicant|accused|petitioner)s?\b']
+        - ['\b(?:s/o|son\s+of|d/o|daughter\s+of|w/o|wife\s+of)\b(?:[^\n]|\n(?![\t \r]*\n)){0,300}?\b(?:applicant|accused|petitioner)s?\b']
+        - ['\b(?:r/o|resident\s+of|residing\s+at)\b(?:[^\n]|\n(?![\t \r]*\n)){0,300}?\b(?:applicant|accused|petitioner)s?\b']
       near: { anchor: ['\b(?:applicant|accused|petitioner)s?\b'], window: 400 }
     source: null
 
@@ -128,7 +128,7 @@ rules:
     message: Could not find the grounds for bail.
     detect:
       anyOf:
-        - '^[\t ]*(?:\d+[.)][\t ]*)?GROUNDS?\b(?:[\t ]+(?:FOR|OF)[\t ]+BAIL)?[\t ]*:?[\t ]*$'
+        - '^[\t ]*(?:\d+[.)][\t ]*)?GROUNDS?\b(?:[\t ]+(?:FOR|OF)[\t ]+BAIL)?[\t ]*:?[\t \r]*$'
         - '\bon\s+(?:the\s+)?following\s+grounds\b'
         - '\bgrounds\s+(?:for|of)\s+bail\b'
     source: { provision: "s.497(2) CrPC", reference: null }
