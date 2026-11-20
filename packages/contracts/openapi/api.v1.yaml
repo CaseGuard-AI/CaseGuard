@@ -8,7 +8,9 @@ info:
     M3 adds cases (FR-CASE): the user's own matters, with the fields of Deliverable II Table 4.29,
     and saving research to a case. It also adds documents (FR-DOC): files uploaded to a case,
     processed in the background, with their status and any uncertain parts flagged. And it adds
-    notifications (FR-NOT-1): a document's processing finished, was flagged or failed.
+    notifications (FR-NOT-1): a document's processing finished, was flagged or failed. It also
+    adds precedent search over the knowledge graph (FR-PREC), drafting from templates with
+    AI-assisted sections (FR-DRAFT), and procedural lint reports (FR-LINT).
 
     - **Auth.** A short-lived access token (JWT) is sent as `Authorization: Bearer`. The refresh
       token lives only in an HttpOnly, Secure, SameSite=Strict cookie scoped to `/api/v1/auth`.
@@ -38,6 +40,12 @@ tags:
     description: Files uploaded to a case and their processing (FR-DOC). Owner only; another user's document is a 404 (FR-AUTH-4)
   - name: notifications
     description: The signed-in user's own notifications (FR-NOT-1). Owner only; another user's notification is a 404 (FR-AUTH-4)
+  - name: precedents
+    description: Judgment search with graph-derived precedents and their relationships (FR-PREC)
+  - name: drafting
+    description: Templates and the signed-in user's own drafts (FR-DRAFT). Owner only; another user's draft is a 404 (FR-AUTH-4)
+  - name: linter
+    description: Procedural lint reports for a bail application or plaint (FR-LINT). Owner only; another user's report is a 404 (FR-AUTH-4)
   - name: sources
     description: Citations and source records (FR-RES-7, FR-TRUST)
   - name: admin
@@ -769,6 +777,333 @@ paths:
         "204": { description: All read }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /precedents/search:
+    post:
+      tags: [precedents]
+      operationId: searchPrecedents
+      summary: Search judgments, with graph-derived precedents labelled (FR-PREC-1, FR-PREC-3)
+      description: |
+        Searches the public corpus's judgments and, unless `includeGraphDerived` is false, adds
+        judgments one hop away in the knowledge graph. Graph-derived hits have `origin:
+        graph_derived` and a `via` edge, and the UI labels them as such (FR-PREC-3). Flags such as
+        `overruled` come from the graph (§9.3). No model provider is called, so this works when AI
+        features are disabled for the user. Each search writes an audit record.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrecedentSearch" }
+      responses:
+        "200":
+          description: Hits, best first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrecedentSearchResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /precedents/{sourceId}/relationships:
+    get:
+      tags: [precedents]
+      operationId: getPrecedentRelationships
+      summary: A judgment's typed relationships with provenance and status (FR-PREC-2, FR-PREC-4)
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Relationships, outgoing first, then incoming
+          content:
+            application/json:
+              schema: { $ref: "./ai.v1.yaml#/components/schemas/RelationshipList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /drafting/templates:
+    get:
+      tags: [drafting]
+      operationId: listDraftTemplates
+      summary: The drafting templates (FR-DRAFT-1)
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema: { $ref: "./ai.v1.yaml#/components/schemas/DraftTemplateList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /drafts:
+    get:
+      tags: [drafting]
+      operationId: listDrafts
+      summary: The user's drafts, most recently updated first (FR-CASE-4)
+      parameters:
+        - $ref: "#/components/parameters/DraftCaseId"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of drafts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/DraftSummary" }
+                  nextCursor: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [drafting]
+      operationId: createDraft
+      summary: Start a draft from a template, optionally filled from a case (FR-DRAFT-1, FR-DRAFT-2)
+      description: |
+        With `caseId`, every template field with a `caseField` is filled from the case, and the
+        draft is saved to the case (FR-CASE-5); the case must be the caller's and active, else 400
+        with `errors[].path` of `caseId`. Without it, the fields start empty: drafting works
+        without a case. Sections start empty. `title` defaults to the template's title, followed
+        by the case's title when there is one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DraftCreate" }
+      responses:
+        "201":
+          description: The new draft, at `version` 1
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Draft" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /drafts/{draftId}:
+    parameters:
+      - $ref: "#/components/parameters/DraftId"
+    get:
+      tags: [drafting]
+      operationId: getDraft
+      summary: A draft, with its citations' current stored statuses (FR-TRUST-10)
+      responses:
+        "200":
+          description: Draft
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Draft" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    put:
+      tags: [drafting]
+      operationId: updateDraft
+      summary: Save a draft (FR-DRAFT-4)
+      description: |
+        Replaces the title, fields and sections. `version` must be the draft's current version,
+        else 409 (someone saved it in between); a successful save increments it.
+
+        - **Sections** are the template's, by key: an unknown key is a 400, and a missing one is
+          saved empty.
+        - **Citations.** Every `[[c:<citationId>]]` marker in a section must be a citation that
+          `assistDraftSection` returned for this draft, else 400 with `errors[].path` of the
+          section. A citation whose marker was removed is no longer part of the draft.
+        - **Case.** `caseId` may be changed or set to `null`, with the same rule as
+          `createDraft`. Fields are not refilled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DraftUpdate" }
+      responses:
+        "200":
+          description: The saved draft
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Draft" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [drafting]
+      operationId: deleteDraft
+      summary: Delete a draft
+      description: Final. The draft's citations stay in the trust store, which is an audit trail (FR-TRUST-12).
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /drafts/{draftId}/sections/{sectionKey}/assist:
+    post:
+      tags: [drafting]
+      operationId: assistDraftSection
+      summary: Draft one section with AI, with verified citations (FR-DRAFT-3)
+      description: |
+        Drafts the section from the draft's saved fields and other sections, retrieving within
+        the public corpus and only the draft's case (FR-CASE-6). Every citation goes through the
+        trust layer; the response carries their stored statuses (FR-TRUST-10). Nothing is saved
+        into the draft: the user inserts the text, edits it, and saves with `updateDraft`.
+
+        400 if the section is not in the template or not `assistable`. 403 if AI features are
+        disabled for the user (FR-AUTH-3). Providers and the user's own key are applied as for
+        `askQuestion` (SEC-11, ADR-0009).
+      parameters:
+        - $ref: "#/components/parameters/DraftId"
+        - name: sectionKey
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[a-z][a-z0-9_]{0,63}$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DraftAssistRequest" }
+      responses:
+        "200":
+          description: The drafted section
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DraftAssist" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /drafts/{draftId}/export:
+    get:
+      tags: [drafting]
+      operationId: exportDraft
+      summary: Export a draft as DOCX or PDF (FR-DRAFT-4)
+      description: |
+        The saved draft, rendered with its template's headings. Each citation marker becomes a
+        footnote with the source, locator and its stored status and last-verified date at the time
+        of export (FR-TRUST-5, FR-TRUST-10). Sent with `Content-Disposition: attachment` and
+        `X-Content-Type-Options: nosniff`.
+      parameters:
+        - $ref: "#/components/parameters/DraftId"
+        - name: format
+          in: query
+          required: true
+          schema: { type: string, enum: [docx, pdf] }
+      responses:
+        "200":
+          description: The exported file
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema: { type: string, contentMediaType: application/octet-stream }
+            application/pdf:
+              schema: { type: string, contentMediaType: application/octet-stream }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /lint/rulesets:
+    get:
+      tags: [linter]
+      operationId: listLintRulesets
+      summary: The linter's rule sets and each rule's source (FR-LINT-1, FR-LINT-2)
+      responses:
+        "200":
+          description: Rule sets
+          content:
+            application/json:
+              schema: { $ref: "./ai.v1.yaml#/components/schemas/LintRulesetList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /lint-reports:
+    get:
+      tags: [linter]
+      operationId: listLintReports
+      summary: The user's lint reports, newest first (FR-CASE-4)
+      parameters:
+        - $ref: "#/components/parameters/LintReportCaseId"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Page of reports
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/LintReportSummary" }
+                  nextCursor: { type: [string, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [linter]
+      operationId: createLintReport
+      summary: Lint a document and keep the report (FR-LINT-1, FR-LINT-3, FR-CASE-5)
+      description: |
+        Lints `text` against the rule set for `documentType` and stores the report with the text
+        exactly as sent. The text is never modified: `inputSha256` is the SHA-256 of its UTF-8
+        bytes (FR-LINT-3). No model provider is called, so this works when AI features are
+        disabled for the user.
+
+        - **Case.** With `caseId`, the report is saved to the case (FR-CASE-5); the case must be
+          the caller's and active, else 400 with `errors[].path` of `caseId`.
+        - **Draft.** `draftId` only records which draft the text came from. It must be the
+          caller's, else 400 with `errors[].path` of `draftId`. The text is always sent, never
+          read from the draft.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LintReportCreate" }
+      responses:
+        "201":
+          description: The report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LintReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /lint-reports/{reportId}:
+    parameters:
+      - $ref: "#/components/parameters/LintReportId"
+    get:
+      tags: [linter]
+      operationId: getLintReport
+      summary: A lint report with its text and findings
+      responses:
+        "200":
+          description: Report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LintReport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [linter]
+      operationId: deleteLintReport
+      summary: Delete a lint report
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /citations/{citationId}:
     get:
       tags: [sources]
@@ -960,6 +1295,26 @@ components:
       schema: { type: string, format: uuid }
     DocumentId:
       name: documentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DraftCaseId:
+      name: caseId
+      in: query
+      description: Only the drafts saved to this case (FR-CASE-4). A case that is not the caller's gives an empty page.
+      schema: { type: string, format: uuid }
+    DraftId:
+      name: draftId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    LintReportCaseId:
+      name: caseId
+      in: query
+      description: Only the reports saved to this case (FR-CASE-4). A case that is not the caller's gives an empty page.
+      schema: { type: string, format: uuid }
+    LintReportId:
+      name: reportId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -1386,6 +1741,162 @@ components:
           type: string
           contentMediaType: application/octet-stream
           maxLength: 26214400
+
+    PrecedentSearch:
+      type: object
+      required: [query]
+      additionalProperties: false
+      properties:
+        query: { type: string, minLength: 1, maxLength: 1000 }
+        filters: { $ref: "./ai.v1.yaml#/components/schemas/PrecedentFilters" }
+        includeGraphDerived: { type: boolean, default: true }
+        limit: { type: integer, minimum: 1, maximum: 50, default: 20 }
+
+    PrecedentSearchResult:
+      $ref: "./ai.v1.yaml#/components/schemas/PrecedentSearchResult"
+
+    DraftSummary:
+      type: object
+      required: [id, templateId, title, caseId, version, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        templateId: { $ref: "./ai.v1.yaml#/components/schemas/DraftTemplateId" }
+        title: { type: string }
+        caseId: { type: [string, "null"], format: uuid }
+        version: { type: integer, minimum: 1 }
+        updatedAt: { type: string, format: date-time }
+
+    Draft:
+      description: |
+        Every field is present. `fields` has every key of the template (`null` when empty) and
+        `sections` every section of the template, in order (`""` when empty).
+      type: object
+      required: [id, templateId, templateVersion, title, caseId, fields, sections, citations, version, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        templateId: { $ref: "./ai.v1.yaml#/components/schemas/DraftTemplateId" }
+        templateVersion:
+          description: The template version the draft was created from.
+          type: string
+        title: { type: string, minLength: 1, maxLength: 200 }
+        caseId: { type: [string, "null"], format: uuid }
+        fields:
+          type: object
+          additionalProperties: { type: [string, "null"], maxLength: 4000 }
+        sections:
+          type: array
+          items: { $ref: "./ai.v1.yaml#/components/schemas/DraftSectionBody" }
+        citations:
+          description: The citations whose markers are in the sections, with their current stored verification (FR-TRUST-10).
+          type: array
+          items: { $ref: "./ai.v1.yaml#/components/schemas/Citation" }
+        version:
+          description: Increments on every save; send it back with `updateDraft`.
+          type: integer
+          minimum: 1
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    DraftCreate:
+      type: object
+      required: [templateId]
+      additionalProperties: false
+      properties:
+        templateId: { $ref: "./ai.v1.yaml#/components/schemas/DraftTemplateId" }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        caseId: { type: [string, "null"], format: uuid }
+
+    DraftUpdate:
+      type: object
+      required: [version, title, caseId, fields, sections]
+      additionalProperties: false
+      properties:
+        version: { type: integer, minimum: 1 }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        caseId: { type: [string, "null"], format: uuid }
+        fields:
+          description: Values by template field key. An unknown key is a 400.
+          type: object
+          additionalProperties: { type: [string, "null"], maxLength: 4000 }
+        sections:
+          type: array
+          maxItems: 30
+          items: { $ref: "./ai.v1.yaml#/components/schemas/DraftSectionBody" }
+
+    DraftAssistRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        instruction:
+          description: Optional guidance for this section, e.g. "stress that the accused is a first offender".
+          type: string
+          maxLength: 2000
+
+    DraftAssist:
+      type: object
+      required: [sectionKey, text, citations]
+      properties:
+        sectionKey: { type: string }
+        text:
+          description: Citation markers appear as `[[c:<citationId>]]`.
+          type: string
+        citations:
+          type: array
+          items: { $ref: "./ai.v1.yaml#/components/schemas/Citation" }
+
+    LintReportCreate:
+      type: object
+      required: [documentType, text]
+      additionalProperties: false
+      properties:
+        documentType: { $ref: "./ai.v1.yaml#/components/schemas/LintDocumentType" }
+        text: { type: string, minLength: 1, maxLength: 200000 }
+        title:
+          description: Defaults to the document type and date.
+          type: string
+          minLength: 1
+          maxLength: 200
+        caseId: { type: [string, "null"], format: uuid }
+        draftId: { type: [string, "null"], format: uuid }
+
+    LintReportSummary:
+      type: object
+      required: [id, documentType, title, caseId, draftId, findingCounts, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        documentType: { $ref: "./ai.v1.yaml#/components/schemas/LintDocumentType" }
+        title: { type: string }
+        caseId: { type: [string, "null"], format: uuid }
+        draftId: { type: [string, "null"], format: uuid }
+        findingCounts:
+          type: object
+          required: [error, warning, info]
+          properties:
+            error: { type: integer, minimum: 0 }
+            warning: { type: integer, minimum: 0 }
+            info: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+
+    LintReport:
+      description: Every field is present (`null` when empty).
+      type: object
+      required: [id, documentType, title, caseId, draftId, text, inputSha256, rulesetId, rulesetVersion, findings, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        documentType: { $ref: "./ai.v1.yaml#/components/schemas/LintDocumentType" }
+        title: { type: string }
+        caseId: { type: [string, "null"], format: uuid }
+        draftId: { type: [string, "null"], format: uuid }
+        text:
+          description: The text exactly as linted, byte for byte (FR-LINT-3).
+          type: string
+        inputSha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+        rulesetId: { type: string }
+        rulesetVersion: { type: string }
+        findings:
+          type: array
+          items: { $ref: "./ai.v1.yaml#/components/schemas/LintFinding" }
+        createdAt: { type: string, format: date-time }
 
     NotificationKind:
       description: |

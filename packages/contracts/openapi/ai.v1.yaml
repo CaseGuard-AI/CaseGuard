@@ -33,6 +33,18 @@ tags:
     description: |
       Processing a user's uploaded document into case chunks (FR-DOC-2, FR-DOC-6, ADR-0010).
       apps/api submits and polls; services/ai never calls apps/api.
+  - name: precedents
+    description: |
+      Judgment search over the public corpus, expanded through the knowledge graph (FR-PREC,
+      FR-GRAPH-1, ADR-0011). Deterministic: no model provider is called.
+  - name: drafting
+    description: |
+      Templates and AI-assisted section drafting (FR-DRAFT). Every citation inserted goes through
+      the trust layer and is stored in the single trust store (FR-DRAFT-3, FR-TRUST-10).
+  - name: linter
+    description: |
+      Procedural linting of a bail application or plaint against a rule set (FR-LINT,
+      ADR-0012). Deterministic and read-only: the text is never modified (FR-LINT-3).
 
 paths:
   /ai/v1/info:
@@ -205,6 +217,154 @@ paths:
         "204": { description: Purged }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "503": { $ref: "#/components/responses/Unavailable" }
+
+  /ai/v1/precedents/search:
+    post:
+      tags: [precedents]
+      operationId: searchPrecedents
+      summary: Find judgments for a query, with graph-derived precedents labelled (FR-PREC-3)
+      description: |
+        Runs hybrid retrieval over the public corpus's judgments, groups the chunks by judgment
+        (`origin: retrieved`), then, when `includeGraphDerived` is true, adds judgments one hop
+        away in the graph (`origin: graph_derived`, with `via` saying which edge brought them in,
+        ADR-0011):
+        - judgments a retrieved judgment cites (`CITES_JUDGMENT`) or that cite it;
+        - judgments connected to it (`CONNECTED_CASE`);
+        - judgments citing the same statute section (`CITES_SECTION`).
+
+        Every hit carries the graph flags that apply to it, such as `overruled` when an
+        `OVERRULES` edge points at it (§9.3 "constrain"). Graph-derived hits are ranked after the
+        retrieved hits they came from. A judgment is listed once: if it is both retrieved and
+        graph-derived, it is `retrieved`.
+
+        Judgments are public, so the search needs no scope; case documents are never searched.
+        If the graph has not been built yet, `graphAvailable` is false and only retrieved hits are
+        returned. No model provider is called, so the request carries no `allowedProviders`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrecedentSearchRequest" }
+      responses:
+        "200":
+          description: Hits, best first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrecedentSearchResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /ai/v1/precedents/{sourceId}/relationships:
+    get:
+      tags: [precedents]
+      operationId: getPrecedentRelationships
+      summary: A judgment's typed relationships, with provenance and status (FR-PREC-2, FR-PREC-4)
+      description: |
+        Every graph edge into or out of the judgment, one hop. Each carries its provenance (the
+        document it was extracted from, how, with what confidence, whether a human confirmed it)
+        and its verification status. `OVERRULES` edges exist only from an explicit statement in
+        the source metadata or with human confirmation (§9.2). 404 if `sourceId` is not a judgment
+        in the corpus.
+      parameters:
+        - $ref: "#/components/parameters/SourceId"
+      responses:
+        "200":
+          description: Relationships, outgoing first, then incoming
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RelationshipList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /ai/v1/drafting/templates:
+    get:
+      tags: [drafting]
+      operationId: listDraftTemplates
+      summary: The drafting templates (FR-DRAFT-1)
+      description: |
+        Bail application (s.497/498 CrPC), plaint (Order VII CPC) and legal notice. Each lists its
+        fields (with the case field that fills it, FR-DRAFT-2) and its sections in document order.
+        A template's `version` changes whenever its fields or sections change.
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DraftTemplateList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /ai/v1/drafting/sections:
+    post:
+      tags: [drafting]
+      operationId: draftSection
+      summary: Draft one section of a document, with verified citations (FR-DRAFT-3)
+      description: |
+        Retrieves within `scope` (public corpus plus only the allowed case, FR-CASE-6), asks the
+        generation model for the section, and sends every citation through the same trust layer
+        as research: existence, then support, then currency (§7.1). Returns only when every
+        citation has a stored verification; the statuses are read back from the trust store
+        (FR-TRUST-10). A citation that fails is still returned with its stored status, never
+        shown as verified (FR-TRUST-8).
+
+        An audit record is written under `requestId` (FR-TRUST-12). Neither the instruction nor
+        the fields are stored.
+
+        Providers, credential and 503 follow `answerQuestion` exactly (SEC-11, ADR-0009). 400 if
+        the template or section doesn't exist or the section is not `assistable`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DraftSectionRequest" }
+      responses:
+        "200":
+          description: The drafted section
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DraftSectionResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /ai/v1/lint/rulesets:
+    get:
+      tags: [linter]
+      operationId: listLintRulesets
+      summary: The linter's rule sets (FR-LINT-1, FR-LINT-2)
+      responses:
+        "200":
+          description: Rule sets
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LintRulesetList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /ai/v1/lint:
+    post:
+      tags: [linter]
+      operationId: lintDocument
+      summary: Lint a document's text against its rule set (FR-LINT-1, FR-LINT-3)
+      description: |
+        Checks required sections, required particulars and structure, and returns one finding
+        per problem. Deterministic: the same text and rule-set version give the same findings,
+        and no model provider is called (ADR-0012). The text is never modified or stored;
+        `inputSha256` is the SHA-256 of the text's UTF-8 bytes as received, so a caller can show
+        the document is unchanged (FR-LINT-3). Each finding cites its rule source or has
+        `source: null`, meaning none was identified (FR-LINT-2).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LintRequest" }
+      responses:
+        "200":
+          description: Findings in document order; findings without a span come last
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LintResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
 components:
   securitySchemes:
@@ -415,24 +575,10 @@ components:
       type: object
       required: [status, flags, lastVerifiedAt]
       properties:
-        status:
-          type: string
-          enum: [verified, needs_review, unverified]
+        status: { $ref: "#/components/schemas/TrustStatus" }
         flags:
           type: array
-          items:
-            type: string
-            enum:
-              # blocking (force needs_review)
-              - overruled
-              - repealed
-              - superseded_version
-              - conflict
-              # non-blocking (shown as chips)
-              - stale
-              - third_party_source
-              - headnote_only
-              - amended_since
+          items: { $ref: "#/components/schemas/TrustFlag" }
         lastVerifiedAt: { type: string, format: date-time }
         checks:
           type: object
@@ -607,3 +753,432 @@ components:
           description: Chunks indexed, once `done` or `flagged`; null before.
           type: [integer, "null"]
           minimum: 0
+
+    TrustStatus:
+      description: The trust-layer status (§7.2). Exactly one per citation (FR-TRUST-4).
+      type: string
+      enum: [verified, needs_review, unverified]
+
+    TrustFlag:
+      description: |
+        A trust-layer flag (§7.2). Blocking flags force `needs_review`: `overruled`, `repealed`,
+        `superseded_version`, `conflict`. The others are non-blocking and shown as chips.
+      type: string
+      enum:
+        # blocking (force needs_review)
+        - overruled
+        - repealed
+        - superseded_version
+        - conflict
+        # non-blocking (shown as chips)
+        - stale
+        - third_party_source
+        - headnote_only
+        - amended_since
+
+    GraphEntityType:
+      description: Entity types of the P0 graph taxonomy (§9.2).
+      type: string
+      enum: [statute, section, judgment, court, amendment_act]
+
+    GraphEdgeType:
+      description: |
+        Edge types of the P0 graph taxonomy (§9.2). `OVERRULES` edges are created only from an
+        explicit statement in the source metadata or with human confirmation, never from model
+        inference alone.
+      type: string
+      enum: [CITES_SECTION, CITES_JUDGMENT, AMENDS, SUBSTITUTES, INSERTS, OMITS, REPEALS, OVERRULES, CONNECTED_CASE]
+
+    PrecedentFilters:
+      description: All optional; an omitted filter doesn't narrow the search.
+      type: object
+      additionalProperties: false
+      properties:
+        court:
+          description: Exact court name as stored, e.g. "Sindh High Court".
+          type: string
+          maxLength: 120
+        area:
+          description: Area of law from the case taxonomy (`case-taxonomy.v1.yaml`).
+          type: string
+          maxLength: 80
+        decidedFrom: { type: string, format: date }
+        decidedTo: { type: string, format: date }
+        sectionRef:
+          description: Only judgments citing this statute section, e.g. "s.497 CrPC".
+          type: string
+          maxLength: 120
+
+    PrecedentSearchRequest:
+      type: object
+      required: [requestId, query]
+      additionalProperties: false
+      properties:
+        requestId:
+          description: Correlation ID from apps/api; also the audit record key.
+          type: string
+          format: uuid
+        query: { type: string, minLength: 1, maxLength: 1000 }
+        filters: { $ref: "#/components/schemas/PrecedentFilters" }
+        includeGraphDerived:
+          type: boolean
+          default: true
+        limit:
+          description: Maximum number of hits, retrieved and graph-derived together.
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+
+    PrecedentVia:
+      description: The graph edge that brought a graph-derived hit in.
+      type: object
+      required: [edgeId, type, relatedSourceId, sectionLabel]
+      properties:
+        edgeId: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/GraphEdgeType" }
+        relatedSourceId:
+          description: The retrieved judgment this hit is linked to.
+          type: string
+          format: uuid
+        sectionLabel:
+          description: For `CITES_SECTION`, the section both judgments cite; null otherwise.
+          type: [string, "null"]
+          examples: ["s.497 CrPC"]
+
+    PrecedentHit:
+      description: One judgment. Every field is present (`null` when unknown).
+      type: object
+      required: [sourceId, title, citation, court, decidedOn, origin, via, flags, locator, snippet, score]
+      properties:
+        sourceId: { type: string, format: uuid }
+        title: { type: string }
+        citation: { type: [string, "null"], examples: ["2023 SCMR 100"] }
+        court: { type: [string, "null"] }
+        decidedOn: { type: [string, "null"], format: date }
+        origin:
+          description: "`graph_derived` hits are labelled as such wherever they are shown (FR-PREC-3)."
+          type: string
+          enum: [retrieved, graph_derived]
+        via:
+          description: Set only when `origin` is `graph_derived`.
+          oneOf:
+            - { $ref: "#/components/schemas/PrecedentVia" }
+            - { type: "null" }
+        flags:
+          description: Graph flags on the judgment, e.g. `overruled` (§9.3).
+          type: array
+          items: { $ref: "#/components/schemas/TrustFlag" }
+        locator:
+          description: The best-matching passage's locator; null for graph-derived hits.
+          type: [string, "null"]
+          examples: ["para 14"]
+        snippet:
+          description: The best-matching passage, verbatim, at most 500 characters; null for graph-derived hits.
+          type: [string, "null"]
+          maxLength: 500
+        score:
+          description: Ranking score, higher is better. Only comparable within one result.
+          type: number
+
+    PrecedentSearchResult:
+      type: object
+      required: [requestId, hits, graphAvailable]
+      properties:
+        requestId: { type: string, format: uuid }
+        hits:
+          type: array
+          items: { $ref: "#/components/schemas/PrecedentHit" }
+        graphAvailable:
+          description: False when the graph has not been built, so no hit can be graph-derived.
+          type: boolean
+
+    Relationship:
+      description: One graph edge seen from a judgment. Every field is present (`null` when unknown).
+      type: object
+      required: [id, type, direction, other, provenance, verificationStatus, validFrom, validTo, recordedAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { $ref: "#/components/schemas/GraphEdgeType" }
+        direction:
+          description: "`outgoing`: this judgment → `other`. `incoming`: `other` → this judgment."
+          type: string
+          enum: [outgoing, incoming]
+        other: { $ref: "#/components/schemas/GraphEntityRef" }
+        provenance: { $ref: "#/components/schemas/EdgeProvenance" }
+        verificationStatus: { $ref: "#/components/schemas/TrustStatus" }
+        validFrom: { type: [string, "null"], format: date }
+        validTo: { type: [string, "null"], format: date }
+        recordedAt: { type: string, format: date-time }
+
+    GraphEntityRef:
+      type: object
+      required: [entityType, sourceId, label]
+      properties:
+        entityType: { $ref: "#/components/schemas/GraphEntityType" }
+        sourceId:
+          description: The corpus record, when the entity is one (a judgment or statute); else null.
+          type: [string, "null"]
+          format: uuid
+        label: { type: string, examples: ["s.497 CrPC", "2019 SCMR 1234"] }
+
+    EdgeProvenance:
+      description: Where a graph edge comes from (FR-GRAPH-1).
+      type: object
+      required: [documentId, extractionMethod, confidence, humanConfirmed]
+      properties:
+        documentId:
+          description: The corpus document the edge was extracted from.
+          type: [string, "null"]
+          format: uuid
+        extractionMethod:
+          description: "`metadata`: the collector's structured metadata. `regex`: matched in the text. `human`: entered or confirmed by a person."
+          type: string
+          enum: [metadata, regex, human]
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        humanConfirmed: { type: boolean }
+
+    RelationshipList:
+      type: object
+      required: [sourceId, items]
+      properties:
+        sourceId: { type: string, format: uuid }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Relationship" }
+
+    DraftTemplateId:
+      type: string
+      enum: [bail_application, plaint, legal_notice]
+
+    CaseField:
+      description: |
+        A field of api.v1 `Case` that can fill a template field (FR-DRAFT-2). List fields
+        (`parties`, `relevantLaws`) are filled as one line per entry.
+      type: string
+      enum: [title, court, caseNumber, caseType, filedOn, status, nextHearingOn, parties, judge, assignedLawyer, relevantLaws, summary]
+
+    DraftTemplateField:
+      type: object
+      required: [key, label, required, caseField]
+      properties:
+        key: { type: string, pattern: "^[a-z][a-z0-9_]{0,63}$" }
+        label: { type: string }
+        required: { type: boolean }
+        caseField:
+          description: The case field that fills this one when a case is selected; null if none.
+          oneOf:
+            - { $ref: "#/components/schemas/CaseField" }
+            - { type: "null" }
+
+    DraftTemplateSection:
+      type: object
+      required: [key, heading, required, assistable, guidance]
+      properties:
+        key: { type: string, pattern: "^[a-z][a-z0-9_]{0,63}$" }
+        heading: { type: string, examples: ["Grounds for bail"] }
+        required: { type: boolean }
+        assistable:
+          description: Whether `draftSection` can draft it.
+          type: boolean
+        guidance:
+          description: What the section should contain, for the user.
+          type: string
+
+    DraftTemplate:
+      type: object
+      required: [id, version, title, description, fields, sections]
+      properties:
+        id: { $ref: "#/components/schemas/DraftTemplateId" }
+        version: { type: string, examples: ["1"] }
+        title: { type: string, examples: ["Bail application (s.497 CrPC)"] }
+        description: { type: string }
+        fields:
+          description: The particulars the user fills in, in display order.
+          type: array
+          items: { $ref: "#/components/schemas/DraftTemplateField" }
+        sections:
+          description: The document's sections, in document order.
+          type: array
+          items: { $ref: "#/components/schemas/DraftTemplateSection" }
+
+    DraftTemplateList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DraftTemplate" }
+
+    DraftSectionBody:
+      type: object
+      required: [key, body]
+      properties:
+        key: { type: string, pattern: "^[a-z][a-z0-9_]{0,63}$" }
+        body:
+          description: Plain text. Citation markers appear as `[[c:<citationId>]]`.
+          type: string
+          maxLength: 20000
+
+    DraftSectionRequest:
+      type: object
+      required: [requestId, templateId, sectionKey, fields, otherSections, scope]
+      additionalProperties: false
+      properties:
+        requestId:
+          description: Correlation ID from apps/api; also the audit record key (FR-TRUST-12).
+          type: string
+          format: uuid
+        templateId: { $ref: "#/components/schemas/DraftTemplateId" }
+        sectionKey: { type: string, pattern: "^[a-z][a-z0-9_]{0,63}$" }
+        instruction:
+          description: Optional guidance from the user for this section.
+          type: string
+          maxLength: 2000
+        fields:
+          description: The draft's field values by key. Unknown keys are ignored.
+          type: object
+          additionalProperties: { type: [string, "null"], maxLength: 4000 }
+        otherSections:
+          description: The draft's other sections as they stand, for context.
+          type: array
+          maxItems: 30
+          items: { $ref: "#/components/schemas/DraftSectionBody" }
+        scope: { $ref: "#/components/schemas/Scope" }
+        allowedProviders:
+          description: As in `AnswerRequest`. Omitted means local providers only.
+          type: array
+          uniqueItems: true
+          maxItems: 32
+          items: { $ref: "#/components/schemas/ProviderId" }
+        credential:
+          description: As in `AnswerRequest` (ADR-0009).
+          allOf: [{ $ref: "#/components/schemas/Credential" }]
+
+    DraftSectionResult:
+      type: object
+      required: [requestId, text, citations]
+      properties:
+        requestId: { type: string, format: uuid }
+        text:
+          description: The section's text. Citation markers appear as `[[c:<citationId>]]`.
+          type: string
+        citations:
+          description: Read back from the trust store (FR-TRUST-10).
+          type: array
+          items: { $ref: "#/components/schemas/Citation" }
+
+    LintDocumentType:
+      type: string
+      enum: [bail_application, plaint]
+
+    LintFindingKind:
+      type: string
+      enum: [missing_section, missing_particular, structure]
+
+    LintSeverity:
+      description: "`error`: the court is likely to return the document. `warning`: probably a defect. `info`: good practice."
+      type: string
+      enum: [error, warning, info]
+
+    LintRuleSource:
+      description: Where a rule comes from (FR-LINT-2).
+      type: object
+      required: [provision, reference]
+      properties:
+        provision:
+          type: string
+          examples: ["s.497 CrPC", "Order VII r.1 CPC"]
+        reference:
+          description: The corpus source for the provision, when it is in the corpus; else null.
+          type: [string, "null"]
+          format: uuid
+
+    LintRule:
+      type: object
+      required: [id, kind, severity, title, source]
+      properties:
+        id: { type: string, pattern: "^[a-z][a-z0-9_.]{0,63}$", examples: ["bail.grounds"] }
+        kind: { $ref: "#/components/schemas/LintFindingKind" }
+        severity: { $ref: "#/components/schemas/LintSeverity" }
+        title: { type: string }
+        source:
+          description: Null means no rule source was identified (FR-LINT-2).
+          oneOf:
+            - { $ref: "#/components/schemas/LintRuleSource" }
+            - { type: "null" }
+
+    LintRuleset:
+      type: object
+      required: [id, documentType, version, title, rules]
+      properties:
+        id: { type: string, examples: ["bail_application"] }
+        documentType: { $ref: "#/components/schemas/LintDocumentType" }
+        version: { type: string, examples: ["1"] }
+        title: { type: string }
+        rules:
+          type: array
+          items: { $ref: "#/components/schemas/LintRule" }
+
+    LintRulesetList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/LintRuleset" }
+
+    LintRequest:
+      type: object
+      required: [requestId, documentType, text]
+      additionalProperties: false
+      properties:
+        requestId: { type: string, format: uuid }
+        documentType: { $ref: "#/components/schemas/LintDocumentType" }
+        text: { type: string, minLength: 1, maxLength: 200000 }
+
+    LintSpan:
+      description: |
+        A range of the text, `[start, end)`, in UTF-16 code units, so a JavaScript client can
+        slice the string directly.
+      type: object
+      required: [start, end]
+      properties:
+        start: { type: integer, minimum: 0 }
+        end: { type: integer, minimum: 0 }
+
+    LintFinding:
+      type: object
+      required: [ruleId, kind, severity, message, span, source]
+      properties:
+        ruleId: { type: string }
+        kind: { $ref: "#/components/schemas/LintFindingKind" }
+        severity: { $ref: "#/components/schemas/LintSeverity" }
+        message:
+          description: For the user, in English.
+          type: string
+        span:
+          description: Where the problem is; null when something is missing from the whole document.
+          oneOf:
+            - { $ref: "#/components/schemas/LintSpan" }
+            - { type: "null" }
+        source:
+          description: The rule's source; null means none was identified (FR-LINT-2).
+          oneOf:
+            - { $ref: "#/components/schemas/LintRuleSource" }
+            - { type: "null" }
+
+    LintResult:
+      type: object
+      required: [requestId, rulesetId, rulesetVersion, inputSha256, findings]
+      properties:
+        requestId: { type: string, format: uuid }
+        rulesetId: { type: string }
+        rulesetVersion: { type: string }
+        inputSha256:
+          description: SHA-256 of the text's UTF-8 bytes, lowercase hex (FR-LINT-3).
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/LintFinding" }
