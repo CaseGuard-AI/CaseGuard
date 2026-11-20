@@ -315,3 +315,11 @@ The three remaining M3 screens (#106, #107, #108) were waiting on operations tha
 - **Linter.** It is deterministic and read-only (ADR-0012). Rule sets cite their sources, and a stored report keeps the text as sent, with its SHA-256.
 
 Plan: `plans/0052`.
+
+### The procedural linter's engine and rule sets (#214)
+The first step of Track L (plan `0052`): services/ai now answers `GET /ai/v1/lint/rulesets` and `POST /ai/v1/lint`.
+- Two versioned YAML rule sets, bail application first (ss.497 and 498 CrPC), then the plaint (Order VII CPC, verified under Order VI r.15). A rule cites its provision only where one plainly underlies it; FIR particulars, the prayer, the affidavit and similar practice requirements have `source: null`, which the web shows as "no rule source identified".
+- The engine is pure and deterministic (ADR-0012): no database and no model, so it works with AI features off. Spans are UTF-16 offsets for the web, and `inputSha256` proves the text was not changed.
+- Every rule has a seeded-defect test that produces exactly its finding, and the complete fixtures lint clean.
+
+Next: lint reports in apps/api (#215) and the `/linter` screen (#108). Plan: `plans/0059`.

@@ -1,0 +1,204 @@
+# Procedural rule set: bail application under s.497 (post-arrest) or s.498 (pre-arrest) CrPC.
+# ADR-0012. Patterns are Python regular expressions, matched case-insensitively and multi-line.
+# A rule's `source` names the provision it comes from, or is null when the requirement is court
+# practice rather than a provision (FR-LINT-2). Bump `version` whenever a rule changes.
+id: bail_application
+documentType: bail_application
+version: "1"
+title: Bail application (ss.497 and 498 CrPC)
+
+# Shared patterns (YAML anchors).
+x-patterns:
+  s498: &s498
+    anyOf:
+      - '\b498\b[^\n]{0,30}?\b(?:Cr\.?\s*P\.?\s*C|Code\s+of\s+Criminal\s+Procedure)'
+  date: &date '\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b|\b\d{1,2}(?:st|nd|rd|th)?\s+(?:day\s+of\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*,?\s+\d{4}\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\b'
+  fir: &fir '\bF\.?\s?I\.?\s?R\b|\bFirst\s+Information\s+Report\b'
+
+rules:
+  - id: bail.court_heading
+    kind: missing_section
+    severity: error
+    title: Court heading
+    message: Could not find the court heading (for example "IN THE COURT OF SESSIONS JUDGE, ...").
+    detect:
+      anyOf:
+        - '^[\t ]*IN\s+THE\s+(?:HON''?BLE\s+|HONOURABLE\s+)?(?:COURT|HIGH\s+COURT)\b'
+        - '^[\t ]*BEFORE\s+THE\s+(?:HON''?BLE\s+|HONOURABLE\s+)?(?:COURT|HIGH\s+COURT|(?:ADDITIONAL\s+)?SESSIONS\s+JUDGE|SPECIAL\s+(?:JUDGE|COURT)|JUDICIAL\s+MAGISTRATE)\b'
+    source: null
+
+  - id: bail.title
+    kind: missing_section
+    severity: error
+    title: Title naming the bail provision (s.497 or s.498 CrPC)
+    message: Could not find a title naming the provision the application is made under (s.497 or s.498 CrPC).
+    detect:
+      anyOf:
+        - '\b49[78]\b[^\n]{0,30}?\b(?:Cr\.?\s*P\.?\s*C|Code\s+of\s+Criminal\s+Procedure)'
+    source: { provision: "ss.497, 498 CrPC", reference: null }
+
+  - id: bail.fir_number
+    kind: missing_particular
+    severity: error
+    title: FIR number
+    message: Could not find the FIR number.
+    detect:
+      anyOf:
+        - '\bNo\.?\s*:?\s*\d+'
+        - '\b\d+\s*/\s*\d{2,4}\b'
+      near: { anchor: [*fir], window: 40 }
+    source: null
+
+  - id: bail.fir_date
+    kind: missing_particular
+    severity: warning
+    title: Date of the FIR
+    message: Could not find the date of the FIR.
+    detect:
+      anyOf: [*date]
+      near: { anchor: [*fir], window: 50, direction: after }
+    source: null
+
+  - id: bail.police_station
+    kind: missing_particular
+    severity: error
+    title: Police station
+    message: Could not find the police station where the FIR was registered.
+    detect:
+      anyOf:
+        - '\bPolice\s+Station\b'
+        - '\bP\.\s?S\.'
+        - '\bThana\b'
+    source: null
+
+  - id: bail.offence_sections
+    kind: missing_particular
+    severity: error
+    title: Offence sections
+    message: Could not find the sections of the offence charged (for example "Sections 380 and 457 PPC").
+    detect:
+      anyOf:
+        - '\b\d{2,3}(?:-[A-Z]{1,2})?\b[^\n]{0,40}?\b(?:P\.?\s?P\.?\s?C\b|Pakistan\s+Penal\s+Code|C\.?\s?N\.?\s?S\.?\s?A\b|Control\s+of\s+Narcotic\s+Substances|Arms\s+(?:Ordinance|Act)|Anti[-\s]?Terrorism\s+Act|Prevention\s+of\s+Electronic\s+Crimes)'
+    source: { provision: "s.497(1) CrPC", reference: null }
+
+  - id: bail.accused_particulars
+    kind: missing_particular
+    severity: error
+    title: Particulars of the accused
+    message: Could not find the accused's parentage and residence next to the applicant's name.
+    detect:
+      allOf:
+        - ['\b(?:s/o|son\s+of|d/o|daughter\s+of|w/o|wife\s+of)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\b(?:applicant|accused|petitioner)s?\b']
+        - ['\b(?:r/o|resident\s+of|residing\s+at)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\b(?:applicant|accused|petitioner)s?\b']
+      near: { anchor: ['\b(?:applicant|accused|petitioner)s?\b'], window: 400 }
+    source: null
+
+  - id: bail.custody_status
+    kind: missing_particular
+    severity: warning
+    title: Custody status
+    message: Could not find whether the accused is in custody, and where (s.497 application).
+    unless: *s498
+    detect:
+      anyOf:
+        - '\b(?:in|judicial|police)\s+custody\b'
+        - '\bconfined\s+in\b'
+        - '\b(?:central|district)\s+(?:jail|prison)\b'
+        - '\bjudicial\s+lock[-\s]?up\b'
+    source: { provision: "s.497(1) CrPC", reference: null }
+
+  - id: bail.arrest_date
+    kind: missing_particular
+    severity: warning
+    title: Date of arrest
+    message: Could not find the date of arrest, which the statutory-delay proviso counts from (s.497 application).
+    unless: *s498
+    detect:
+      anyOf: [*date]
+      near:
+        anchor: ['\barrested\b', '\bdate\s+of\s+arrest\b', '\barrest\s+(?:on|dated|was\s+made)\b']
+        window: 40
+        direction: after
+    source: { provision: "s.497(1), third proviso, CrPC", reference: null }
+
+  - id: bail.grounds
+    kind: missing_section
+    severity: error
+    title: Grounds
+    message: Could not find the grounds for bail.
+    detect:
+      anyOf:
+        - '^[\t ]*(?:\d+[.)][\t ]*)?GROUNDS?\b(?:[\t ]+(?:FOR|OF)[\t ]+BAIL)?[\t ]*:?[\t ]*$'
+        - '\bon\s+(?:the\s+)?following\s+grounds\b'
+        - '\bgrounds\s+(?:for|of)\s+bail\b'
+    source: { provision: "s.497(2) CrPC", reference: null }
+
+  - id: bail.apprehension_of_arrest
+    kind: missing_particular
+    severity: error
+    title: Apprehension of arrest (s.498 application)
+    message: Could not find the applicant's apprehension of arrest, which a pre-arrest bail application must state.
+    when: *s498
+    detect:
+      anyOf:
+        - '\bapprehen\w*\b[^\n]{0,80}?\barrest'
+        - '\barrest\b[^\n]{0,40}?\bapprehen\w*'
+        - '\bfears?\b[^\n]{0,60}?\barrest'
+        - '\b(?:likely|going)\s+to\s+(?:be\s+)?arrest'
+    source: { provision: "s.498 CrPC", reference: null }
+
+  - id: bail.earlier_application
+    kind: missing_particular
+    severity: warning
+    title: Earlier bail applications
+    message: Could not find a statement of whether an earlier bail application was filed or rejected.
+    detect:
+      anyOf:
+        - '\bno\s+(?:other|earlier|previous|prior|such)\s+(?:bail\s+)?(?:application|petition)\b'
+        - '\b(?:earlier|previous|prior|first)\s+bail\s+(?:application|petition)\b'
+        - '\bbail\s+(?:application|petition)\b[^\n]{0,80}?\b(?:dismissed|rejected|declined|withdrawn)\b'
+    source: null
+
+  - id: bail.prayer
+    kind: missing_section
+    severity: error
+    title: Prayer
+    message: Could not find the prayer (what the applicant asks the court to do).
+    detect:
+      anyOf:
+        - '^[\t ]*PRAYER\b'
+        - '\b(?:humbly|respectfully)\s+prayed\b'
+        - '\bit\s+is,?\s+therefore,?\s+prayed\b'
+        - '\bprays?\s+that\b'
+    source: null
+
+  - id: bail.verification
+    kind: missing_section
+    severity: warning
+    title: Verification and affidavit
+    message: Could not find a supporting affidavit verifying the application on oath.
+    detect:
+      allOf:
+        - ['^[\t ]*(?:SUPPORTING\s+)?AFFIDAVIT\b']
+        - ['\bsolemnly\s+(?:affirm|declare|state)\b', '\b(?:affirm|state|declare)\s+on\s+oath\b', '\bverif(?:y|ied)\s+on\s+oath\b']
+    source: null
+
+  - id: bail.advocate_signature
+    kind: missing_particular
+    severity: warning
+    title: Advocate's signature
+    message: Could not find the signature block of the applicant's advocate.
+    detect:
+      anyOf:
+        - '\b(?:Advocate|Counsel)\s+for\s+the\s+(?:applicant|petitioner|accused)s?\b'
+        - '\bAdvocate\s+(?:High\s+Court|Supreme\s+Court)\b'
+    source: null
+
+  - id: bail.prayer_after_grounds
+    kind: structure
+    severity: warning
+    title: Prayer after the grounds
+    message: The prayer comes before the grounds; it should close the application.
+    detect:
+      order: [bail.grounds, bail.prayer]
+    source: null

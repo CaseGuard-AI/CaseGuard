@@ -190,6 +190,21 @@ pnpm data:pull -- --dump latest|<date>[-N]|eval-frozen-N [--from DIR] [--yes]  #
   
   The first question loads bge-m3 and the reranker, which takes a while.
 
+## The procedural linter (#214)
+
+`GET /ai/v1/lint/rulesets` and `POST /ai/v1/lint` ([ADR-0012](../../docs/adr/0012-deterministic-read-only-linter.md)). No database and no model: the same text and rule-set version always give the same findings.
+
+- **Rule sets** are `linter/rules/bail_application.yaml` (ss.497 and 498 CrPC) and `linter/rules/plaint.yaml` (Order VII CPC, verification under Order VI r.15). Each is versioned; bump `version` whenever a rule changes, since apps/api stores it with every report.
+- **A rule** has `id`, `kind` (`missing_section`, `missing_particular`, `structure`), `severity`, `title`, `message` and `source` (`{provision, reference}`, or `null` when the requirement is practice rather than a provision; FR-LINT-2). Its `detect` is one of:
+  - `anyOf: [patterns]`, or `allOf: [[patterns], ...]` (every group must match);
+  - either with `near: {anchor, window, direction}`: the match must start within `window` characters of an anchor. A particular missing beside its anchor gets the anchor's span;
+  - `order: [ruleA, ruleB]`: B must not come entirely before A.
+
+  `when` / `unless` (a detection) switch a rule on or off, e.g. the s.498 apprehension-of-arrest rule. Patterns are Python regexes, case-insensitive and multi-line.
+- **Loading is strict** (`linter/rules.py`): an unknown key, bad id, unknown kind or severity, duplicate id, bad pattern or missing `source` fails at import and in the tests.
+- **Findings** are in document order, then those without a span in rule order. Spans are UTF-16 code units; `inputSha256` is the SHA-256 of the text's UTF-8 bytes (FR-LINT-3). Text with a lone surrogate is a 400 on `text`.
+- **Adding a rule:** add it to the YAML, then add its seeded defect to `SEEDED` in `tests/test_linter.py`. The test that every rule has one fails until you do.
+
 ## Checks
 
 ```bash
@@ -205,6 +220,7 @@ src/caseguard_ai/
   security.py    service-token guard for /ai/v1
   api/v1.py      /ai/v1 router: add feature routers here
   gateway/       model gateway (ADR-0005); check.py = provider connectivity check
+  linter/        procedural linter (ADR-0012): rules/*.yaml, rules.py, engine.py, router.py
   db/            tables.py (corpus + ai), engine.py
 migrations/      Alembic revisions (alembic.ini beside it)
 tests/

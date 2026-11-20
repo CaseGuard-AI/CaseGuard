@@ -1,0 +1,184 @@
+# Procedural rule set: plaint under Order VII rr.1-8 CPC, verified under Order VI r.15 CPC.
+# ADR-0012. Patterns are Python regular expressions, matched case-insensitively and multi-line.
+# A rule's `source` names the provision it comes from, or is null when none was identified
+# (FR-LINT-2). Bump `version` whenever a rule changes.
+id: plaint
+documentType: plaint
+version: "1"
+title: Plaint (Order VII CPC)
+
+x-patterns:
+  date: &date '\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b|\b\d{1,2}(?:st|nd|rd|th)?\s+(?:day\s+of\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*,?\s+\d{4}\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(?:\d{1,2},?\s+)?\d{4}\b'
+  cause: &cause '\bcause\s+of\s+action\b'
+  verification: &verification '^[\t ]*VERIFICATION\b'
+
+rules:
+  - id: plaint.court_name
+    kind: missing_section
+    severity: error
+    title: Name of the court
+    message: Could not find the name of the court the suit is brought in.
+    detect:
+      anyOf:
+        - '^[\t ]*IN\s+THE\s+(?:HON''?BLE\s+|HONOURABLE\s+)?(?:COURT|HIGH\s+COURT)\b'
+        - '^[\t ]*BEFORE\s+THE\s+(?:HON''?BLE\s+|HONOURABLE\s+)?(?:COURT|HIGH\s+COURT|(?:SENIOR\s+)?CIVIL\s+JUDGE|(?:ADDITIONAL\s+)?DISTRICT\s+JUDGE)\b'
+    source: { provision: "Order VII r.1(a) CPC", reference: null }
+
+  - id: plaint.plaintiff_particulars
+    kind: missing_particular
+    severity: error
+    title: Plaintiff's name, description and residence
+    message: Could not find the plaintiff's description (parentage) and place of residence next to the plaintiff's name.
+    detect:
+      allOf:
+        - ['\b(?:s/o|son\s+of|d/o|daughter\s+of|w/o|wife\s+of)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\bplaintiffs?\b']
+        - ['\b(?:r/o|resident\s+of|residing\s+at)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\bplaintiffs?\b']
+      near: { anchor: ['\bplaintiffs?\b'], window: 400 }
+    source: { provision: "Order VII r.1(b) CPC", reference: null }
+
+  - id: plaint.defendant_particulars
+    kind: missing_particular
+    severity: error
+    title: Defendant's name, description and residence
+    message: Could not find the defendant's description (parentage) and place of residence next to the defendant's name.
+    detect:
+      allOf:
+        - ['\b(?:s/o|son\s+of|d/o|daughter\s+of|w/o|wife\s+of)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\bdefendants?\b']
+        - ['\b(?:r/o|resident\s+of|residing\s+at)\b(?:[^\n]|\n(?![\t ]*\n)){0,300}?\bdefendants?\b']
+      near: { anchor: ['\bdefendants?\b'], window: 400 }
+    source: { provision: "Order VII r.1(c) CPC", reference: null }
+
+  - id: plaint.cause_of_action
+    kind: missing_section
+    severity: error
+    title: Facts constituting the cause of action
+    message: Could not find the facts constituting the cause of action.
+    detect:
+      anyOf: [*cause]
+    source: { provision: "Order VII r.1(e) CPC", reference: null }
+
+  - id: plaint.cause_of_action_date
+    kind: missing_particular
+    severity: warning
+    title: When the cause of action arose
+    message: Could not find when the cause of action arose.
+    when:
+      anyOf: [*cause]
+    detect:
+      anyOf: [*date]
+      near: { anchor: [*cause], window: 60, direction: after }
+    source: { provision: "Order VII r.1(e) CPC", reference: null }
+
+  - id: plaint.jurisdiction
+    kind: missing_particular
+    severity: error
+    title: Facts showing jurisdiction
+    message: Could not find the facts showing that the court has jurisdiction.
+    detect:
+      anyOf:
+        - '\bterritorial\b'
+        - '\bpecuniary\b'
+        - '\bsituated\b'
+        - '\bresides?\b'
+        - '\bcarr(?:y|ies)\s+on\s+business\b'
+        - '\bhas\s+(?:the\s+)?jurisdiction\b'
+        - '\bwithin\s+the\s+(?:local\s+)?limits\b'
+      near: { anchor: ['\bjurisdiction\b'], window: 120 }
+    source: { provision: "Order VII r.1(f) CPC", reference: null }
+
+  - id: plaint.property_description
+    kind: missing_particular
+    severity: warning
+    title: Description of the immovable property
+    message: The suit concerns immovable property, but no description sufficient to identify it (boundaries, measurements or survey numbers) was found.
+    when:
+      anyOf:
+        - '\bimmovable\s+property\b'
+        - '\bsuit\s+(?:property|land|house|plot)\b'
+    detect:
+      anyOf:
+        - '\bmeasuring\b'
+        - '\bbounded\b'
+        - '\bboundar(?:y|ies)\b'
+        - '\bsurvey\s+No\b'
+        - '\bkhasra\b'
+        - '\bkhewat\b'
+        - '\bsq(?:uare)?\.?\s*(?:yards?|feet|ft|met(?:er|re)s?)\b'
+        - '\b(?:acres?|kanals?|marlas?)\b'
+    source: { provision: "Order VII r.3 CPC", reference: null }
+
+  - id: plaint.relief
+    kind: missing_section
+    severity: error
+    title: Relief claimed
+    message: Could not find the relief claimed.
+    detect:
+      anyOf:
+        - '^[\t ]*(?:PRAYER|RELIEFS?(?:\s+CLAIMED)?)\b'
+        - '\b(?:humbly|respectfully)\s+prayed\b'
+        - '\bplaintiffs?\s+(?:prays?|seeks?|claims?)\b'
+    source: { provision: "Order VII r.1(g), r.7 CPC", reference: null }
+
+  - id: plaint.valuation
+    kind: missing_particular
+    severity: error
+    title: Valuation for jurisdiction and court fees
+    message: Could not find the value of the subject-matter for the purposes of both jurisdiction and court fees.
+    detect:
+      allOf:
+        - ['\bcourt[-\s]?fees?\b']
+        - ['\bjurisdiction\b']
+      near: { anchor: ['\bvalu(?:ed|ation)\b'], window: 150 }
+    source: { provision: "Order VII r.1(i) CPC", reference: null }
+
+  - id: plaint.signature
+    kind: missing_particular
+    severity: warning
+    title: Signature of the plaintiff's advocate
+    message: Could not find the signature block of the plaintiff's advocate.
+    detect:
+      anyOf:
+        - '\b(?:Advocate|Counsel)\s+for\s+the\s+plaintiffs?\b'
+    source: { provision: "Order VI r.14 CPC", reference: null }
+
+  - id: plaint.verification
+    kind: missing_section
+    severity: error
+    title: Verification
+    message: Could not find the verification at the foot of the plaint.
+    detect:
+      anyOf:
+        - *verification
+        - '\bverif(?:y|ied)\s+on\s+oath\b'
+    source: { provision: "Order VI r.15 CPC", reference: null }
+
+  - id: plaint.verification_paragraphs
+    kind: missing_particular
+    severity: warning
+    title: Paragraphs verified on knowledge and on information
+    message: The verification does not say, by numbered paragraphs, what is verified on the plaintiff's own knowledge and what on information.
+    when:
+      anyOf: [*verification]
+    detect:
+      anyOf:
+        - '\bparas?(?:graphs?)?\s*(?:Nos?\.?\s*)?\d+'
+      near: { anchor: [*verification], window: 400, direction: after }
+    source: { provision: "Order VI r.15(2) CPC", reference: null }
+
+  - id: plaint.relief_after_cause_of_action
+    kind: structure
+    severity: warning
+    title: Relief after the cause of action
+    message: The relief comes before the facts of the cause of action; it should follow them.
+    detect:
+      order: [plaint.cause_of_action, plaint.relief]
+    source: null
+
+  - id: plaint.verification_last
+    kind: structure
+    severity: warning
+    title: Verification at the foot of the plaint
+    message: The verification comes before the relief claimed; it belongs at the foot of the plaint.
+    detect:
+      order: [plaint.relief, plaint.verification]
+    source: { provision: "Order VI r.15(1) CPC", reference: null }
