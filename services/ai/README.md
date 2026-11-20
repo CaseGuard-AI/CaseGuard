@@ -190,6 +190,12 @@ pnpm data:pull -- --dump latest|<date>[-N]|eval-frozen-N [--from DIR] [--yes]  #
   
   The first question loads bge-m3 and the reranker, which takes a while.
 
+## Drafting (#212)
+
+- `GET /ai/v1/drafting/templates`: the bail application (s.497/498 CrPC), plaint (Order VII CPC) and legal notice, from `drafting/templates/*.yaml`. Each template has a `version`, fields (with the `caseField` apps/api fills them from) and sections in document order. Bump `version` whenever a field or section changes. A file that doesn't validate fails at load.
+- `POST /ai/v1/drafting/sections` drafts one `assistable` section. It follows the research pipeline: the allow-list first (503), retrieval within the scope, prompt `draft-section-v1` (same `[[p:N]]` and `QUOTES:` shape as `answer-v1`, so `parse_reply` reads it), then the shared trust checks in `trust/verify.py` and the same store. The citations returned are read back from it (FR-TRUST-10). A section that cites nothing comes back as plain text with no citations.
+- **Audit (FR-TRUST-12):** one `ai.answer_traces` row per `requestId`, with `models.kind = drafting`, `models.prompt = draft-section-v1`, the template and the section. The instruction and the field values are never stored or logged.
+
 ## Checks
 
 ```bash

@@ -23,10 +23,10 @@ Branch: `feature/212-drafting-assist` off `staging`. PR title: `feat(ai): drafti
 ## Changes
 
 1. `services/ai/src/caseguard_ai/trust/verify.py`; `research/answer.py` uses it.
-2. `services/ai/src/caseguard_ai/drafting/`: `templates.py`, `templates/*.yaml`, `prompts/draft_section_v1.py`, `assist.py`.
+2. `services/ai/src/caseguard_ai/drafting/`: `catalog.py` (loads and validates), `templates/*.yaml`, `prompts/draft_section_v1.py`, `assist.py`.
 3. `research/parse.py`: `answer_text`.
 4. `api/v1.py`: the two routes; the credential check shared by both POSTs.
-5. Tests: `tests/test_drafting.py` (contract conformance, statuses equal `getCitation`, failed existence is `unverified`, not assistable is 400, no provider is 503, the instruction is never stored) and `tests/test_templates.py` (every template validates against ai.v1 and is legally complete).
+5. Tests: `tests/test_drafting.py` (contract conformance, statuses equal `getCitation`, failed existence is `unverified`, not assistable is 400, no provider is 503, the instruction is never stored), including the template checks (every template validates against ai.v1, the bail application covers s.497 and s.498, the plaint has the Order VII particulars).
 6. `pyproject.toml`, `uv.lock`, `services/ai/README.md`, `CHANGELOG.md`, `docs/engineering/work-log.md`, this plan.
 
 ## Verification

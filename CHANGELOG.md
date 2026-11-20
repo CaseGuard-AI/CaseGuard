@@ -5,6 +5,7 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 ## [Unreleased]
 
 ### Added
+- Drafting in services/ai (#212, FR-DRAFT-1, FR-DRAFT-3, FR-TRUST-10, FR-TRUST-12): `GET /ai/v1/drafting/templates` serves the bail application (s.497/498 CrPC), plaint (Order VII CPC) and legal notice from versioned YAML files, each field with the case field that fills it. `POST /ai/v1/drafting/sections` drafts one assistable section with prompt `draft-section-v1`, and every citation goes through the same trust checks and the same store as research, now shared in `trust/verify.py`; the statuses returned are read back from the store. One `ai.answer_traces` row per request (`models.kind = drafting`), with no migration; the instruction and fields are never stored. `pyyaml` is now a runtime dependency
 - Contracts for precedent search, drafting and the linter (#209; FR-PREC-1..4, FR-DRAFT-1..4, FR-LINT-1..3, FR-CASE-5)
   - **api.v1, precedents:** `POST /precedents/search`. Hits are judgments with `origin` set to `retrieved` or `graph_derived`, a `via` edge on graph-derived hits, and graph flags. `GET /precedents/{sourceId}/relationships` returns the typed P0 edges, each with provenance and status.
   - **api.v1, drafting:** `GET /drafting/templates` (bail application, plaint, legal notice); `/drafts` CRUD, filled from a case's fields, with `version` for optimistic saves (409 if stale); `POST /drafts/{id}/sections/{key}/assist` returns citations from the trust store; `GET /drafts/{id}/export?format=docx|pdf`.

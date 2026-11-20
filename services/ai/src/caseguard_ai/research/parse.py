@@ -55,6 +55,15 @@ def _claim(text: str, start: int, end: int) -> str:
     return re.sub(r"\s+([.,;:!?])", r"\1", sentence)
 
 
+def answer_text(raw: str) -> str:
+    """The reply's ANSWER part with every marker removed: drafting's text when nothing is
+    cited (#212). ``NOT_ANSWERABLE`` gives an empty text."""
+    if NOT_ANSWERABLE in raw.upper():
+        return ""
+    answer, _ = _sections(raw)
+    return re.sub(r"[ \t]+([.,;:])", r"\1", MARKER.sub("", answer)).strip()
+
+
 def parse_reply(raw: str) -> Reply:
     if raw.strip().upper().startswith(NOT_ANSWERABLE) or NOT_ANSWERABLE in raw.upper():
         return Reply(answerable=False)
