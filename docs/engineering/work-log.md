@@ -323,3 +323,11 @@ The graph now exists in Postgres (ADR-0003). Migration `0002_graph` adds the ent
 - A corpus dump restore now empties the graph, which is derived data; rebuild it afterwards.
 
 Plan: `plans/0053`.
+
+### Precedent search in the API (#211)
+`POST /precedents/search` and `GET /precedents/{sourceId}/relationships` now work as api.v1 says, built against a mocked services/ai (#210 serves the real thing).
+- Each search gets a fresh `requestId` and is audited in the table research uses, so no new migration was needed: the query goes in `question`, and the hits (origin, `via`, flags) go in `response_text` as the graph context (§13.3).
+- The search calls no model, so it shares research's rate limit but not its AI-enabled check.
+- services/ai's 404 stays a 404 for relationships. Any other failure, or a malformed answer, is a 503.
+
+Plan: `plans/0054`.

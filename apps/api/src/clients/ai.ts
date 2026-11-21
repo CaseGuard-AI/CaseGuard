@@ -139,6 +139,103 @@ export interface IngestionStatus {
   chunkCount: number | null;
 }
 
+// Precedent search (FR-PREC, ADR-0011). Deterministic: no model provider is called.
+export type TrustFlag =
+  | "overruled"
+  | "repealed"
+  | "superseded_version"
+  | "conflict"
+  | "stale"
+  | "third_party_source"
+  | "headnote_only"
+  | "amended_since";
+
+export const GRAPH_EDGE_TYPES = [
+  "CITES_SECTION",
+  "CITES_JUDGMENT",
+  "AMENDS",
+  "SUBSTITUTES",
+  "INSERTS",
+  "OMITS",
+  "REPEALS",
+  "OVERRULES",
+  "CONNECTED_CASE",
+] as const;
+export type GraphEdgeType = (typeof GRAPH_EDGE_TYPES)[number];
+export const GRAPH_ENTITY_TYPES = [
+  "statute",
+  "section",
+  "judgment",
+  "court",
+  "amendment_act",
+] as const;
+export type GraphEntityType = (typeof GRAPH_ENTITY_TYPES)[number];
+
+export interface PrecedentFilters {
+  court?: string;
+  area?: string;
+  decidedFrom?: string;
+  decidedTo?: string;
+  sectionRef?: string;
+}
+
+export interface PrecedentSearchRequest {
+  requestId: string;
+  query: string;
+  filters?: PrecedentFilters;
+  includeGraphDerived?: boolean;
+  limit?: number;
+}
+
+export interface PrecedentVia {
+  edgeId: string;
+  type: GraphEdgeType;
+  relatedSourceId: string;
+  sectionLabel: string | null;
+}
+
+export interface PrecedentHit {
+  sourceId: string;
+  title: string;
+  citation: string | null;
+  court: string | null;
+  decidedOn: string | null;
+  origin: "retrieved" | "graph_derived";
+  via: PrecedentVia | null;
+  flags: TrustFlag[];
+  locator: string | null;
+  snippet: string | null;
+  score: number;
+}
+
+export interface PrecedentSearchResult {
+  requestId: string;
+  hits: PrecedentHit[];
+  graphAvailable: boolean;
+}
+
+export interface Relationship {
+  id: string;
+  type: GraphEdgeType;
+  direction: "outgoing" | "incoming";
+  other: { entityType: GraphEntityType; sourceId: string | null; label: string };
+  provenance: {
+    documentId: string | null;
+    extractionMethod: "metadata" | "regex" | "human";
+    confidence: number;
+    humanConfirmed: boolean;
+  };
+  verificationStatus: Verification["status"];
+  validFrom: string | null;
+  validTo: string | null;
+  recordedAt: string;
+}
+
+export interface RelationshipList {
+  sourceId: string;
+  items: Relationship[];
+}
+
 /** A non-2xx response from services/ai. `status` lets routes tell a 404 from an outage. */
 export class AiHttpError extends Error {
   constructor(
@@ -164,6 +261,10 @@ export interface AiClient {
   getIngestion(documentId: string): Promise<IngestionStatus>;
   /** Removes the document's chunks and ingestion records (204). Idempotent. */
   purgeDocument(documentId: string): Promise<void>;
+  /** Judgments for a query, with graph-derived precedents labelled (FR-PREC-3). */
+  searchPrecedents(req: PrecedentSearchRequest): Promise<PrecedentSearchResult>;
+  /** A judgment's typed relationships with provenance (FR-PREC-4). 404 if not a judgment. */
+  getPrecedentRelationships(sourceId: string): Promise<RelationshipList>;
 }
 
 export function createAiClient(
@@ -205,5 +306,18 @@ export function createAiClient(
       }),
     getIngestion: (id) => call(`${doc(id)}/ingestion`),
     purgeDocument: (id) => call(doc(id), { method: "DELETE" }),
+    // Retrieval and reranking run in-process; the first search may load the models.
+    searchPrecedents: (req) =>
+      call(
+        "/ai/v1/precedents/search",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(req),
+        },
+        answerTimeoutMs,
+      ),
+    getPrecedentRelationships: (id) =>
+      call(`/ai/v1/precedents/${encodeURIComponent(id)}/relationships`),
   };
 }
