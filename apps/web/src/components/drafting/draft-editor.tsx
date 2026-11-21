@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, LoaderCircle, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Download, FileCheck2, LoaderCircle, RotateCcw, Save, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useCreateLintReport } from "@/components/linter/queries";
 import { CaseSelect } from "@/components/research/case-picker";
 import type { Citation } from "@/components/research/queries";
 import { SourcePanel } from "@/components/research/source-panel";
@@ -23,6 +24,7 @@ import type { Numbered } from "@/components/research/sources-list";
 import { useRouter } from "@/i18n/navigation";
 import { statusOf } from "@/lib/api-query";
 import { AssistPanel } from "./assist-panel";
+import { draftLintText, lintTypeOf } from "./lint-text";
 import {
   useDeleteDraft,
   useDraft,
@@ -118,6 +120,8 @@ function DraftForm({
   const save = useSaveDraft(draft.id);
   const remove = useDeleteDraft(draft.id);
   const exporter = useExportDraft(draft.id);
+  const lint = useCreateLintReport();
+  const lintType = lintTypeOf(draft.templateId);
   const [saved, setSaved] = useState(() => valuesOf(draft));
   const [values, setValues] = useState(saved);
   const [version, setVersion] = useState(draft.version);
@@ -166,6 +170,22 @@ function DraftForm({
       },
     );
 
+  // Lints the saved draft, like export, and opens the report (FR-LINT-1). The report records
+  // the draft and, if the draft has one, its case (FR-CASE-5).
+  const lintDraft = () => {
+    if (!lintType) return;
+    lint.mutate(
+      {
+        documentType: lintType,
+        text: draftLintText(template, saved),
+        title: saved.title,
+        draftId: draft.id,
+        ...(saved.caseId ? { caseId: saved.caseId } : {}),
+      },
+      { onSuccess: (report) => router.push(`/linter?report=${report.id}`) },
+    );
+  };
+
   const saveError = save.isError && !conflict ? saveErrorKey(save.error) : null;
 
   return (
@@ -207,6 +227,21 @@ function DraftForm({
               {t(format === "docx" ? "exportDocx" : "exportPdf")}
             </Button>
           ))}
+          {lintType && (
+            <Button
+              variant="outline"
+              disabled={lint.isPending || dirty}
+              title={dirty ? t("lintSavedOnly") : undefined}
+              onClick={lintDraft}
+            >
+              {lint.isPending ? (
+                <LoaderCircle className="animate-spin" aria-hidden />
+              ) : (
+                <FileCheck2 aria-hidden />
+              )}
+              {t("lint")}
+            </Button>
+          )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" disabled={remove.isPending}>
@@ -256,6 +291,11 @@ function DraftForm({
       {exporter.isError && (
         <p role="alert" className="text-sm text-danger">
           {t("exportError")}
+        </p>
+      )}
+      {lint.isError && (
+        <p role="alert" className="text-sm text-danger">
+          {t("lintError")}
         </p>
       )}
       {remove.isError && (

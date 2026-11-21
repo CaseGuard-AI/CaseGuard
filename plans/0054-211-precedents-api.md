@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#211](https://github.com/CaseGuard-AI/CaseGuard/issues/211) · **PR:** [#220](https://github.com/CaseGuard-AI/CaseGuard/pull/220)
+> **Status:** Done · **Issue:** [#211](https://github.com/CaseGuard-AI/CaseGuard/issues/211) · **PR:** [#220](https://github.com/CaseGuard-AI/CaseGuard/pull/220)
 
 # #211: precedent search and relationships (API)
 

@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#213](https://github.com/CaseGuard-AI/CaseGuard/issues/213) · **PR:** [#221](https://github.com/CaseGuard-AI/CaseGuard/pull/221)
+> **Status:** Done · **Issue:** [#213](https://github.com/CaseGuard-AI/CaseGuard/issues/213) · **PR:** [#221](https://github.com/CaseGuard-AI/CaseGuard/pull/221)
 
 # #213: drafts with fill from case, assist and DOCX/PDF export (API)
 
