@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#214](https://github.com/CaseGuard-AI/CaseGuard/issues/214) · **PR:** [#217](https://github.com/CaseGuard-AI/CaseGuard/pull/217)
+> **Status:** Done · **Issue:** [#214](https://github.com/CaseGuard-AI/CaseGuard/issues/214) · **PR:** [#217](https://github.com/CaseGuard-AI/CaseGuard/pull/217)
 
 # #214: the procedural linter engine and rule sets (services/ai)
 

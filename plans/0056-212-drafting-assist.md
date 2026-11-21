@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#212](https://github.com/CaseGuard-AI/CaseGuard/issues/212) · **PR:** [#218](https://github.com/CaseGuard-AI/CaseGuard/pull/218)
+> **Status:** Done · **Issue:** [#212](https://github.com/CaseGuard-AI/CaseGuard/issues/212) · **PR:** [#218](https://github.com/CaseGuard-AI/CaseGuard/pull/218)
 
 # #212: drafting templates and section assist through the trust layer (ai)
 

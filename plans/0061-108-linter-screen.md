@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#108](https://github.com/CaseGuard-AI/CaseGuard/issues/108) · **PR:** [#224](https://github.com/CaseGuard-AI/CaseGuard/pull/224)
+> **Status:** Done · **Issue:** [#108](https://github.com/CaseGuard-AI/CaseGuard/issues/108) · **PR:** [#224](https://github.com/CaseGuard-AI/CaseGuard/pull/224)
 
 # #108: the procedural linter screen (web)
 

@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#107](https://github.com/CaseGuard-AI/CaseGuard/issues/107) · **PR:** [#225](https://github.com/CaseGuard-AI/CaseGuard/pull/225)
+> **Status:** Done · **Issue:** [#107](https://github.com/CaseGuard-AI/CaseGuard/issues/107) · **PR:** [#225](https://github.com/CaseGuard-AI/CaseGuard/pull/225)
 
 # #107: drafting studio (web)
 

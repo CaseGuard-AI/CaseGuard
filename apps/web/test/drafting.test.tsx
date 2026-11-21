@@ -366,6 +366,70 @@ describe("editor (FR-DRAFT-3, FR-DRAFT-4)", () => {
     expect(calls("DELETE", `/drafts/${DRAFT}`)).toHaveLength(1);
   });
 
+  it("lints the saved draft and opens the report (FR-LINT-1)", async () => {
+    const saved = draft({
+      caseId: CASE,
+      fields: { court: "Sindh High Court", fir_number: "FIR No. 12/2026 dated 01.01.2026" },
+      sections: [
+        { key: "cause_title", body: "IN THE COURT OF SESSIONS JUDGE" },
+        { key: "grounds", body: `1. Bail is the rule. [[c:${CIT}]]` },
+      ],
+    });
+    const { calls } = await renderEditor(({ method, path }) => {
+      if (method === "GET" && path === `/drafts/${DRAFT}`) return json(saved);
+      if (method === "POST" && path === "/lint-reports") return json({ id: "r1" }, 201);
+      return undefined;
+    });
+    fireEvent.click(await screen.findByRole("button", { name: m.editor.lint }));
+    await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/linter?report=r1"));
+    expect(calls("POST", "/lint-reports")[0]!.body).toEqual({
+      documentType: "bail_application",
+      title: "Bail for Ahmed",
+      draftId: DRAFT,
+      caseId: CASE,
+      text: [
+        "Bail for Ahmed",
+        "Court: Sindh High Court\nFIR number and date: FIR No. 12/2026 dated 01.01.2026",
+        "Cause title\nIN THE COURT OF SESSIONS JUDGE",
+        "Grounds for bail\n1. Bail is the rule.",
+      ].join("\n\n"),
+    });
+  });
+
+  it("lints only the saved version: unsaved edits disable the button", async () => {
+    await renderEditor(({ method, path }) =>
+      method === "GET" && path === `/drafts/${DRAFT}` ? json(draft()) : undefined,
+    );
+    const lint = await screen.findByRole("button", { name: m.editor.lint });
+    expect((lint as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.change(screen.getByLabelText("Grounds for bail"), { target: { value: "x" } });
+    expect((lint as HTMLButtonElement).disabled).toBe(true);
+    expect(lint.getAttribute("title")).toBe(m.editor.lintSavedOnly);
+  });
+
+  it("says when the lint fails", async () => {
+    await renderEditor(({ method, path }) => {
+      if (method === "GET" && path === `/drafts/${DRAFT}`) return json(draft());
+      if (method === "POST" && path === "/lint-reports") return problem(503);
+      return undefined;
+    });
+    fireEvent.click(await screen.findByRole("button", { name: m.editor.lint }));
+    expect((await screen.findByRole("alert")).textContent).toContain(m.editor.lintError);
+    expect(nav.push).not.toHaveBeenCalled();
+  });
+
+  it("a legal notice has no linter, so no button", async () => {
+    await renderEditor(({ method, path }) => {
+      if (method === "GET" && path === "/drafting/templates")
+        return json({ items: [{ ...BAIL, id: "legal_notice", title: "Legal notice" }] });
+      if (method === "GET" && path === `/drafts/${DRAFT}`)
+        return json(draft({ templateId: "legal_notice" }));
+      return undefined;
+    });
+    await screen.findByRole("button", { name: m.editor.saved });
+    expect(screen.queryByRole("button", { name: m.editor.lint })).toBeNull();
+  });
+
   it("another user's or a missing draft says so", async () => {
     await renderEditor(() => undefined);
     expect((await screen.findByRole("alert")).textContent).toContain(m.editor.notFound);

@@ -45,7 +45,7 @@ The GitHub issues labelled `stream:A` are almost all closed. Only #83 and #86 ar
 | A8 | **Documents and uploads** (contract, storage, job queue, status, web) | FR-DOC-1, FR-DOC-2, FR-DOC-3, FR-DOC-4, FR-DOC-6, SEC-6, NFR-13 | Stream A owns uploads and jobs. OCR, chunking and embedding run in services/ai ingestion workers (Stream C), so the handoff needs a contract. Contract done (#100): apps/api submits and polls ([ADR-0010](../adr/0010-document-ingestion-handoff.md)). API done (#101): uploads, `fs` blob store, pg-boss ingest and purge jobs. Web page and case uploads: #102. Cut order: last of the P1s to be cut. |
 | A9 | **Notifications** | FR-NOT-1 | Driven by A8's job events. Done (#103): the document jobs create one when a document finishes `done`, `flagged` or `failed`; the header bell polls the unread count. |
 | A11 | **Urdu UI review** | FR-I18N-2 | Every string is translated, but none reviewed by a native speaker (flagged on #11, #12, #62 and #14, and the role names and register strings from FR-AUTH-2). This is a review task, not code. |
-| A12 | **Screens over Stream C features**: precedent search (M3), drafting (M3), linter (M3) | FR-PREC-*, FR-DRAFT-*, FR-LINT-* | Contract done (#209): ai.v1 and api.v1 operations for all three, ADR-0011 (graph-derived precedent search) and ADR-0012 (deterministic, read-only linter). Built as three parallel verticals: precedents #210 (ai, graph) → #211 (api) → #106 (web); drafting #212 → #213 → #107; linter #214 → #215 → #108. Cut order: drafting, then linter, then precedent UI. |
+| A12 | **Screens over Stream C features**: precedent search (M3), drafting (M3), linter (M3) | FR-PREC-*, FR-DRAFT-*, FR-LINT-* | Contract done (#209): ai.v1 and api.v1 operations for all three, ADR-0011 (graph-derived precedent search) and ADR-0012 (deterministic, read-only linter). Built as three parallel verticals: precedents #210 (ai, graph) → #211 (api) → #106 (web); drafting #212 → #213 → #107; linter #214 → #215 → #108. Cut order: drafting, then linter, then precedent UI. **Done:** all nine PRs merged (#216–#225). Phase 2 linked them: lint reports check that `draftId` is the caller's draft (#226), `PATCH /lint-reports/{reportId}` saves a report to a case in place (#227, #228), and the drafting studio has "Lint this draft" (#229). |
 
 ### P2 (M4)
 
@@ -72,7 +72,7 @@ P1 ─ M3
   A9  notifications (after A8)
   A10 dashboard (after A6, A7)
   A11 Urdu review (whenever a reviewer is available; release-blocking for M3 "Urdu UI")
-  A12 precedent / drafting / linter screens, as their ai.v1 operations land
+  A12 precedent / drafting / linter screens (done)
 P2 ─ M4
   A13, A14
 ```
