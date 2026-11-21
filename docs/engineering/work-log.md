@@ -316,5 +316,35 @@ The three remaining M3 screens (#106, #107, #108) were waiting on operations tha
 
 Plan: `plans/0052`.
 
+### Knowledge graph and precedent search in services/ai (#210)
+The graph now exists in Postgres (ADR-0003). Migration `0002_graph` adds the entity and edge tables of PRD §9.1. `pnpm ai:graph-build` fills them from what the collector already gives us: cited cases, cited laws, connected cases, and citations and section references found in the text. Every edge records where it came from, how (`metadata` or `regex`) and how sure we are. `OVERRULES` edges come only from explicit metadata, never from inference. Re-running the build changes nothing.
+- **Precedent search** is hybrid retrieval over judgments, then one graph hop (ADR-0011). Hits found through the graph are labelled `graph_derived` with the edge that brought them in (FR-PREC-3), and an overruled judgment is flagged.
+- **Relationships** of a judgment come with provenance and status (FR-PREC-4).
+- A corpus dump restore now empties the graph, which is derived data; rebuild it afterwards.
+
+Plan: `plans/0053`.
+
+### Precedent search in the API (#211)
+`POST /precedents/search` and `GET /precedents/{sourceId}/relationships` now work as api.v1 says, built against a mocked services/ai (#210 serves the real thing).
+- Each search gets a fresh `requestId` and is audited in the table research uses, so no new migration was needed: the query goes in `question`, and the hits (origin, `via`, flags) go in `response_text` as the graph context (§13.3).
+- The search calls no model, so it shares research's rate limit but not its AI-enabled check.
+- services/ai's 404 stays a 404 for relationships. Any other failure, or a malformed answer, is a 503.
+
+Plan: `plans/0054`.
+
+### Precedent search screen (#106)
+`/precedents` is now a real screen, built against the contract with fetch mocked (#210 and #211 serve it).
+- Results are labelled by origin. A graph-derived judgment says which edge brought it in and from which result (FR-PREC-3), and sits indented under that result.
+- Flags reuse research's `FlagChips` and statuses reuse `TrustBadge`, so `overruled` looks the same on both screens (FR-TRUST-10).
+- The relationships panel lists each edge with its provenance and status (FR-PREC-4). Area is free text until the web reads the case taxonomy.
+
+The new Urdu strings need native review (#105). Plan: `plans/0055`.
+
+### Drafting in services/ai (#212)
+The drafting studio needs templates and an AI assist that cannot slip past the trust layer. The per-citation checks moved out of research into `trust/verify.py` first, with research unchanged, so drafting runs the same existence, support and status rules into the same store (FR-TRUST-10). Three versioned YAML templates (bail application under s.497/498 CrPC, plaint under Order VII CPC, legal notice) map their fields to case fields. Section assist writes one audit trace per request and never stores the instruction or the fields. No migration was needed. Plan: `plans/0056`.
+
+### Drafts in the API (#213)
+Drafts are stored in `app.drafts` (migration `0014_drafts`). A draft created with a case is filled from it, using the field mapping in each template. Saves use a version number, so two tabs can't silently overwrite each other (409). Assist applies the same AI access, provider allow-list and user-key rules as research, and it records which citations it issued for each draft, so a save accepts only those markers. Citation statuses are never copied: `getDraft` and the DOCX/PDF export read each one from the trust store at the time (FR-TRUST-10). Plan: `plans/0057`.
+
 ### Drafting studio in the web app (#107)
 `/drafting` replaces its "coming soon" page. Users pick a template and optionally a case, which fills the particulars. They then edit plain-text sections and can ask AI to draft any assistable section. Suggestions show their citations with the same chips and statuses as research, so a status looks identical everywhere (FR-TRUST-10). Saving handles a concurrent save with a reload, drafts export to DOCX and PDF, and the case dashboard lists the case's drafts. Plan: `plans/0058`.

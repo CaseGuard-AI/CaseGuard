@@ -107,11 +107,16 @@ export async function setArchived(
  * case, else 400 on `caseId`. Another user's case gets the same answer as an unknown id, so
  * nothing is revealed about it (FR-AUTH-4).
  */
-export async function requireActiveCase(db: Db, owner: Owner, caseId: string): Promise<Case> {
+export async function requireActiveCase(
+  db: Db,
+  owner: Owner,
+  caseId: string,
+  what = "conversation",
+): Promise<Case> {
   const found = await findOwnCase(db, owner, caseId);
   if (!found || found.archivedAt) {
     const message = found ? "That case is archived" : "No such case";
-    throw new HttpProblem(400, "Bad Request", "The conversation can't be saved to that case.", {
+    throw new HttpProblem(400, "Bad Request", `The ${what} can't be saved to that case.`, {
       errors: [{ path: "caseId", message }],
     });
   }
