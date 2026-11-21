@@ -1,0 +1,3 @@
+-- Before #226 draft_id was never checked, so clear any that point at no draft.
+UPDATE "app"."lint_reports" SET "draft_id" = NULL WHERE "draft_id" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "app"."drafts" d WHERE d."id" = "lint_reports"."draft_id");--> statement-breakpoint
+ALTER TABLE "app"."lint_reports" ADD CONSTRAINT "lint_reports_draft_id_drafts_id_fk" FOREIGN KEY ("draft_id") REFERENCES "app"."drafts"("id") ON DELETE set null ON UPDATE no action;

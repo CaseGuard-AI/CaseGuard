@@ -6,6 +6,7 @@ import { createApp } from "../src/app.js";
 import type { AiClient, LintRequest, LintResult, LintRulesetList } from "../src/clients/ai.js";
 import { createDb, type Db } from "../src/db/client.js";
 import { migrateUp } from "../src/db/migrate.js";
+import { insertDraft } from "../src/drafts/store.js";
 import { createLogger } from "../src/lib/logger.js";
 import { defaultTitle } from "../src/routes/lint.js";
 import { expectContract } from "./contract.js";
@@ -16,7 +17,6 @@ const url = process.env.APP_TEST_DATABASE_URL;
 
 const PASSWORD = "correct horse battery";
 const UNKNOWN = "33333333-3333-4333-8333-333333333333";
-const DRAFT = "44444444-4444-4444-8444-444444444444";
 // An emoji (two UTF-16 units), Urdu and CRLF: the stored text must come back byte for byte.
 const TEXT = "\u{1F600} درخواست\r\nIN THE COURT OF SESSIONS JUDGE\r\nFIR\r\n";
 
@@ -102,6 +102,7 @@ interface Who {
   userId: string;
   accountId: string;
   caseId: string;
+  draftId: string;
 }
 
 describe.skipIf(!url)("lint reports (api.v1 /lint*)", () => {
@@ -151,9 +152,23 @@ describe.skipIf(!url)("lint reports (api.v1 /lint*)", () => {
       "SELECT id, account_id FROM app.users WHERE email = $1",
       [email],
     );
-    const who = { token, userId: rows[0]!.id, accountId: rows[0]!.account_id, caseId: "" };
+    const who = {
+      token,
+      userId: rows[0]!.id,
+      accountId: rows[0]!.account_id,
+      caseId: "",
+      draftId: "",
+    };
     const created = await as(who).post("/cases").send({ title: "State v. Ahmed" });
-    return { ...who, caseId: created.body.id as string };
+    const draft = await insertDraft(orm, who, {
+      templateId: "bail_application",
+      templateVersion: "1",
+      caseId: null,
+      title: "Bail draft",
+      fields: {},
+      sections: [],
+    });
+    return { ...who, caseId: created.body.id as string, draftId: draft.id };
   }
 
   const create = (who: Who, body: object) =>
@@ -268,12 +283,39 @@ describe.skipIf(!url)("lint reports (api.v1 /lint*)", () => {
     it("saves to the caller's active case and records the draft link (FR-CASE-5)", async () => {
       const res = await create(alice, {
         caseId: alice.caseId,
-        draftId: DRAFT,
+        draftId: alice.draftId,
         title: "  Bail for Aslam  ",
       });
       expect(res.status).toBe(201);
       expectContract(res, "post", "/lint-reports");
-      expect(res.body).toMatchObject({ caseId: alice.caseId, draftId: DRAFT, title: "Bail for Aslam" });
+      expect(res.body).toMatchObject({
+        caseId: alice.caseId,
+        draftId: alice.draftId,
+        title: "Bail for Aslam",
+      });
+    });
+
+    it.each([
+      ["another user's draft", () => bob.draftId],
+      ["an unknown draft", () => UNKNOWN],
+    ])(
+      "400 on draftId for %s, before services/ai is asked (FR-AUTH-4)",
+      async (_label, draftId) => {
+        const res = await create(alice, { draftId: draftId() });
+        expect(res.status).toBe(400);
+        expectContract(res, "post", "/lint-reports");
+        expect(res.body.errors).toEqual([{ path: "draftId", message: "No such draft" }]);
+        expect(lintCalls).toHaveLength(0);
+        expect(await storedCount()).toBe(0);
+      },
+    );
+
+    it("keeps the report when its draft is deleted, with draftId cleared", async () => {
+      const res = await create(alice, { draftId: alice.draftId });
+      expect((await as(alice).delete(`/drafts/${alice.draftId}`)).status).toBe(204);
+      const after = await as(alice).get(`/lint-reports/${res.body.id}`);
+      expect(after.status).toBe(200);
+      expect(after.body.draftId).toBeNull();
     });
 
     it.each([
@@ -329,14 +371,26 @@ describe.skipIf(!url)("lint reports (api.v1 /lint*)", () => {
 
     it.each([
       ["services/ai is down", async () => Promise.reject(new Error("ECONNREFUSED"))],
-      ["the hash is not of the text sent", async (r: LintRequest) => ({ ...lintOf(r), inputSha256: sha("other") })],
-      ["a span lies outside the text", async (r: LintRequest) => {
-        const result = lintOf(r);
-        result.findings[0]!.span = { start: 0, end: r.text.length + 1 };
-        return result;
-      }],
-      ["the result is for another request", async (r: LintRequest) => ({ ...lintOf(r), requestId: randomUUID() })],
-      ["a finding is off-contract", async (r: LintRequest) => ({ ...lintOf(r), findings: [{ ruleId: "x" }] })],
+      [
+        "the hash is not of the text sent",
+        async (r: LintRequest) => ({ ...lintOf(r), inputSha256: sha("other") }),
+      ],
+      [
+        "a span lies outside the text",
+        async (r: LintRequest) => {
+          const result = lintOf(r);
+          result.findings[0]!.span = { start: 0, end: r.text.length + 1 };
+          return result;
+        },
+      ],
+      [
+        "the result is for another request",
+        async (r: LintRequest) => ({ ...lintOf(r), requestId: randomUUID() }),
+      ],
+      [
+        "a finding is off-contract",
+        async (r: LintRequest) => ({ ...lintOf(r), findings: [{ ruleId: "x" }] }),
+      ],
     ])("503 and nothing stored when %s", async (_label, reply) => {
       lintReply = reply as (req: LintRequest) => Promise<unknown>;
       const res = await create(alice, {});

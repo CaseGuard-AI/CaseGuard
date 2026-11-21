@@ -7,6 +7,7 @@ import { LINT_DOCUMENT_TYPES, type AiClient, type LintDocumentType } from "../cl
 import { parseLintResult, parseLintRulesetList } from "../clients/ai-schemas.js";
 import type { Db } from "../db/client.js";
 import type { LintReport } from "../db/schema.js";
+import { findOwnDraft } from "../drafts/store.js";
 import {
   deleteLintReport,
   findOwnLintReport,
@@ -117,11 +118,20 @@ export function lintRouter(deps: { db: Db; jwtSecret: string; ai: AiClient }) {
         await requireActiveCase(db, owner, body.caseId);
       } catch (err) {
         if (!(err instanceof HttpProblem)) throw err;
-        throw new HttpProblem(400, "Bad Request", "The report can't be saved to that case.", err.extra);
+        throw new HttpProblem(
+          400,
+          "Bad Request",
+          "The report can't be saved to that case.",
+          err.extra,
+        );
       }
     }
-    // draftId is only checked as a uuid and recorded: app.drafts (Track D) isn't here yet, so
-    // whether it is the caller's draft is a follow-up (plan 0060).
+    // Another user's draft is the same 400 as a missing one, so its existence isn't leaked.
+    if (body.draftId && !(await findOwnDraft(db, owner, body.draftId))) {
+      throw new HttpProblem(400, "Bad Request", "The report can't be linked to that draft.", {
+        errors: [{ path: "draftId", message: "No such draft" }],
+      });
+    }
 
     let result;
     try {
