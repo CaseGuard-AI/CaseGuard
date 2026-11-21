@@ -345,3 +345,6 @@ The drafting studio needs templates and an AI assist that cannot slip past the t
 
 ### Drafts in the API (#213)
 Drafts are stored in `app.drafts` (migration `0014_drafts`). A draft created with a case is filled from it, using the field mapping in each template. Saves use a version number, so two tabs can't silently overwrite each other (409). Assist applies the same AI access, provider allow-list and user-key rules as research, and it records which citations it issued for each draft, so a save accepts only those markers. Citation statuses are never copied: `getDraft` and the DOCX/PDF export read each one from the trust store at the time (FR-TRUST-10). Plan: `plans/0057`.
+
+### Drafting studio in the web app (#107)
+`/drafting` replaces its "coming soon" page. Users pick a template and optionally a case, which fills the particulars. They then edit plain-text sections and can ask AI to draft any assistable section. Suggestions show their citations with the same chips and statuses as research, so a status looks identical everywhere (FR-TRUST-10). Saving handles a concurrent save with a reload, drafts export to DOCX and PDF, and the case dashboard lists the case's drafts. Plan: `plans/0058`.

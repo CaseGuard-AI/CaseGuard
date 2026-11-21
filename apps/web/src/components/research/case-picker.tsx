@@ -67,17 +67,62 @@ export function NewCaseChip({ caseId, onClear }: { caseId: string; onClear: () =
   );
 }
 
+// A choice of the user's active cases, or none (FR-CASE-5). `current`, the case the item is
+// already in, stays listed even when it is archived. Shared by research and drafting.
+export function CaseSelect({
+  id,
+  value,
+  current,
+  busy = false,
+  onChange,
+}: {
+  id: string;
+  value: string | null;
+  current: string | null;
+  busy?: boolean;
+  onChange: (caseId: string | null) => void;
+}) {
+  const t = useTranslations("Cases.research");
+  const active = useCases("active");
+  const options = active.data?.pages.flatMap((page) => page.items) ?? [];
+  const currentCase = useCase(current && !options.some((c) => c.id === current) ? current : null);
+
+  return (
+    <select
+      id={id}
+      value={value ?? ""}
+      disabled={busy}
+      aria-busy={busy || undefined}
+      onChange={(event) => onChange(event.target.value || null)}
+      className="h-8 max-w-64 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-wait disabled:opacity-50"
+    >
+      <option value="">{t("none")}</option>
+      {current && !options.some((c) => c.id === current) && (
+        <option value={current}>
+          {currentCase.data
+            ? currentCase.data.archivedAt
+              ? t("archivedOption", { title: currentCase.data.title })
+              : currentCase.data.title
+            : t("loading")}
+        </option>
+      )}
+      {options.map((c) => (
+        <option key={c.id} value={c.id}>
+          {c.title}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 // Saves the open conversation to a case, moves it, or detaches it (FR-CASE-5). The choices are
 // the user's active cases; a conversation already in an archived case keeps that one listed.
 export function CasePicker({ conversation }: { conversation: ConversationSummary }) {
   const t = useTranslations("Cases.research");
   const id = useId();
   const save = useSaveToCase(conversation.id);
-  const active = useCases("active");
   const current = conversation.caseId ?? null;
-  const options = active.data?.pages.flatMap((page) => page.items) ?? [];
-  const currentCase = useCase(current && !options.some((c) => c.id === current) ? current : null);
-  const value = save.isPending ? (save.variables ?? "") : (current ?? "");
+  const value = save.isPending ? (save.variables ?? null) : current;
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -85,30 +130,13 @@ export function CasePicker({ conversation }: { conversation: ConversationSummary
       <label htmlFor={id} className="text-muted-foreground">
         {t("saveLabel")}
       </label>
-      <select
+      <CaseSelect
         id={id}
         value={value}
-        disabled={save.isPending}
-        aria-busy={save.isPending || undefined}
-        onChange={(event) => save.mutate(event.target.value || null)}
-        className="h-8 max-w-64 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-wait disabled:opacity-50"
-      >
-        <option value="">{t("none")}</option>
-        {current && !options.some((c) => c.id === current) && (
-          <option value={current}>
-            {currentCase.data
-              ? currentCase.data.archivedAt
-                ? t("archivedOption", { title: currentCase.data.title })
-                : currentCase.data.title
-              : t("loading")}
-          </option>
-        )}
-        {options.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.title}
-          </option>
-        ))}
-      </select>
+        current={current}
+        busy={save.isPending}
+        onChange={(caseId) => save.mutate(caseId)}
+      />
       {current && (
         <Link href={`/cases/${current}`} className="text-xs text-primary hover:underline">
           {t("openCase")}
