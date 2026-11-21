@@ -21,6 +21,7 @@ import { healthRouter } from "./routes/health.js";
 import { keysRouter } from "./routes/keys.js";
 import { settingsRouter } from "./routes/settings.js";
 import { sourcesRouter } from "./routes/sources.js";
+import { draftsRouter } from "./routes/drafts.js";
 import type { BlobStore } from "./storage/blob-store.js";
 
 export interface AppDeps {
@@ -87,6 +88,9 @@ export function createApp(deps: AppDeps) {
     }),
   );
   v1.use(sourcesRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
+  v1.use(
+    draftsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai, encryptionKey }),
+  );
   app.use("/api/v1", v1);
 
   app.use(notFound);

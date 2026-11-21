@@ -5,6 +5,8 @@ import {
   DOCUMENT_STAGES,
   type Answer,
   type Citation,
+  type DraftSectionResult,
+  type DraftTemplate,
   type IngestionStatus,
   type Source,
 } from "./ai.js";
@@ -76,3 +78,59 @@ export const ingestionStatusSchema = z.looseObject({
 
 export const parseIngestionStatus = (raw: unknown) =>
   ingestionStatusSchema.parse(raw) as IngestionStatus;
+
+// Drafting (#212, #213). Template text reaches the user, so keys are checked like ai.v1's.
+const draftKey = z.string().regex(/^[a-z][a-z0-9_]{0,63}$/);
+
+export const draftTemplateSchema = z.looseObject({
+  id: z.enum(["bail_application", "plaint", "legal_notice"]),
+  version: z.string().min(1),
+  title: z.string().min(1),
+  description: z.string(),
+  fields: z.array(
+    z.looseObject({
+      key: draftKey,
+      label: z.string(),
+      required: z.boolean(),
+      caseField: z
+        .enum([
+          "title",
+          "court",
+          "caseNumber",
+          "caseType",
+          "filedOn",
+          "status",
+          "nextHearingOn",
+          "parties",
+          "judge",
+          "assignedLawyer",
+          "relevantLaws",
+          "summary",
+        ])
+        .nullable(),
+    }),
+  ),
+  sections: z.array(
+    z.looseObject({
+      key: draftKey,
+      heading: z.string(),
+      required: z.boolean(),
+      assistable: z.boolean(),
+      guidance: z.string(),
+    }),
+  ),
+});
+
+export const draftTemplateListSchema = z.looseObject({ items: z.array(draftTemplateSchema) });
+
+// FR-DRAFT-3: every citation carries its stored verification, like an answer's.
+export const draftSectionResultSchema = z.looseObject({
+  requestId: z.uuid(),
+  text: z.string(),
+  citations: z.array(citationSchema),
+});
+
+export const parseDraftTemplates = (raw: unknown) =>
+  draftTemplateListSchema.parse(raw) as { items: DraftTemplate[] };
+export const parseDraftSection = (raw: unknown) =>
+  draftSectionResultSchema.parse(raw) as DraftSectionResult;

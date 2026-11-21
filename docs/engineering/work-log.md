@@ -315,3 +315,6 @@ The three remaining M3 screens (#106, #107, #108) were waiting on operations tha
 - **Linter.** It is deterministic and read-only (ADR-0012). Rule sets cite their sources, and a stored report keeps the text as sent, with its SHA-256.
 
 Plan: `plans/0052`.
+
+### Drafts in the API (#213)
+Drafts are stored in `app.drafts` (migration `0014_drafts`). A draft created with a case is filled from it, using the field mapping in each template. Saves use a version number, so two tabs can't silently overwrite each other (409). Assist applies the same AI access, provider allow-list and user-key rules as research, and it records which citations it issued for each draft, so a save accepts only those markers. Citation statuses are never copied: `getDraft` and the DOCX/PDF export read each one from the trust store at the time (FR-TRUST-10). Plan: `plans/0057`.

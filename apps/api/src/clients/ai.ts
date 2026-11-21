@@ -139,6 +139,56 @@ export interface IngestionStatus {
   chunkCount: number | null;
 }
 
+// Drafting (FR-DRAFT-1, FR-DRAFT-3, #212).
+export type DraftTemplateId = "bail_application" | "plaint" | "legal_notice";
+export type CaseField =
+  | "title"
+  | "court"
+  | "caseNumber"
+  | "caseType"
+  | "filedOn"
+  | "status"
+  | "nextHearingOn"
+  | "parties"
+  | "judge"
+  | "assignedLawyer"
+  | "relevantLaws"
+  | "summary";
+
+export interface DraftTemplate {
+  id: DraftTemplateId;
+  version: string;
+  title: string;
+  description: string;
+  fields: { key: string; label: string; required: boolean; caseField: CaseField | null }[];
+  sections: {
+    key: string;
+    heading: string;
+    required: boolean;
+    assistable: boolean;
+    guidance: string;
+  }[];
+}
+
+export interface DraftSectionRequest {
+  requestId: string;
+  templateId: DraftTemplateId;
+  sectionKey: string;
+  instruction?: string;
+  fields: Record<string, string | null>;
+  otherSections: { key: string; body: string }[];
+  scope: Scope;
+  allowedProviders?: string[];
+  /** As in AnswerRequest. Secret. */
+  credential?: Credential;
+}
+
+export interface DraftSectionResult {
+  requestId: string;
+  text: string;
+  citations: Citation[];
+}
+
 /** A non-2xx response from services/ai. `status` lets routes tell a 404 from an outage. */
 export class AiHttpError extends Error {
   constructor(
@@ -164,6 +214,10 @@ export interface AiClient {
   getIngestion(documentId: string): Promise<IngestionStatus>;
   /** Removes the document's chunks and ingestion records (204). Idempotent. */
   purgeDocument(documentId: string): Promise<void>;
+  /** The drafting templates (FR-DRAFT-1). */
+  listDraftTemplates(): Promise<{ items: DraftTemplate[] }>;
+  /** Drafts one section; its citations come from the trust store (FR-DRAFT-3). */
+  draftSection(req: DraftSectionRequest): Promise<DraftSectionResult>;
 }
 
 export function createAiClient(
@@ -205,5 +259,16 @@ export function createAiClient(
       }),
     getIngestion: (id) => call(`${doc(id)}/ingestion`),
     purgeDocument: (id) => call(doc(id), { method: "DELETE" }),
+    listDraftTemplates: () => call("/ai/v1/drafting/templates"),
+    draftSection: (req) =>
+      call(
+        "/ai/v1/drafting/sections",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(req),
+        },
+        answerTimeoutMs,
+      ),
   };
 }
