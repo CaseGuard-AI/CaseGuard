@@ -190,6 +190,13 @@ pnpm data:pull -- --dump latest|<date>[-N]|eval-frozen-N [--from DIR] [--yes]  #
   
   The first question loads bge-m3 and the reranker, which takes a while.
 
+## Knowledge graph and precedent search (#210)
+
+- **Tables** (`0002_graph`, PRD §9.1): `corpus.graph_entities` and `corpus.graph_edges`, with the P0 taxonomy as check constraints and provenance on every edge (source document, `extraction_method` `metadata`/`regex`/`human`, `confidence`, `human_confirmed`, `verification_status`).
+- **Build:** `pnpm ai:graph-build` after every load (and after a dump restore, which empties the graph). It reads `raw.cited_cases`, `raw.cited_laws`, `raw.connected_cases` and citations and section references in `full_text` (`graph/citations.py`; the law-report regex is ported from the collector). Citations resolve to `corpus.documents.citation`; unresolved ones stay as labelled entities. `OVERRULES` only from an explicit `raw.overrules` list, never inferred. Idempotent: a re-run changes nothing, and human-confirmed edges are never touched.
+- **Search** (ADR-0011): `POST /ai/v1/precedents/search` runs `retrieve()` over judgments only, groups the chunks by judgment (`retrieved`), then adds judgments one hop away through `CITES_JUDGMENT`, `CONNECTED_CASE` or a shared section (`graph_derived`, with `via`), up to 2 under each retrieved hit. `overruled` comes from an incoming `OVERRULES` edge; `graphAvailable` is false until the graph is built. No model is called.
+- **Relationships:** `GET /ai/v1/precedents/{sourceId}/relationships`, outgoing then incoming, 404 for anything but a judgment. Traversal (`graph/traverse.py`) is one recursive CTE, depth ≤ 2.
+
 ## Drafting (#212)
 
 - `GET /ai/v1/drafting/templates`: the bail application (s.497/498 CrPC), plaint (Order VII CPC) and legal notice, from `drafting/templates/*.yaml`. Each template has a `version`, fields (with the `caseField` apps/api fills them from) and sections in document order. Bump `version` whenever a field or section changes. A file that doesn't validate fails at load.

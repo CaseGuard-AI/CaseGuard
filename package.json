@@ -31,6 +31,7 @@
     "llm:check": "uv run --directory services/ai python -m caseguard_ai.gateway.check",
     "research:ask": "uv run --directory services/ai python -m caseguard_ai.research.ask_cli",
     "ai:support-eval": "uv run --directory services/ai python -m caseguard_ai.trust.support_eval",
+    "ai:graph-build": "uv run --directory services/ai python -m caseguard_ai.graph.build",
     "lint": "pnpm -r --if-present run lint",
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
