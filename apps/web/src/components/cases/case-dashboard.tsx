@@ -15,6 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { CaseDocuments } from "@/components/documents/case-documents";
+import { CaseLintReports } from "@/components/linter/case-lint-reports";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { statusOf } from "@/lib/api-query";
@@ -43,6 +44,7 @@ export function CaseDashboard({ caseId }: { caseId: string }) {
       <Details item={item} />
       <CaseResearch caseId={item.id} />
       <CaseDocuments caseId={item.id} archived={item.archivedAt !== null} />
+      <CaseLintReports caseId={item.id} archived={item.archivedAt !== null} />
       <div className="grid gap-6 md:grid-cols-2">
         <Placeholder area="drafts" />
         <Placeholder area="precedents" />

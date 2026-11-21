@@ -601,5 +601,93 @@
       "document_failed": "{filename} could not be processed.",
       "other": "There is an update about {filename}."
     }
+  },
+  "Linter": {
+    "form": {
+      "typeLabel": "Document type",
+      "types": {
+        "bail_application": "Bail application (s.497 / s.498 CrPC)",
+        "plaint": "Plaint (Order VII CPC)"
+      },
+      "textLabel": "Document text",
+      "textPlaceholder": "Paste the document's text here.",
+      "loadFile": "Load a .txt file",
+      "fileHint": "Only plain-text (.txt) files are read, in your browser. For a PDF or Word file, copy its text and paste it here.",
+      "notText": "That isn't a .txt file. Copy the text from the document and paste it here.",
+      "fileError": "The file couldn't be read.",
+      "count": "{count} of {max} characters",
+      "tooLong": "The text is longer than {max} characters.",
+      "caseLabel": "Save to case",
+      "lint": "Lint",
+      "linting": "Linting…",
+      "empty": "Paste or load the document's text first."
+    },
+    "errors": {
+      "caseId": "That case is archived or no longer available. Choose another case.",
+      "rateLimited": "Too many lint runs. Try again in a few minutes.",
+      "unavailable": "The linter is unavailable. Try again shortly.",
+      "network": "Couldn't reach CaseGuard. Check your connection and try again.",
+      "generic": "The document couldn't be linted."
+    },
+    "result": {
+      "title": "Findings",
+      "errors": "{count, plural, one {# error} other {# errors}}",
+      "warnings": "{count, plural, one {# warning} other {# warnings}}",
+      "infos": "{count, plural, one {# note} other {# notes}}",
+      "clean": "No problems found.",
+      "ruleset": "Checked against “{title}”, rule set version {version}.",
+      "kinds": {
+        "missing_section": "Missing sections",
+        "missing_particular": "Missing particulars",
+        "structure": "Structure"
+      },
+      "severity": {
+        "error": "Error",
+        "warning": "Warning",
+        "info": "Note"
+      },
+      "noSource": "No rule source identified",
+      "sourceLabel": "Rule source",
+      "wholeDocument": "Concerns the whole document",
+      "showInText": "Show in the text",
+      "englishNote": "Findings are worded in English, as the rule sets are.",
+      "textTitle": "Document text",
+      "unchanged": "Shown exactly as linted. The linter never changes the text.",
+      "highlighted": "Highlighted in the text",
+      "inCase": "Saved to {title}",
+      "openCase": "Open case",
+      "save": "Save",
+      "saving": "Saving…",
+      "saveError": "The report couldn't be saved to that case.",
+      "newLint": "Lint another document"
+    },
+    "past": {
+      "title": "Past reports",
+      "empty": "No lint reports yet.",
+      "loading": "Loading reports…",
+      "error": "Your reports couldn't be loaded.",
+      "retry": "Try again",
+      "loadMore": "Load more",
+      "open": "Open",
+      "delete": "Delete",
+      "deleteTitle": "Delete this report?",
+      "deleteBody": "The report and its copy of the text are deleted. This can't be undone.",
+      "cancel": "Cancel",
+      "deleteError": "The report couldn't be deleted."
+    },
+    "report": {
+      "loading": "Loading the report…",
+      "missing": "That report isn't available. It may have been deleted."
+    },
+    "card": {
+      "title": "Lint reports",
+      "body": "Procedural checks of this case's bail applications and plaints.",
+      "empty": "No lint reports saved to this case yet.",
+      "lint": "Lint a document",
+      "loading": "Loading reports…",
+      "error": "The case's lint reports couldn't be loaded.",
+      "retry": "Try again",
+      "loadMore": "Load more"
+    }
   }
 }

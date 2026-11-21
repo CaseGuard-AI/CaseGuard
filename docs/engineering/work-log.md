@@ -315,3 +315,12 @@ The three remaining M3 screens (#106, #107, #108) were waiting on operations tha
 - **Linter.** It is deterministic and read-only (ADR-0012). Rule sets cite their sources, and a stored report keeps the text as sent, with its SHA-256.
 
 Plan: `plans/0052`.
+
+### The procedural linter screen (#108)
+The last step of Track L (plan `0052`). `/linter` is no longer a placeholder:
+- paste a bail application or plaint, or load a `.txt` file (read in the browser), and lint it;
+- findings are grouped by kind and severity, and each one cites its rule's source or says none was identified (FR-LINT-2);
+- clicking a finding highlights where it is in a read-only copy of the text, which is shown exactly as linted (FR-LINT-3);
+- a report can be saved to a case, and the case dashboard lists the case's lint reports (FR-CASE-5).
+
+Every lint is kept as a report, because `POST /lint-reports` is the only lint operation in api.v1. Saving an existing report to a case re-creates it in the case and deletes the old one, since the contract has no way to move a report. Built against the contract with the API stubbed, like #102. The new Urdu strings need native review (#105). Plan: `plans/0061`.
