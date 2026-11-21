@@ -1,0 +1,90 @@
+# Legal notice sent before proceedings, for example the notice s.80 CPC requires before suing the
+# Government or a public officer. Bump `version` whenever a field or section changes.
+id: legal_notice
+version: "1"
+title: Legal notice
+description: >-
+  A notice to the other side setting out the facts, the legal basis of the claim and a demand
+  with a deadline, before proceedings are filed.
+fields:
+  - key: sender
+    label: Sent on behalf of (name and address)
+    required: true
+    caseField: null
+  - key: recipient
+    label: Addressed to (name and address)
+    required: true
+    caseField: null
+  - key: parties
+    label: Parties to the matter (one per line)
+    required: false
+    caseField: parties
+  - key: subject
+    label: Subject
+    required: true
+    caseField: title
+  - key: notice_date
+    label: Date of the notice
+    required: true
+    caseField: null
+  - key: compliance_days
+    label: Days allowed to comply
+    required: true
+    caseField: null
+  - key: laws
+    label: Laws relied on (one per line)
+    required: false
+    caseField: relevantLaws
+  - key: counsel
+    label: Counsel sending the notice
+    required: false
+    caseField: assignedLawyer
+sections:
+  - key: addressee
+    heading: Addressee
+    required: true
+    assistable: false
+    guidance: >-
+      The date, the mode of delivery (registered post with acknowledgment, courier or by hand),
+      and the recipient's name and address.
+  - key: subject
+    heading: Subject
+    required: true
+    assistable: false
+    guidance: >-
+      One line naming the matter, for example "Legal notice for recovery of Rs. 500,000".
+  - key: facts
+    heading: Facts
+    required: true
+    assistable: true
+    guidance: >-
+      Numbered paragraphs stating, on the sender's instructions, the facts that give rise to the
+      claim, with dates and amounts.
+  - key: legal_basis
+    heading: Legal basis
+    required: true
+    assistable: true
+    guidance: >-
+      The provisions of law and the obligations the recipient has breached. Where the recipient
+      is the Government or a public officer, state that this is the notice required by s.80 CPC.
+  - key: demand
+    heading: Demand
+    required: true
+    assistable: true
+    guidance: >-
+      What the recipient must do, and the deadline (for a s.80 CPC notice, two months after
+      delivery).
+  - key: consequences
+    heading: Consequences of non-compliance
+    required: true
+    assistable: true
+    guidance: >-
+      That on failure to comply within the time given, proceedings will be filed at the
+      recipient's risk as to costs, without further notice.
+  - key: signature
+    heading: Signature
+    required: true
+    assistable: false
+    guidance: >-
+      The counsel's name, enrolment and address, and a note that a copy is retained in the
+      office for record.

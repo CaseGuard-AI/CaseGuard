@@ -339,3 +339,6 @@ Plan: `plans/0054`.
 - The relationships panel lists each edge with its provenance and status (FR-PREC-4). Area is free text until the web reads the case taxonomy.
 
 The new Urdu strings need native review (#105). Plan: `plans/0055`.
+
+### Drafting in services/ai (#212)
+The drafting studio needs templates and an AI assist that cannot slip past the trust layer. The per-citation checks moved out of research into `trust/verify.py` first, with research unchanged, so drafting runs the same existence, support and status rules into the same store (FR-TRUST-10). Three versioned YAML templates (bail application under s.497/498 CrPC, plaint under Order VII CPC, legal notice) map their fields to case fields. Section assist writes one audit trace per request and never stores the instruction or the fields. No migration was needed. Plan: `plans/0056`.

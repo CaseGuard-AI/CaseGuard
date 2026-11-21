@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date
 from typing import Annotated, Any, Literal
 
@@ -22,6 +24,8 @@ from caseguard_ai.api.deps import (
 )
 from caseguard_ai.api.problems import Problem
 from caseguard_ai.config import Settings, get_settings
+from caseguard_ai.drafting.assist import SectionRequest, draft_section
+from caseguard_ai.drafting.catalog import TemplateId, get_template, templates
 from caseguard_ai.gateway.client import GatewayError, ModelGateway, NoProviderError
 from caseguard_ai.gateway.providers import (
     PRESET_BASE_URLS,
@@ -82,17 +86,20 @@ class AnswerRequest(BaseModel):
     credential: CredentialIn | None = None
 
 
-def _generation_override(body: AnswerRequest) -> ProviderConfig | None:
+def _generation_override(
+    cred: CredentialIn | None, allowed_providers: list[str] | None
+) -> ProviderConfig | None:
     """The credential as a provider, or a 400 before any model call. Details name the field,
-    never the key."""
-    cred = body.credential
+    never the key. Shared by ``answerQuestion`` and ``draftSection`` (ai.v1)."""
+    if allowed_providers is not None and len(set(allowed_providers)) != len(allowed_providers):
+        raise Problem(400, "Bad Request", "invalid field(s): allowedProviders (duplicates)")
     if cred is None:
         return None
     if cred.providerId not in PRESET_BASE_URLS:
         raise Problem(
             400, "Bad Request", "invalid field(s): credential.providerId (not a cloud provider)"
         )
-    if cred.providerId not in allowed_set(body.allowedProviders):
+    if cred.providerId not in allowed_set(allowed_providers):
         raise Problem(
             400, "Bad Request", "invalid field(s): credential.providerId (not in allowedProviders)"
         )
@@ -115,11 +122,7 @@ def research_answer(
     support_checker: Annotated[SupportChecker, Depends(get_support_checker)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> dict[str, Any]:
-    if body.allowedProviders is not None and len(set(body.allowedProviders)) != len(
-        body.allowedProviders
-    ):
-        raise Problem(400, "Bad Request", "invalid field(s): allowedProviders (duplicates)")
-    override = _generation_override(body)
+    override = _generation_override(body.credential, body.allowedProviders)
     question = Question(
         request_id=body.requestId,
         question=body.question,
@@ -134,7 +137,7 @@ def research_answer(
         allowed_providers=body.allowedProviders,
         generation_override=override,
     )
-    try:
+    with _pipeline_errors():
         return answer_question(
             engine,
             question,
@@ -144,6 +147,13 @@ def research_answer(
             support_checker=support_checker,
             stale_days=settings.trust_stale_days,
         )
+
+
+@contextmanager
+def _pipeline_errors() -> Iterator[None]:
+    """The 503s of a retrieve → generate → verify request (``answerQuestion``, ``draftSection``)."""
+    try:
+        yield
     except NoProviderError as exc:
         raise Problem(503, "Service Unavailable", str(exc)) from exc
     except GatewayError as exc:
@@ -172,3 +182,76 @@ def source(sourceId: uuid.UUID, engine: Annotated[Engine, Depends(get_engine)]) 
     if found is None:
         raise Problem(404, "Not Found", "no such source")
     return found
+
+
+# ── drafting (#212) ────────────────────────────────────────────────────────────────────────
+
+SectionKey = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
+
+
+class SectionBodyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    key: SectionKey
+    body: Annotated[str, Field(max_length=20000)]
+
+
+class DraftSectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    requestId: uuid.UUID
+    templateId: TemplateId
+    sectionKey: SectionKey
+    instruction: Annotated[str, Field(max_length=2000)] | None = None
+    fields: dict[str, Annotated[str, Field(max_length=4000)] | None]
+    otherSections: Annotated[list[SectionBodyIn], Field(max_length=30)]
+    scope: ScopeIn
+    allowedProviders: Annotated[list[ProviderId], Field(max_length=32)] | None = None
+    credential: CredentialIn | None = None
+
+
+@router.get("/drafting/templates")
+def drafting_templates() -> dict[str, Any]:
+    return {"items": [t.dto() for t in templates()]}
+
+
+@router.post("/drafting/sections")
+def drafting_section(
+    body: DraftSectionRequest,
+    engine: Annotated[Engine, Depends(get_engine)],
+    gateway: Annotated[ModelGateway, Depends(get_gateway)],
+    embedder: Annotated[Embedder, Depends(get_embedder)],
+    reranker: Annotated[Reranker, Depends(get_reranker)],
+    support_checker: Annotated[SupportChecker, Depends(get_support_checker)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> dict[str, Any]:
+    override = _generation_override(body.credential, body.allowedProviders)
+    template = get_template(body.templateId)
+    section = template.section(body.sectionKey) if template else None
+    if template is None or section is None:
+        raise Problem(400, "Bad Request", "invalid field(s): sectionKey (no such section)")
+    if not section.assistable:
+        raise Problem(400, "Bad Request", "invalid field(s): sectionKey (not assistable)")
+    request = SectionRequest(
+        request_id=body.requestId,
+        template=template,
+        section=section,
+        scope=Scope(
+            user_id=body.scope.userId,
+            account_id=body.scope.accountId,
+            allowed_case_ids=tuple(body.scope.allowedCaseIds),
+        ),
+        instruction=body.instruction or None,
+        fields=body.fields,
+        other_sections=[(s.key, s.body) for s in body.otherSections],
+        allowed_providers=body.allowedProviders,
+        generation_override=override,
+    )
+    with _pipeline_errors():
+        return draft_section(
+            engine,
+            request,
+            gateway=gateway,
+            embedder=embedder,
+            reranker=reranker,
+            support_checker=support_checker,
+            stale_days=settings.trust_stale_days,
+        )

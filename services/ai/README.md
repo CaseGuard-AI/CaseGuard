@@ -197,6 +197,12 @@ pnpm data:pull -- --dump latest|<date>[-N]|eval-frozen-N [--from DIR] [--yes]  #
 - **Search** (ADR-0011): `POST /ai/v1/precedents/search` runs `retrieve()` over judgments only, groups the chunks by judgment (`retrieved`), then adds judgments one hop away through `CITES_JUDGMENT`, `CONNECTED_CASE` or a shared section (`graph_derived`, with `via`), up to 2 under each retrieved hit. `overruled` comes from an incoming `OVERRULES` edge; `graphAvailable` is false until the graph is built. No model is called.
 - **Relationships:** `GET /ai/v1/precedents/{sourceId}/relationships`, outgoing then incoming, 404 for anything but a judgment. Traversal (`graph/traverse.py`) is one recursive CTE, depth ≤ 2.
 
+## Drafting (#212)
+
+- `GET /ai/v1/drafting/templates`: the bail application (s.497/498 CrPC), plaint (Order VII CPC) and legal notice, from `drafting/templates/*.yaml`. Each template has a `version`, fields (with the `caseField` apps/api fills them from) and sections in document order. Bump `version` whenever a field or section changes. A file that doesn't validate fails at load.
+- `POST /ai/v1/drafting/sections` drafts one `assistable` section. It follows the research pipeline: the allow-list first (503), retrieval within the scope, prompt `draft-section-v1` (same `[[p:N]]` and `QUOTES:` shape as `answer-v1`, so `parse_reply` reads it), then the shared trust checks in `trust/verify.py` and the same store. The citations returned are read back from it (FR-TRUST-10). A section that cites nothing comes back as plain text with no citations.
+- **Audit (FR-TRUST-12):** one `ai.answer_traces` row per `requestId`, with `models.kind = drafting`, `models.prompt = draft-section-v1`, the template and the section. The instruction and the field values are never stored or logged.
+
 ## Checks
 
 ```bash
