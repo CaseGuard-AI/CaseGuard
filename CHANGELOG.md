@@ -5,6 +5,7 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 ## [Unreleased]
 
 ### Added
+- Precedent search screen in the web app (#106, FR-PREC-1, FR-PREC-3, FR-PREC-4, FR-TRUST-10): `/precedents` replaces its placeholder with a search box and filters (court, area, decision dates, statute section) and an "include graph-derived" switch. Each hit shows its citation, court, date and snippet, and a badge saying whether it was retrieved or graph-derived, with the edge and the result it came from. Flags look the same as in research, and a notice appears while the knowledge graph isn't built. Opening a hit shows its relationships, outgoing and incoming, each with its method, confidence, human confirmation and stored status, and corpus records open their source. New strings under `Precedents` (Urdu awaiting native review, #105)
 - Contracts for precedent search, drafting and the linter (#209; FR-PREC-1..4, FR-DRAFT-1..4, FR-LINT-1..3, FR-CASE-5)
   - **api.v1, precedents:** `POST /precedents/search`. Hits are judgments with `origin` set to `retrieved` or `graph_derived`, a `via` edge on graph-derived hits, and graph flags. `GET /precedents/{sourceId}/relationships` returns the typed P0 edges, each with provenance and status.
   - **api.v1, drafting:** `GET /drafting/templates` (bail application, plaint, legal notice); `/drafts` CRUD, filled from a case's fields, with `version` for optimistic saves (409 if stale); `POST /drafts/{id}/sections/{key}/assist` returns citations from the trust store; `GET /drafts/{id}/export?format=docx|pdf`.

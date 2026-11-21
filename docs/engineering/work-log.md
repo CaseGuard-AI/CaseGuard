@@ -315,3 +315,11 @@ The three remaining M3 screens (#106, #107, #108) were waiting on operations tha
 - **Linter.** It is deterministic and read-only (ADR-0012). Rule sets cite their sources, and a stored report keeps the text as sent, with its SHA-256.
 
 Plan: `plans/0052`.
+
+### Precedent search screen (#106)
+`/precedents` is now a real screen, built against the contract with fetch mocked (#210 and #211 serve it).
+- Results are labelled by origin. A graph-derived judgment says which edge brought it in and from which result (FR-PREC-3), and sits indented under that result.
+- Flags reuse research's `FlagChips` and statuses reuse `TrustBadge`, so `overruled` looks the same on both screens (FR-TRUST-10).
+- The relationships panel lists each edge with its provenance and status (FR-PREC-4). Area is free text until the web reads the case taxonomy.
+
+The new Urdu strings need native review (#105). Plan: `plans/0055`.
