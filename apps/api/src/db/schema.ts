@@ -495,8 +495,8 @@ export const draftCitations = app.table(
 );
 
 // Lint reports (FR-LINT-1, FR-CASE-5, ADR-0012, #215). The text is stored exactly as linted with
-// the SHA-256 services/ai computed over its UTF-8 bytes (FR-LINT-3). `draft_id` is a plain uuid,
-// with no FK yet; checking it against app.drafts is a plan 0060 follow-up.
+// the SHA-256 services/ai computed over its UTF-8 bytes (FR-LINT-3). Deleting the draft keeps
+// the report and clears `draft_id`; POST /lint-reports checks the draft is the caller's (#226).
 export const lintReports = app.table(
   "lint_reports",
   {
@@ -508,7 +508,7 @@ export const lintReports = app.table(
       .notNull()
       .references(() => accounts.id, { onDelete: "cascade" }),
     caseId: uuid("case_id").references(() => cases.id, { onDelete: "cascade" }),
-    draftId: uuid("draft_id"),
+    draftId: uuid("draft_id").references(() => drafts.id, { onDelete: "set null" }),
     documentType: text("document_type", { enum: LINT_DOCUMENT_TYPES }).notNull(),
     title: text("title").notNull(),
     text: text("text").notNull(),

@@ -115,6 +115,7 @@ describe.skipIf(!url)("app schema migrations", () => {
   it("0008 turns existing users into lawyers, and its down turns them back", async () => {
     const roleOf = async (email: string) =>
       (await pool.query("SELECT role FROM app.users WHERE email = $1", [email])).rows[0]?.role;
+    expect(await migrateDown(pool)).toBe("0016_lint_reports_draft_fk");
     expect(await migrateDown(pool)).toBe("0015_lint_reports");
     expect(await migrateDown(pool)).toBe("0014_drafts");
     expect(await migrateDown(pool)).toBe("0013_notifications");
@@ -134,6 +135,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0013_notifications",
       "0014_drafts",
       "0015_lint_reports",
+      "0016_lint_reports_draft_fk",
     ]);
     expect(await roleOf("old-user@example.com")).toBe("lawyer");
     expect(await roleOf("old-admin@example.com")).toBe("admin");
@@ -142,6 +144,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       email: "new-researcher@example.com",
       role: "researcher",
     });
+    expect(await migrateDown(pool)).toBe("0016_lint_reports_draft_fk");
     expect(await migrateDown(pool)).toBe("0015_lint_reports");
     expect(await migrateDown(pool)).toBe("0014_drafts");
     expect(await migrateDown(pool)).toBe("0013_notifications");
@@ -162,6 +165,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0013_notifications",
       "0014_drafts",
       "0015_lint_reports",
+      "0016_lint_reports_draft_fk",
     ]);
   });
 
@@ -236,6 +240,7 @@ describe.skipIf(!url)("app schema migrations", () => {
         )
       ).rowCount === 1;
     const hasTheme = () => hasColumn("users", "theme");
+    expect(await migrateDown(pool)).toBe("0016_lint_reports_draft_fk");
     expect(await migrateDown(pool)).toBe("0015_lint_reports");
     expect((await tables()).map((t) => t.tablename)).not.toContain("lint_reports");
     expect(await hasColumn("ai_audit_records", "draft_id")).toBe(true);
@@ -299,6 +304,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0013_notifications",
       "0014_drafts",
       "0015_lint_reports",
+      "0016_lint_reports_draft_fk",
     ]);
     expect((await tables()).map((t) => t.tablename)).toEqual([
       "__drizzle_migrations",
