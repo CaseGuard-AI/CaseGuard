@@ -102,3 +102,15 @@ export function aiLimiter() {
     handler: tooMany,
   });
 }
+
+/** Lint reports per signed-in user: 60 per 15 minutes. Mount after requireAuth. */
+export function lintLimiter() {
+  return rateLimit({
+    windowMs: WINDOW_MS,
+    limit: 60,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    keyGenerator: (req) => req.auth?.userId ?? ip(req),
+    handler: tooMany,
+  });
+}

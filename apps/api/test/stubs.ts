@@ -52,9 +52,19 @@ const unused = async (): Promise<never> => {
   throw new Error("not used");
 };
 
-/** The ingestion methods of AiClient, for stubs that don't use them. */
-export const noIngestion: Pick<AiClient, "startIngestion" | "getIngestion" | "purgeDocument"> = {
+/** The linter methods of AiClient, for stubs that don't use them. */
+export const noLint: Pick<AiClient, "listLintRulesets" | "lint"> = {
+  listLintRulesets: unused,
+  lint: unused,
+};
+
+/** The ingestion methods of AiClient (and the linter's), for stubs that don't use them. */
+export const noIngestion: Pick<
+  AiClient,
+  "startIngestion" | "getIngestion" | "purgeDocument" | "listLintRulesets" | "lint"
+> = {
   startIngestion: unused,
   getIngestion: unused,
   purgeDocument: unused,
+  ...noLint,
 };

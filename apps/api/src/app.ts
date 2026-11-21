@@ -21,6 +21,7 @@ import { healthRouter } from "./routes/health.js";
 import { keysRouter } from "./routes/keys.js";
 import { settingsRouter } from "./routes/settings.js";
 import { sourcesRouter } from "./routes/sources.js";
+import { lintRouter } from "./routes/lint.js";
 import type { BlobStore } from "./storage/blob-store.js";
 
 export interface AppDeps {
@@ -87,6 +88,7 @@ export function createApp(deps: AppDeps) {
     }),
   );
   v1.use(sourcesRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
+  v1.use(lintRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
   app.use("/api/v1", v1);
 
   app.use(notFound);
