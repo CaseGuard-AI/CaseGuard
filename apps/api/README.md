@@ -57,6 +57,11 @@ Config is validated at startup (`src/config/env.ts`). It's read from real enviro
 | `POST /api/v1/conversations/{id}/messages` | Ask a question; answers only with verified citations (rate-limited, AI must be on)  |
 | `GET /api/v1/citations/{id}`               | A citation from your own answers, with its current verification                     |
 | `GET /api/v1/sources/{id}`                 | A corpus source record with its official URL                                        |
+| `GET /api/v1/lint/rulesets`                | The linter's rule sets, each rule with its source or `null`                         |
+| `POST /api/v1/lint-reports`                | Lint a bail application or plaint and keep the report (`caseId`, `draftId` optional) |
+| `GET /api/v1/lint-reports`                 | Your lint reports, newest first (`caseId`, `cursor`, `limit`), with finding counts  |
+| `GET /api/v1/lint-reports/{id}`            | A report with its text and findings (404 if it isn't yours)                         |
+| `DELETE /api/v1/lint-reports/{id}`         | Delete a report (204)                                                               |
 | `GET /api/v1/admin/users`                  | Admin: every user, oldest first (`cursor`, `limit`)                                 |
 | `PATCH /api/v1/admin/users/{userId}`       | Admin: turn AI on or off for a user (`aiEnabled`)                                   |
 | `GET /api/v1/admin/providers`              | Admin: the model-provider allow-list                                                |
@@ -131,6 +136,15 @@ Drafting (#213, FR-DRAFT-1..4) in `src/routes/drafts.ts` and `src/drafts/`. The 
 - **Export** (FR-DRAFT-4): `GET /drafts/{id}/export?format=docx|pdf` uses `docx` and `pdfkit`. Headings come from the template, and every marker becomes a numbered note giving the source, locator, stored status and last-verified date. The response is an attachment, sent with `nosniff` and `no-store`. The PDF uses the built-in Times font, so non-Latin text (Urdu) isn't rendered there yet; use DOCX for it.
 - **Owner only:** another user's draft is a 404 on every route.
 
+## Lint reports
+
+The procedural linter (#215, [ADR-0012](../../docs/adr/0012-deterministic-read-only-linter.md)) runs in services/ai. apps/api keeps the reports in `app.lint_reports` (migration `0015_lint_reports`).
+
+- **Create:** the case, if given, must be the caller's and active (400 on `caseId`), checked before services/ai is asked. `draftId` is only checked as a uuid and recorded; checking it is the caller's draft waits for the drafts table (Track D). The text is limited to 200,000 characters (code points, as the contract counts) and must be valid Unicode.
+- **Read-only (FR-LINT-3):** the text is stored exactly as sent. services/ai's `inputSha256` must equal apps/api's own SHA-256 of the same UTF-8 bytes, the result must be for this request, and every span must lie within the text; otherwise the answer is 503 and nothing is stored.
+- **No model provider is called,** so the routes work with AI features off and nothing is written to `ai_audit_records`. The text is never logged. 60 reports per user per 15 minutes.
+- Owner only: another user's report is a 404. A case's reports are deleted with the case.
+
 ## Settings
 
 - `GET`/`PATCH /api/v1/me/settings` (FR-SET-1) read and change the signed-in user's `name`, `locale` and `theme`. There's no user id in the path, so a user can only ever reach their own (FR-AUTH-4).
@@ -169,6 +183,7 @@ src/
   clients/ai.ts        /ai/v1 client (bearer service token)
   routes/              one router per contract tag (health, auth, settings, admin, cases, documents, conversations, sources)
   documents/           document store (incl. setDocumentStatus) and the multipart upload reader
+  lint/                lint report store
   drafts/              draft store, fill from case, citation markers, DOCX/PDF export
   storage/             blob store for uploaded files (fs driver)
   jobs/                pg-boss queue and the document.ingest / document.purge workers

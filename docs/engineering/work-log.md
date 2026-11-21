@@ -356,3 +356,11 @@ The first step of Track L (plan `0052`): services/ai now answers `GET /ai/v1/lin
 - Every rule has a seeded-defect test that produces exactly its finding, and the complete fixtures lint clean.
 
 Next: lint reports in apps/api (#215) and the `/linter` screen (#108). Plan: `plans/0059`.
+
+### Lint reports in the API (#215)
+The second step of Track L (plan `0052`): apps/api stores lint reports in `app.lint_reports` (migration `0015_lint_reports`, number reserved; `0014` is Track D's drafts) and serves the contract's rule sets and `/lint-reports` routes.
+- A report keeps the text exactly as sent. It is stored only when services/ai's SHA-256 matches apps/api's own hash of that text, so a stored report always describes the text it holds (FR-LINT-3).
+- Reports can be saved to one of the user's active cases (FR-CASE-5) and listed per case for the dashboard. Another user's report is a 404.
+- `draftId` is only recorded for now. Checking that it is the caller's draft needs Track D's table, so it is a follow-up.
+
+Plan: `plans/0060`.

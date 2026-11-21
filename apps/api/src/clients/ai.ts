@@ -286,6 +286,65 @@ export interface RelationshipList {
   items: Relationship[];
 }
 
+// The procedural linter (FR-LINT, ADR-0012). Deterministic: no model provider is called.
+export const LINT_DOCUMENT_TYPES = ["bail_application", "plaint"] as const;
+export type LintDocumentType = (typeof LINT_DOCUMENT_TYPES)[number];
+export const LINT_SEVERITIES = ["error", "warning", "info"] as const;
+export type LintSeverity = (typeof LINT_SEVERITIES)[number];
+export const LINT_FINDING_KINDS = ["missing_section", "missing_particular", "structure"] as const;
+export type LintFindingKind = (typeof LINT_FINDING_KINDS)[number];
+
+/** Where a rule comes from (FR-LINT-2). Null on a rule or finding: none was identified. */
+export interface LintRuleSource {
+  provision: string;
+  reference: string | null;
+}
+
+export interface LintRule {
+  id: string;
+  kind: LintFindingKind;
+  severity: LintSeverity;
+  title: string;
+  source: LintRuleSource | null;
+}
+
+export interface LintRuleset {
+  id: string;
+  documentType: LintDocumentType;
+  version: string;
+  title: string;
+  rules: LintRule[];
+}
+
+export interface LintRulesetList {
+  items: LintRuleset[];
+}
+
+export interface LintRequest {
+  requestId: string;
+  documentType: LintDocumentType;
+  text: string;
+}
+
+export interface LintFinding {
+  ruleId: string;
+  kind: LintFindingKind;
+  severity: LintSeverity;
+  message: string;
+  /** `[start, end)` in UTF-16 code units; null when missing from the whole document. */
+  span: { start: number; end: number } | null;
+  source: LintRuleSource | null;
+}
+
+export interface LintResult {
+  requestId: string;
+  rulesetId: string;
+  rulesetVersion: string;
+  /** SHA-256 of the text's UTF-8 bytes, lowercase hex (FR-LINT-3). */
+  inputSha256: string;
+  findings: LintFinding[];
+}
+
 /** A non-2xx response from services/ai. `status` lets routes tell a 404 from an outage. */
 export class AiHttpError extends Error {
   constructor(
@@ -311,6 +370,10 @@ export interface AiClient {
   getIngestion(documentId: string): Promise<IngestionStatus>;
   /** Removes the document's chunks and ingestion records (204). Idempotent. */
   purgeDocument(documentId: string): Promise<void>;
+  /** The linter's rule sets (FR-LINT-2). */
+  listLintRulesets(): Promise<LintRulesetList>;
+  /** Lints a document's text; services/ai never modifies or stores it (FR-LINT-3). */
+  lint(req: LintRequest): Promise<LintResult>;
   /** The drafting templates (FR-DRAFT-1). */
   listDraftTemplates(): Promise<{ items: DraftTemplate[] }>;
   /** Drafts one section; its citations come from the trust store (FR-DRAFT-3). */
@@ -352,6 +415,13 @@ export function createAiClient(
       ),
     getCitation: (id) => call(`/ai/v1/citations/${encodeURIComponent(id)}`),
     getSource: (id) => call(`/ai/v1/sources/${encodeURIComponent(id)}`),
+    listLintRulesets: () => call("/ai/v1/lint/rulesets"),
+    lint: (req) =>
+      call("/ai/v1/lint", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(req),
+      }),
     startIngestion: (id, req) =>
       call(`${doc(id)}/ingestion`, {
         method: "POST",

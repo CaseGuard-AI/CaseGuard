@@ -21,6 +21,7 @@ import { documentsRouter } from "./routes/documents.js";
 import { healthRouter } from "./routes/health.js";
 import { keysRouter } from "./routes/keys.js";
 import { settingsRouter } from "./routes/settings.js";
+import { lintRouter } from "./routes/lint.js";
 import { sourcesRouter } from "./routes/sources.js";
 import { draftsRouter } from "./routes/drafts.js";
 import type { BlobStore } from "./storage/blob-store.js";
@@ -93,6 +94,7 @@ export function createApp(deps: AppDeps) {
     draftsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai, encryptionKey }),
   );
   v1.use(precedentsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
+  v1.use(lintRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
   app.use("/api/v1", v1);
 
   app.use(notFound);

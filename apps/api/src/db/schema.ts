@@ -18,9 +18,11 @@ import {
 import {
   DOCUMENT_MEDIA_TYPES,
   DOCUMENT_STAGES,
+  LINT_DOCUMENT_TYPES,
   type Citation,
   type DocumentFlag,
   type Language,
+  type LintFinding,
 } from "../clients/ai.js";
 
 // The app schema, written only by apps/api as caseguard_app (ADR-0002, ADR-0007).
@@ -492,6 +494,39 @@ export const draftCitations = app.table(
   ],
 );
 
+// Lint reports (FR-LINT-1, FR-CASE-5, ADR-0012, #215). The text is stored exactly as linted with
+// the SHA-256 services/ai computed over its UTF-8 bytes (FR-LINT-3). `draft_id` is a plain uuid,
+// with no FK yet; checking it against app.drafts is a plan 0060 follow-up.
+export const lintReports = app.table(
+  "lint_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id").references(() => cases.id, { onDelete: "cascade" }),
+    draftId: uuid("draft_id"),
+    documentType: text("document_type", { enum: LINT_DOCUMENT_TYPES }).notNull(),
+    title: text("title").notNull(),
+    text: text("text").notNull(),
+    inputSha256: text("input_sha256").notNull(),
+    rulesetId: text("ruleset_id").notNull(),
+    rulesetVersion: text("ruleset_version").notNull(),
+    findings: jsonb("findings").$type<LintFinding[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("lint_reports_owner_created_idx").on(t.ownerUserId, t.createdAt, t.id),
+    index("lint_reports_case_created_idx").on(t.caseId, t.createdAt, t.id),
+    check("lint_reports_document_type_check", sql`document_type in ('bail_application', 'plaint')`),
+    check("lint_reports_sha256_check", sql`input_sha256 ~ '^[0-9a-f]{64}$'`),
+    check("lint_reports_findings_check", sql`jsonb_typeof(${t.findings}) = 'array'`),
+  ],
+);
+
 export type Account = typeof accounts.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -506,4 +541,5 @@ export type Message = typeof messages.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export type Draft = typeof drafts.$inferSelect;
+export type LintReport = typeof lintReports.$inferSelect;
 export type { Language };
