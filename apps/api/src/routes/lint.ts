@@ -13,6 +13,7 @@ import {
   findOwnLintReport,
   insertLintReport,
   listLintReports,
+  updateLintReport,
 } from "../lint/store.js";
 import { HttpProblem } from "../lib/problem.js";
 import { lintLimiter } from "../middleware/rate-limit.js";
@@ -37,6 +38,14 @@ const createBody = z.strictObject({
   caseId: z.uuid().nullable().optional(),
   draftId: z.uuid().nullable().optional(),
 });
+
+// packages/contracts api.v1: LintReportUpdate. At least one field (minProperties: 1).
+const updateBody = z
+  .strictObject({
+    title: z.string().trim().min(1).max(200).optional(),
+    caseId: z.uuid().nullable().optional(),
+  })
+  .refine((b) => Object.keys(b).length > 0, "Send at least one of title and caseId");
 
 const listQuery = z.object({
   caseId: z.uuid().optional(),
@@ -172,6 +181,17 @@ export function lintRouter(deps: { db: Db; jwtSecret: string; ai: AiClient }) {
     const report = await findOwnLintReport(db, req.auth!, req.params.reportId);
     if (!report) throw notFound();
     res.json(toReportDto(report));
+  });
+
+  // Saves the report to a case, detaches it or renames it, in place (FR-CASE-5).
+  router.patch("/lint-reports/:reportId", async (req, res) => {
+    const owner = req.auth!;
+    const changes = updateBody.parse(req.body);
+    if (!(await findOwnLintReport(db, owner, req.params.reportId))) throw notFound();
+    if (changes.caseId) await requireActiveCase(db, owner, changes.caseId, "report");
+    const updated = await updateLintReport(db, owner, req.params.reportId, changes);
+    if (!updated) throw notFound();
+    res.json(toReportDto(updated));
   });
 
   router.delete("/lint-reports/:reportId", async (req, res) => {

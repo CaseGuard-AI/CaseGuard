@@ -139,6 +139,7 @@ describe.skipIf(!url)("lint reports (api.v1 /lint*)", () => {
     return {
       get: (path: string) => auth(request(app).get(`/api/v1${path}`)),
       post: (path: string) => auth(request(app).post(`/api/v1${path}`)),
+      patch: (path: string) => auth(request(app).patch(`/api/v1${path}`)),
       delete: (path: string) => auth(request(app).delete(`/api/v1${path}`)),
     };
   };
@@ -508,6 +509,80 @@ describe.skipIf(!url)("lint reports (api.v1 /lint*)", () => {
       await create(alice, { caseId: alice.caseId });
       await pool.query("DELETE FROM app.users WHERE id = $1", [alice.userId]);
       expect(await storedCount()).toBe(0);
+    });
+  });
+
+  describe("PATCH /lint-reports/{reportId}", () => {
+    const patch = (who: Who, id: string, body: object) =>
+      as(who).patch(`/lint-reports/${id}`).send(body);
+
+    it("401 without a token", async () => {
+      const res = await request(app).patch(`/api/v1/lint-reports/${UNKNOWN}`).send({ title: "x" });
+      expect(res.status).toBe(401);
+      expectContract(res, "patch", "/lint-reports/{reportId}");
+    });
+
+    it("saves the report to a case in place, keeping its id, text and findings (FR-CASE-5)", async () => {
+      const created = await create(alice, {});
+      lintCalls = [];
+      const res = await patch(alice, created.body.id, { caseId: alice.caseId });
+      expect(res.status).toBe(200);
+      expectContract(res, "patch", "/lint-reports/{reportId}");
+      expect(res.body).toEqual({ ...created.body, caseId: alice.caseId });
+      expect(lintCalls).toHaveLength(0);
+      const listed = await as(alice).get(`/lint-reports?caseId=${alice.caseId}`);
+      expect(listed.body.items.map((r: { id: string }) => r.id)).toEqual([created.body.id]);
+    });
+
+    it("detaches with null and renames with a trimmed title", async () => {
+      const created = await create(alice, { caseId: alice.caseId });
+      const res = await patch(alice, created.body.id, { caseId: null, title: "  Renamed  " });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ caseId: null, title: "Renamed", text: TEXT });
+    });
+
+    it.each([
+      ["another user's case", () => bob.caseId],
+      ["an unknown case", () => UNKNOWN],
+    ])("400 on caseId for %s, and nothing changes", async (_label, caseId) => {
+      const created = await create(alice, {});
+      const res = await patch(alice, created.body.id, { caseId: caseId() });
+      expect(res.status).toBe(400);
+      expectContract(res, "patch", "/lint-reports/{reportId}");
+      expect(res.body.errors).toEqual([{ path: "caseId", message: "No such case" }]);
+      expect((await as(alice).get(`/lint-reports/${created.body.id}`)).body.caseId).toBeNull();
+    });
+
+    it("400 on caseId for an archived case", async () => {
+      const created = await create(alice, {});
+      await as(alice).post(`/cases/${alice.caseId}/archive`);
+      const res = await patch(alice, created.body.id, { caseId: alice.caseId });
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toEqual([{ path: "caseId", message: "That case is archived" }]);
+    });
+
+    it.each([
+      [{}, ""],
+      [{ title: "   " }, "title"],
+      [{ caseId: "nope" }, "caseId"],
+      [{ text: "changed" }, ""],
+      [{ draftId: UNKNOWN }, ""],
+    ])("400 for %j", async (body, path) => {
+      const created = await create(alice, {});
+      const res = await patch(alice, created.body.id, body);
+      expect(res.status).toBe(400);
+      expectContract(res, "patch", "/lint-reports/{reportId}");
+      expect(res.body.errors.map((e: { path: string }) => e.path)).toContain(path);
+    });
+
+    it("404 for another user's, an unknown or a malformed id (FR-AUTH-4)", async () => {
+      const bobs = await create(bob, {});
+      for (const id of [bobs.body.id, UNKNOWN, "nope"]) {
+        const res = await patch(alice, id, { caseId: alice.caseId });
+        expect(res.status).toBe(404);
+        expectContract(res, "patch", "/lint-reports/{reportId}");
+      }
+      expect((await as(bob).get(`/lint-reports/${bobs.body.id}`)).body.caseId).toBeNull();
     });
   });
 });

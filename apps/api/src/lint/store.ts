@@ -83,6 +83,25 @@ export async function findOwnLintReport(
   return row;
 }
 
+/**
+ * Changes the owner's report's title or case (FR-CASE-5). Never the text, findings or hash
+ * (FR-LINT-3). Undefined for an unknown id or another user's report.
+ */
+export async function updateLintReport(
+  db: Db,
+  owner: Owner,
+  id: string,
+  changes: { title?: string; caseId?: string | null },
+): Promise<LintReport | undefined> {
+  if (!isUuid(id)) return undefined;
+  const [row] = await db
+    .update(lintReports)
+    .set(changes)
+    .where(and(eq(lintReports.id, id), eq(lintReports.ownerUserId, owner.userId)))
+    .returning();
+  return row;
+}
+
 /** Deletes the owner's report. False if there was none to delete. */
 export async function deleteLintReport(db: Db, owner: Owner, id: string): Promise<boolean> {
   if (!isUuid(id)) return false;

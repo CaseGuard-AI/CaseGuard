@@ -21,7 +21,6 @@ vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(n
 const m = en.Linter;
 const CASE = "00000000-0000-4000-8000-0000000000a1";
 const REPORT = "00000000-0000-4000-8000-0000000000e1";
-const SAVED = "00000000-0000-4000-8000-0000000000e2";
 const AT = "2026-11-21T11:00:00Z";
 const NOW = new Date("2026-11-21T12:00:00Z");
 
@@ -331,14 +330,12 @@ describe("the linter screen (FR-LINT-1, FR-LINT-2)", () => {
     expect((await screen.findByRole("alert")).textContent).toMatch(message);
   });
 
-  it("saves an unsaved report to a case: the same text in the case, then the old one deleted", async () => {
+  it("saves an unsaved report to a case in place, with no second lint (FR-CASE-5)", async () => {
     nav.search = `?report=${REPORT}`;
     const { calls } = await renderScreen((seen) => {
       if (seen.method === "GET" && seen.path === `/lint-reports/${REPORT}`) return json(report());
-      if (seen.method === "POST" && seen.path === "/lint-reports")
-        return json(report({ id: SAVED, caseId: CASE }), 201);
-      if (seen.method === "DELETE" && seen.path === `/lint-reports/${REPORT}`)
-        return new Response(null, { status: 204 });
+      if (seen.method === "PATCH" && seen.path === `/lint-reports/${REPORT}`)
+        return json(report({ caseId: CASE }));
       return reports()(seen);
     });
     await screen.findByRole("button", { name: m.result.save });
@@ -348,13 +345,9 @@ describe("the linter screen (FR-LINT-1, FR-LINT-2)", () => {
     fireEvent.click(screen.getByRole("button", { name: m.result.save }));
 
     expect(await screen.findByText("Saved to State v. Aslam")).toBeTruthy();
-    expect(calls("POST", "/lint-reports")[0]!.body).toEqual({
-      documentType: "bail_application",
-      text: TEXT,
-      title: "Bail application, 2026-11-21",
-      caseId: CASE,
-    });
-    await waitFor(() => expect(calls("DELETE", `/lint-reports/${REPORT}`)).toHaveLength(1));
+    expect(calls("PATCH", `/lint-reports/${REPORT}`)[0]!.body).toEqual({ caseId: CASE });
+    expect(calls("POST", "/lint-reports")).toHaveLength(0);
+    expect(calls("DELETE", `/lint-reports/${REPORT}`)).toHaveLength(0);
   });
 
   it("lists past reports, opens one and deletes one after asking", async () => {
