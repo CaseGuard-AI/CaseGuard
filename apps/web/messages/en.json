@@ -601,5 +601,95 @@
       "document_failed": "{filename} could not be processed.",
       "other": "There is an update about {filename}."
     }
+  },
+  "Drafting": {
+    "list": {
+      "title": "Your drafts",
+      "label": "Drafts",
+      "loading": "Loading drafts…",
+      "error": "Drafts could not be loaded.",
+      "networkError": "Can't reach the server. Check your connection and try again.",
+      "retry": "Try again",
+      "empty": "No drafts yet. Start one above.",
+      "emptyCase": "No drafts for this case yet.",
+      "loadMore": "Load more",
+      "updated": "Updated {time}",
+      "openCase": "Open case"
+    },
+    "new": {
+      "title": "New draft",
+      "body": "Choose a template. With a case, its details fill the draft's particulars.",
+      "template": "Template",
+      "loadingTemplates": "Loading templates…",
+      "templatesError": "Templates could not be loaded.",
+      "retry": "Try again",
+      "case": "Case (optional)",
+      "caseHint": "Without a case, the particulars start empty.",
+      "titleLabel": "Title (optional)",
+      "titlePlaceholder": "Defaults to the template and case",
+      "create": "Create draft",
+      "caseUnavailable": "That case can't be used. It may be archived; choose another or none.",
+      "error": "The draft wasn't created. Try again.",
+      "networkError": "Can't reach the server. Check your connection and try again."
+    },
+    "editor": {
+      "loading": "Loading the draft…",
+      "error": "The draft could not be loaded.",
+      "notFound": "This draft doesn't exist, or it isn't yours.",
+      "retry": "Try again",
+      "title": "Title",
+      "template": "{title}, template version {version}",
+      "save": "Save",
+      "saved": "Saved",
+      "exportDocx": "Export DOCX",
+      "exportPdf": "Export PDF",
+      "exportSavedOnly": "Exports the last saved version. Save first to include your changes.",
+      "exportError": "The export failed. Try again.",
+      "delete": "Delete",
+      "deleteTitle": "Delete this draft?",
+      "deleteBody": "“{title}” will be deleted for good. Its citations stay in the audit trail.",
+      "deleteConfirm": "Delete draft",
+      "deleteError": "The draft wasn't deleted. Try again.",
+      "cancel": "Cancel",
+      "conflict": "This draft was saved somewhere else since you opened it. Reload to get the saved version; your unsaved changes here will be lost.",
+      "reload": "Reload",
+      "invalid": "The draft couldn't be saved. A citation marker may have been edited by hand; insert citations with Assist.",
+      "saveError": "The draft wasn't saved. Try again.",
+      "networkError": "Can't reach the server. Your changes are still here; try again.",
+      "particulars": "Particulars",
+      "case": "Case",
+      "required": "(required)",
+      "sectionCitations": "Citations in {heading}"
+    },
+    "assist": {
+      "open": "Assist",
+      "label": "AI assist for {heading}",
+      "instruction": "Instruction (optional)",
+      "instructionPlaceholder": "For example: stress that the accused is a first offender",
+      "run": "Draft with AI",
+      "again": "Draft again",
+      "close": "Close",
+      "working": "Drafting and checking every citation…",
+      "suggestion": "Suggestion",
+      "empty": "No text came back for this section. Try an instruction.",
+      "citations": "Citations in the suggestion",
+      "insert": "Insert",
+      "replace": "Replace section",
+      "errors": {
+        "aiDisabled": "AI features are turned off for your account. Ask an administrator.",
+        "tooMany": "Too many AI requests. Wait a few minutes and try again.",
+        "unavailable": "The drafting service is unavailable right now. Try again shortly.",
+        "generic": "This section couldn't be drafted. Try again.",
+        "network": "Can't reach the server. Check your connection and try again."
+      }
+    },
+    "citations": {
+      "at": "{locator}: {claim}"
+    },
+    "card": {
+      "title": "Drafts",
+      "body": "Drafts saved to this case.",
+      "new": "New draft"
+    }
   }
 }

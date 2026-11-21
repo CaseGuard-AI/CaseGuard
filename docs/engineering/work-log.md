@@ -315,3 +315,6 @@ The three remaining M3 screens (#106, #107, #108) were waiting on operations tha
 - **Linter.** It is deterministic and read-only (ADR-0012). Rule sets cite their sources, and a stored report keeps the text as sent, with its SHA-256.
 
 Plan: `plans/0052`.
+
+### Drafting studio in the web app (#107)
+`/drafting` replaces its "coming soon" page. Users pick a template and optionally a case, which fills the particulars. They then edit plain-text sections and can ask AI to draft any assistable section. Suggestions show their citations with the same chips and statuses as research, so a status looks identical everywhere (FR-TRUST-10). Saving handles a concurrent save with a reload, drafts export to DOCX and PDF, and the case dashboard lists the case's drafts. Plan: `plans/0058`.
