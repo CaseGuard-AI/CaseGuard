@@ -5,6 +5,7 @@ All notable changes are recorded here. The format follows [Keep a Changelog](htt
 ## [Unreleased]
 
 ### Added
+- Precedent search in apps/api (#211, FR-PREC-1, FR-PREC-4, FR-TRUST-12): `POST /precedents/search` and `GET /precedents/{sourceId}/relationships` proxy services/ai per api.v1, with responses checked before they reach the user. Each search gets its own `requestId` and an audit record in `app.ai_audit_records` (the query, and each hit's origin and graph edge). Searches share the AI rate limit (30 per 15 minutes, 429); there is no AI-enabled check, because no model is called
 - Contracts for precedent search, drafting and the linter (#209; FR-PREC-1..4, FR-DRAFT-1..4, FR-LINT-1..3, FR-CASE-5)
   - **api.v1, precedents:** `POST /precedents/search`. Hits are judgments with `origin` set to `retrieved` or `graph_derived`, a `via` edge on graph-derived hits, and graph flags. `GET /precedents/{sourceId}/relationships` returns the typed P0 edges, each with provenance and status.
   - **api.v1, drafting:** `GET /drafting/templates` (bail application, plaint, legal notice); `/drafts` CRUD, filled from a case's fields, with `version` for optimistic saves (409 if stale); `POST /drafts/{id}/sections/{key}/assist` returns citations from the trust store; `GET /drafts/{id}/export?format=docx|pdf`.
