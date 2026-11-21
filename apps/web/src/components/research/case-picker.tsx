@@ -67,22 +67,19 @@ export function NewCaseChip({ caseId, onClear }: { caseId: string; onClear: () =
   );
 }
 
-/**
- * A select of the user's active cases, plus "none" (FR-CASE-5). `current`, if it isn't an active
- * case (it was archived), stays listed so the select can show it. Shared by the Research Hub and
- * the linter's "Save to case".
- */
+// A choice of the user's active cases, or none (FR-CASE-5). `current`, the case the item is
+// already in, stays listed even when it is archived. Shared by research and drafting.
 export function CaseSelect({
   id,
   value,
-  current = null,
-  pending = false,
+  current,
+  busy = false,
   onChange,
 }: {
   id: string;
-  value: string;
-  current?: string | null;
-  pending?: boolean;
+  value: string | null;
+  current: string | null;
+  busy?: boolean;
   onChange: (caseId: string | null) => void;
 }) {
   const t = useTranslations("Cases.research");
@@ -93,9 +90,9 @@ export function CaseSelect({
   return (
     <select
       id={id}
-      value={value}
-      disabled={pending}
-      aria-busy={pending || undefined}
+      value={value ?? ""}
+      disabled={busy}
+      aria-busy={busy || undefined}
       onChange={(event) => onChange(event.target.value || null)}
       className="h-8 max-w-64 rounded-md border border-input bg-background px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-wait disabled:opacity-50"
     >
@@ -125,7 +122,7 @@ export function CasePicker({ conversation }: { conversation: ConversationSummary
   const id = useId();
   const save = useSaveToCase(conversation.id);
   const current = conversation.caseId ?? null;
-  const value = save.isPending ? (save.variables ?? "") : (current ?? "");
+  const value = save.isPending ? (save.variables ?? null) : current;
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -137,7 +134,7 @@ export function CasePicker({ conversation }: { conversation: ConversationSummary
         id={id}
         value={value}
         current={current}
-        pending={save.isPending}
+        busy={save.isPending}
         onChange={(caseId) => save.mutate(caseId)}
       />
       {current && (

@@ -142,7 +142,7 @@ function LintForm({
               <Briefcase className="size-4 text-muted-foreground" aria-hidden />
               {t("form.caseLabel")}
             </label>
-            <CaseSelect id={ids.case} value={caseId ?? ""} current={caseId} onChange={setCaseId} />
+            <CaseSelect id={ids.case} value={caseId} current={caseId} onChange={setCaseId} />
           </div>
         </div>
 
@@ -392,7 +392,13 @@ function SaveToCase({ report, onSaved }: { report: LintReport; onSaved: (id: str
       <label htmlFor={id} className="text-muted-foreground">
         {t("form.caseLabel")}
       </label>
-      <CaseSelect id={id} value={caseId ?? ""} pending={create.isPending} onChange={setCaseId} />
+      <CaseSelect
+        id={id}
+        value={caseId}
+        current={null}
+        busy={create.isPending}
+        onChange={setCaseId}
+      />
       <Button size="sm" variant="outline" disabled={!caseId || create.isPending} onClick={save}>
         {create.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
         {t(create.isPending ? "result.saving" : "result.save")}

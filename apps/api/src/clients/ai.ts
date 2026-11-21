@@ -139,6 +139,212 @@ export interface IngestionStatus {
   chunkCount: number | null;
 }
 
+// Drafting (FR-DRAFT-1, FR-DRAFT-3, #212).
+export type DraftTemplateId = "bail_application" | "plaint" | "legal_notice";
+export type CaseField =
+  | "title"
+  | "court"
+  | "caseNumber"
+  | "caseType"
+  | "filedOn"
+  | "status"
+  | "nextHearingOn"
+  | "parties"
+  | "judge"
+  | "assignedLawyer"
+  | "relevantLaws"
+  | "summary";
+
+export interface DraftTemplate {
+  id: DraftTemplateId;
+  version: string;
+  title: string;
+  description: string;
+  fields: { key: string; label: string; required: boolean; caseField: CaseField | null }[];
+  sections: {
+    key: string;
+    heading: string;
+    required: boolean;
+    assistable: boolean;
+    guidance: string;
+  }[];
+}
+
+export interface DraftSectionRequest {
+  requestId: string;
+  templateId: DraftTemplateId;
+  sectionKey: string;
+  instruction?: string;
+  fields: Record<string, string | null>;
+  otherSections: { key: string; body: string }[];
+  scope: Scope;
+  allowedProviders?: string[];
+  /** As in AnswerRequest. Secret. */
+  credential?: Credential;
+}
+
+export interface DraftSectionResult {
+  requestId: string;
+  text: string;
+  citations: Citation[];
+}
+
+// Precedent search (FR-PREC, ADR-0011). Deterministic: no model provider is called.
+export type TrustFlag =
+  | "overruled"
+  | "repealed"
+  | "superseded_version"
+  | "conflict"
+  | "stale"
+  | "third_party_source"
+  | "headnote_only"
+  | "amended_since";
+
+export const GRAPH_EDGE_TYPES = [
+  "CITES_SECTION",
+  "CITES_JUDGMENT",
+  "AMENDS",
+  "SUBSTITUTES",
+  "INSERTS",
+  "OMITS",
+  "REPEALS",
+  "OVERRULES",
+  "CONNECTED_CASE",
+] as const;
+export type GraphEdgeType = (typeof GRAPH_EDGE_TYPES)[number];
+export const GRAPH_ENTITY_TYPES = [
+  "statute",
+  "section",
+  "judgment",
+  "court",
+  "amendment_act",
+] as const;
+export type GraphEntityType = (typeof GRAPH_ENTITY_TYPES)[number];
+
+export interface PrecedentFilters {
+  court?: string;
+  area?: string;
+  decidedFrom?: string;
+  decidedTo?: string;
+  sectionRef?: string;
+}
+
+export interface PrecedentSearchRequest {
+  requestId: string;
+  query: string;
+  filters?: PrecedentFilters;
+  includeGraphDerived?: boolean;
+  limit?: number;
+}
+
+export interface PrecedentVia {
+  edgeId: string;
+  type: GraphEdgeType;
+  relatedSourceId: string;
+  sectionLabel: string | null;
+}
+
+export interface PrecedentHit {
+  sourceId: string;
+  title: string;
+  citation: string | null;
+  court: string | null;
+  decidedOn: string | null;
+  origin: "retrieved" | "graph_derived";
+  via: PrecedentVia | null;
+  flags: TrustFlag[];
+  locator: string | null;
+  snippet: string | null;
+  score: number;
+}
+
+export interface PrecedentSearchResult {
+  requestId: string;
+  hits: PrecedentHit[];
+  graphAvailable: boolean;
+}
+
+export interface Relationship {
+  id: string;
+  type: GraphEdgeType;
+  direction: "outgoing" | "incoming";
+  other: { entityType: GraphEntityType; sourceId: string | null; label: string };
+  provenance: {
+    documentId: string | null;
+    extractionMethod: "metadata" | "regex" | "human";
+    confidence: number;
+    humanConfirmed: boolean;
+  };
+  verificationStatus: Verification["status"];
+  validFrom: string | null;
+  validTo: string | null;
+  recordedAt: string;
+}
+
+export interface RelationshipList {
+  sourceId: string;
+  items: Relationship[];
+}
+
+// The procedural linter (FR-LINT, ADR-0012). Deterministic: no model provider is called.
+export const LINT_DOCUMENT_TYPES = ["bail_application", "plaint"] as const;
+export type LintDocumentType = (typeof LINT_DOCUMENT_TYPES)[number];
+export const LINT_SEVERITIES = ["error", "warning", "info"] as const;
+export type LintSeverity = (typeof LINT_SEVERITIES)[number];
+export const LINT_FINDING_KINDS = ["missing_section", "missing_particular", "structure"] as const;
+export type LintFindingKind = (typeof LINT_FINDING_KINDS)[number];
+
+/** Where a rule comes from (FR-LINT-2). Null on a rule or finding: none was identified. */
+export interface LintRuleSource {
+  provision: string;
+  reference: string | null;
+}
+
+export interface LintRule {
+  id: string;
+  kind: LintFindingKind;
+  severity: LintSeverity;
+  title: string;
+  source: LintRuleSource | null;
+}
+
+export interface LintRuleset {
+  id: string;
+  documentType: LintDocumentType;
+  version: string;
+  title: string;
+  rules: LintRule[];
+}
+
+export interface LintRulesetList {
+  items: LintRuleset[];
+}
+
+export interface LintRequest {
+  requestId: string;
+  documentType: LintDocumentType;
+  text: string;
+}
+
+export interface LintFinding {
+  ruleId: string;
+  kind: LintFindingKind;
+  severity: LintSeverity;
+  message: string;
+  /** `[start, end)` in UTF-16 code units; null when missing from the whole document. */
+  span: { start: number; end: number } | null;
+  source: LintRuleSource | null;
+}
+
+export interface LintResult {
+  requestId: string;
+  rulesetId: string;
+  rulesetVersion: string;
+  /** SHA-256 of the text's UTF-8 bytes, lowercase hex (FR-LINT-3). */
+  inputSha256: string;
+  findings: LintFinding[];
+}
+
 /** A non-2xx response from services/ai. `status` lets routes tell a 404 from an outage. */
 export class AiHttpError extends Error {
   constructor(
@@ -164,6 +370,18 @@ export interface AiClient {
   getIngestion(documentId: string): Promise<IngestionStatus>;
   /** Removes the document's chunks and ingestion records (204). Idempotent. */
   purgeDocument(documentId: string): Promise<void>;
+  /** The linter's rule sets (FR-LINT-2). */
+  listLintRulesets(): Promise<LintRulesetList>;
+  /** Lints a document's text; services/ai never modifies or stores it (FR-LINT-3). */
+  lint(req: LintRequest): Promise<LintResult>;
+  /** The drafting templates (FR-DRAFT-1). */
+  listDraftTemplates(): Promise<{ items: DraftTemplate[] }>;
+  /** Drafts one section; its citations come from the trust store (FR-DRAFT-3). */
+  draftSection(req: DraftSectionRequest): Promise<DraftSectionResult>;
+  /** Judgments for a query, with graph-derived precedents labelled (FR-PREC-3). */
+  searchPrecedents(req: PrecedentSearchRequest): Promise<PrecedentSearchResult>;
+  /** A judgment's typed relationships with provenance (FR-PREC-4). 404 if not a judgment. */
+  getPrecedentRelationships(sourceId: string): Promise<RelationshipList>;
 }
 
 export function createAiClient(
@@ -197,6 +415,13 @@ export function createAiClient(
       ),
     getCitation: (id) => call(`/ai/v1/citations/${encodeURIComponent(id)}`),
     getSource: (id) => call(`/ai/v1/sources/${encodeURIComponent(id)}`),
+    listLintRulesets: () => call("/ai/v1/lint/rulesets"),
+    lint: (req) =>
+      call("/ai/v1/lint", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(req),
+      }),
     startIngestion: (id, req) =>
       call(`${doc(id)}/ingestion`, {
         method: "POST",
@@ -205,5 +430,29 @@ export function createAiClient(
       }),
     getIngestion: (id) => call(`${doc(id)}/ingestion`),
     purgeDocument: (id) => call(doc(id), { method: "DELETE" }),
+    listDraftTemplates: () => call("/ai/v1/drafting/templates"),
+    draftSection: (req) =>
+      call(
+        "/ai/v1/drafting/sections",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(req),
+        },
+        answerTimeoutMs,
+      ),
+    // Retrieval and reranking run in-process; the first search may load the models.
+    searchPrecedents: (req) =>
+      call(
+        "/ai/v1/precedents/search",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(req),
+        },
+        answerTimeoutMs,
+      ),
+    getPrecedentRelationships: (id) =>
+      call(`/ai/v1/precedents/${encodeURIComponent(id)}/relationships`),
   };
 }

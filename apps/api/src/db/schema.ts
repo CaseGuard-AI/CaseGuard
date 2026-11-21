@@ -18,9 +18,11 @@ import {
 import {
   DOCUMENT_MEDIA_TYPES,
   DOCUMENT_STAGES,
+  LINT_DOCUMENT_TYPES,
   type Citation,
   type DocumentFlag,
   type Language,
+  type LintFinding,
 } from "../clients/ai.js";
 
 // The app schema, written only by apps/api as caseguard_app (ADR-0002, ADR-0007).
@@ -367,6 +369,8 @@ export const aiAuditRecords = app.table(
     // The case the request was scoped to. No FK: the row is append-only, so it records what
     // the request carried rather than following the case.
     caseId: uuid("case_id"),
+    // The draft a drafting assist was for (#213). No FK, for the same reason as case_id.
+    draftId: uuid("draft_id"),
     question: text("question").notNull(),
     language: text("language", { enum: LANGUAGES }),
     lawAsOf: date("law_as_of", { mode: "string" }),
@@ -427,6 +431,102 @@ export const notifications = app.table(
   ],
 );
 
+// Drafts from the drafting templates (FR-DRAFT-1, FR-DRAFT-4, #213). The template lives in
+// services/ai; a draft keeps the version it was created from. `version` is the optimistic lock
+// of updateDraft. A draft saved to a case is detached, not deleted, when the case goes.
+export const DRAFT_TEMPLATE_IDS = ["bail_application", "plaint", "legal_notice"] as const;
+export type DraftTemplateId = (typeof DRAFT_TEMPLATE_IDS)[number];
+
+/** One section of a draft (ai.v1 DraftSectionBody). */
+export interface DraftSection {
+  key: string;
+  body: string;
+}
+
+export const drafts = app.table(
+  "drafts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id").references(() => cases.id, { onDelete: "set null" }),
+    templateId: text("template_id", { enum: DRAFT_TEMPLATE_IDS }).notNull(),
+    templateVersion: text("template_version").notNull(),
+    title: text("title").notNull(),
+    fields: jsonb("fields").$type<Record<string, string | null>>().notNull().default({}),
+    sections: jsonb("sections").$type<DraftSection[]>().notNull().default([]),
+    version: integer("version").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("drafts_owner_updated_idx").on(t.ownerUserId, t.updatedAt, t.id),
+    index("drafts_case_updated_idx").on(t.caseId, t.updatedAt),
+    check(
+      "drafts_template_id_check",
+      sql`template_id in ('bail_application', 'plaint', 'legal_notice')`,
+    ),
+    check("drafts_fields_check", sql`jsonb_typeof(${t.fields}) = 'object'`),
+    check("drafts_sections_check", sql`jsonb_typeof(${t.sections}) = 'array'`),
+    check("drafts_version_check", sql`version >= 1`),
+  ],
+);
+
+// The citations assistDraftSection issued for each draft. updateDraft accepts a [[c:<id>]]
+// marker only if it is here, and GET /citations/{id} lets the owner read it. The citation and
+// its status live in services/ai's trust store (FR-TRUST-10): no copy is kept here.
+export const draftCitations = app.table(
+  "draft_citations",
+  {
+    draftId: uuid("draft_id")
+      .notNull()
+      .references(() => drafts.id, { onDelete: "cascade" }),
+    citationId: uuid("citation_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.draftId, t.citationId] }),
+    index("draft_citations_citation_idx").on(t.citationId),
+  ],
+);
+
+// Lint reports (FR-LINT-1, FR-CASE-5, ADR-0012, #215). The text is stored exactly as linted with
+// the SHA-256 services/ai computed over its UTF-8 bytes (FR-LINT-3). `draft_id` is a plain uuid,
+// with no FK yet; checking it against app.drafts is a plan 0060 follow-up.
+export const lintReports = app.table(
+  "lint_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: uuid("owner_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    caseId: uuid("case_id").references(() => cases.id, { onDelete: "cascade" }),
+    draftId: uuid("draft_id"),
+    documentType: text("document_type", { enum: LINT_DOCUMENT_TYPES }).notNull(),
+    title: text("title").notNull(),
+    text: text("text").notNull(),
+    inputSha256: text("input_sha256").notNull(),
+    rulesetId: text("ruleset_id").notNull(),
+    rulesetVersion: text("ruleset_version").notNull(),
+    findings: jsonb("findings").$type<LintFinding[]>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("lint_reports_owner_created_idx").on(t.ownerUserId, t.createdAt, t.id),
+    index("lint_reports_case_created_idx").on(t.caseId, t.createdAt, t.id),
+    check("lint_reports_document_type_check", sql`document_type in ('bail_application', 'plaint')`),
+    check("lint_reports_sha256_check", sql`input_sha256 ~ '^[0-9a-f]{64}$'`),
+    check("lint_reports_findings_check", sql`jsonb_typeof(${t.findings}) = 'array'`),
+  ],
+);
+
 export type Account = typeof accounts.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -440,4 +540,6 @@ export type Conversation = typeof conversations.$inferSelect;
 export type Message = typeof messages.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+export type Draft = typeof drafts.$inferSelect;
+export type LintReport = typeof lintReports.$inferSelect;
 export type { Language };
