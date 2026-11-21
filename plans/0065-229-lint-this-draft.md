@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#229](https://github.com/CaseGuard-AI/CaseGuard/issues/229) · **PR:** TBD
+> **Status:** Done · **Issue:** [#229](https://github.com/CaseGuard-AI/CaseGuard/issues/229) · **PR:** [#233](https://github.com/CaseGuard-AI/CaseGuard/pull/233)
 
 # #229: "Lint this draft" in the drafting studio
 

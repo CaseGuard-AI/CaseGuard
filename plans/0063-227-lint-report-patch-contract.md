@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#227](https://github.com/CaseGuard-AI/CaseGuard/issues/227) · **PR:** TBD
+> **Status:** Done · **Issue:** [#227](https://github.com/CaseGuard-AI/CaseGuard/issues/227) · **PR:** [#231](https://github.com/CaseGuard-AI/CaseGuard/pull/231)
 
 # #227: contract for `PATCH /lint-reports/{reportId}`
 
