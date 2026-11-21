@@ -16,7 +16,7 @@ import {
   DOCUMENT_TYPES,
   MAX_TEXT,
   useCreateLintReport,
-  useDeleteLintReport,
+  useUpdateLintReport,
   useLintReport,
   useLintRulesets,
   type LintDocumentType,
@@ -358,31 +358,18 @@ function SavedIn({ caseId }: { caseId: string }) {
   );
 }
 
-// api.v1 has no way to move a report into a case, so saving creates the same text as a report in
-// the case (FR-CASE-5) and then deletes the unsaved one.
+// Saves the report to a case in place: same id, same text, no second lint (FR-CASE-5).
 function SaveToCase({ report, onSaved }: { report: LintReport; onSaved: (id: string) => void }) {
   const t = useTranslations("Linter");
   const id = useId();
   const [caseId, setCaseId] = useState<string | null>(null);
-  const create = useCreateLintReport();
-  const remove = useDeleteLintReport();
+  const update = useUpdateLintReport();
 
   function save() {
     if (!caseId) return;
-    create.mutate(
-      {
-        documentType: report.documentType,
-        text: report.text,
-        title: report.title,
-        caseId,
-        ...(report.draftId ? { draftId: report.draftId } : {}),
-      },
-      {
-        onSuccess: (saved) => {
-          onSaved(saved.id);
-          remove.mutate(report.id);
-        },
-      },
+    update.mutate(
+      { reportId: report.id, body: { caseId } },
+      { onSuccess: (saved) => onSaved(saved.id) },
     );
   }
 
@@ -396,19 +383,19 @@ function SaveToCase({ report, onSaved }: { report: LintReport; onSaved: (id: str
         id={id}
         value={caseId}
         current={null}
-        busy={create.isPending}
+        busy={update.isPending}
         onChange={setCaseId}
       />
-      <Button size="sm" variant="outline" disabled={!caseId || create.isPending} onClick={save}>
-        {create.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
-        {t(create.isPending ? "result.saving" : "result.save")}
+      <Button size="sm" variant="outline" disabled={!caseId || update.isPending} onClick={save}>
+        {update.isPending && <LoaderCircle className="animate-spin" aria-hidden />}
+        {t(update.isPending ? "result.saving" : "result.save")}
       </Button>
-      {create.isError && (
+      {update.isError && (
         <p role="alert" className="w-full text-xs text-danger">
           {t(
-            errorKey(create.error) === "generic"
+            errorKey(update.error) === "generic"
               ? "result.saveError"
-              : `errors.${errorKey(create.error)}`,
+              : `errors.${errorKey(update.error)}`,
           )}
         </p>
       )}
