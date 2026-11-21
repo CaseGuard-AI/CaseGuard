@@ -93,6 +93,8 @@ class Retrieval:
 # The corpus branch carries the "law as of" predicate (FR-RES-11), before its LIMIT so a date
 # never returns fewer passages: judgments decided after :as_of are left out; statutes, and
 # judgments with no known decision date, stay in. A NULL :as_of leaves the branch unchanged.
+# :kinds, when set, keeps only those document kinds (precedent search: judgments only, #210);
+# NULL, as research passes it, leaves the branch unchanged.
 _DENSE = text(
     """
     (SELECT 'corpus' AS origin, c.id, c.embedding <=> CAST(:q AS vector) AS distance
@@ -100,6 +102,7 @@ _DENSE = text(
       WHERE c.embedding IS NOT NULL
         AND (CAST(:as_of AS date) IS NULL OR d.kind <> 'judgment' OR d.decided_on IS NULL
              OR d.decided_on <= CAST(:as_of AS date))
+        AND (CAST(:kinds AS text[]) IS NULL OR d.kind = ANY(CAST(:kinds AS text[])))
       ORDER BY distance LIMIT :k)
     UNION ALL
     (SELECT 'case' AS origin, cc.id, cc.embedding <=> CAST(:q AS vector) AS distance
@@ -121,6 +124,7 @@ _SPARSE = text(
       WHERE c.tsv @@ q.query
         AND (CAST(:as_of AS date) IS NULL OR d.kind <> 'judgment' OR d.decided_on IS NULL
              OR d.decided_on <= CAST(:as_of AS date))
+        AND (CAST(:kinds AS text[]) IS NULL OR d.kind = ANY(CAST(:kinds AS text[])))
       ORDER BY rank DESC LIMIT :k)
     UNION ALL
     (SELECT 'case' AS origin, cc.id, ts_rank_cd(cc.tsv, q.query) AS rank
@@ -169,6 +173,10 @@ def _scope_params(scope: Scope) -> dict[str, Any]:
     }
 
 
+def _kinds(kinds: Sequence[str] | None) -> list[str] | None:
+    return None if kinds is None else list(kinds)
+
+
 def _vector(values: Sequence[float]) -> str:
     return "[" + ",".join(repr(float(v)) for v in values) + "]"
 
@@ -179,13 +187,20 @@ def dense_search(
     scope: Scope,
     k: int = DENSE_K,
     law_as_of: date | None = None,
+    kinds: Sequence[str] | None = None,
 ) -> list[tuple[Key, float]]:
-    params = {"q": _vector(query_vector), "k": k, "as_of": law_as_of, **_scope_params(scope)}
-    if law_as_of is None:
+    params = {
+        "q": _vector(query_vector),
+        "k": k,
+        "as_of": law_as_of,
+        "kinds": _kinds(kinds),
+        **_scope_params(scope),
+    }
+    if law_as_of is None and kinds is None:
         rows = conn.execute(_DENSE, params).all()
     else:
-        # The HNSW index applies the date filter to the neighbours it found, so a date could
-        # return fewer than k. An iterative scan (pgvector 0.8) keeps going, in exact distance
+        # The HNSW index applies the date (or kind) filter to the neighbours it found, so a
+        # filter could return fewer than k. An iterative scan (pgvector 0.8) keeps going, in exact distance
         # order, until k rows pass. Transaction-local, and switched off again straight after.
         conn.execute(text("SELECT set_config('hnsw.iterative_scan', 'strict_order', true)"))
         rows = conn.execute(_DENSE, params).all()
@@ -199,11 +214,18 @@ def sparse_search(
     scope: Scope,
     k: int = SPARSE_K,
     law_as_of: date | None = None,
+    kinds: Sequence[str] | None = None,
 ) -> list[tuple[Key, float]]:
     query = ts_query(question)
     if not query:
         return []
-    params = {"tsq": query, "k": k, "as_of": law_as_of, **_scope_params(scope)}
+    params = {
+        "tsq": query,
+        "k": k,
+        "as_of": law_as_of,
+        "kinds": _kinds(kinds),
+        **_scope_params(scope),
+    }
     rows = conn.execute(_SPARSE, params).all()
     return [((r.origin, r.id), float(r.rank)) for r in rows]
 
@@ -254,13 +276,15 @@ def retrieve(
     fused_k: int = FUSED_K,
     final_k: int = FINAL_K,
     law_as_of: date | None = None,
+    kinds: Sequence[str] | None = None,
 ) -> Retrieval:
     """The best ``final_k`` passages for ``question`` within ``scope``, best first. With
-    ``law_as_of``, judgments decided after that date are left out (FR-RES-11)."""
+    ``law_as_of``, judgments decided after that date are left out (FR-RES-11). With ``kinds``,
+    only corpus documents of those kinds are searched (precedent search, #210)."""
     check_corpus(conn, embedder)
     (query_vector,) = embedder.embed([question])
-    dense = dense_search(conn, query_vector, scope, dense_k, law_as_of)
-    sparse = sparse_search(conn, question, scope, sparse_k, law_as_of)
+    dense = dense_search(conn, query_vector, scope, dense_k, law_as_of, kinds)
+    sparse = sparse_search(conn, question, scope, sparse_k, law_as_of, kinds)
     fused = fuse([[key for key, _ in dense], [key for key, _ in sparse]], k=RRF_K)[:fused_k]
     candidates = _passages(conn, [key for key, _ in fused], scope)
     # A fused key with no passage could only be a case chunk outside the scope; it is dropped.
