@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#215](https://github.com/CaseGuard-AI/CaseGuard/issues/215) · **PR:** pending
+> **Status:** In progress · **Issue:** [#215](https://github.com/CaseGuard-AI/CaseGuard/issues/215) · **PR:** [#222](https://github.com/CaseGuard-AI/CaseGuard/pull/222)
 
 # #215: lint reports (API)
 
