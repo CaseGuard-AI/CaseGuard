@@ -331,3 +331,11 @@ Plan: `plans/0053`.
 - services/ai's 404 stays a 404 for relationships. Any other failure, or a malformed answer, is a 503.
 
 Plan: `plans/0054`.
+
+### Precedent search screen (#106)
+`/precedents` is now a real screen, built against the contract with fetch mocked (#210 and #211 serve it).
+- Results are labelled by origin. A graph-derived judgment says which edge brought it in and from which result (FR-PREC-3), and sits indented under that result.
+- Flags reuse research's `FlagChips` and statuses reuse `TrustBadge`, so `overruled` looks the same on both screens (FR-TRUST-10).
+- The relationships panel lists each edge with its provenance and status (FR-PREC-4). Area is free text until the web reads the case taxonomy.
+
+The new Urdu strings need native review (#105). Plan: `plans/0055`.

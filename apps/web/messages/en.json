@@ -601,5 +601,96 @@
       "document_failed": "{filename} could not be processed.",
       "other": "There is an update about {filename}."
     }
+  },
+  "Precedents": {
+    "search": {
+      "label": "Search judgments",
+      "placeholder": "Describe the legal issue, e.g. bail on further inquiry",
+      "submit": "Search",
+      "filters": "Filters",
+      "court": "Court",
+      "courtPlaceholder": "e.g. Sindh High Court",
+      "area": "Area of law",
+      "areaPlaceholder": "e.g. Bail",
+      "decidedFrom": "Decided from",
+      "decidedTo": "Decided to",
+      "sectionRef": "Statute section",
+      "sectionRefPlaceholder": "e.g. s.497 CrPC",
+      "includeGraph": "Include graph-derived precedents",
+      "includeGraphHint": "Also show judgments linked to the results in the knowledge graph."
+    },
+    "results": {
+      "label": "Precedents",
+      "intro": "Search the judgments in the corpus. Every result says how it was found.",
+      "count": "{count, plural, =0 {No judgments} one {# judgment} other {# judgments}}",
+      "empty": "No judgments match. Try other words or fewer filters.",
+      "noGraph": "The knowledge graph hasn't been built yet, so only directly retrieved judgments are shown.",
+      "decided": "Decided {date}",
+      "locator": "At {locator}",
+      "open": "Show the relationships of {title}"
+    },
+    "origin": {
+      "retrieved": "Retrieved",
+      "graphDerived": "Graph-derived via {edge} from {title}",
+      "graphDerivedSection": "Graph-derived via {edge} {section} from {title}",
+      "unknownTitle": "another result"
+    },
+    "edgeTypes": {
+      "CITES_SECTION": "Cites section",
+      "CITES_JUDGMENT": "Cites judgment",
+      "AMENDS": "Amends",
+      "SUBSTITUTES": "Substitutes",
+      "INSERTS": "Inserts",
+      "OMITS": "Omits",
+      "REPEALS": "Repeals",
+      "OVERRULES": "Overrules",
+      "CONNECTED_CASE": "Connected case"
+    },
+    "relationships": {
+      "title": "Relationships",
+      "description": "Typed links to and from this judgment, with where each one comes from.",
+      "sourceDescription": "The corpus record this relationship points to.",
+      "outgoing": "Outgoing",
+      "incoming": "Incoming",
+      "none": "No relationships are recorded for this judgment.",
+      "loading": "Loading relationships…",
+      "unavailable": "Relationships are unavailable right now. Try again shortly.",
+      "notFound": "This judgment is not in the corpus.",
+      "method": "Method",
+      "confidence": "Confidence",
+      "humanConfirmed": "Human confirmed",
+      "yes": "Yes",
+      "no": "No",
+      "methods": {
+        "metadata": "Source metadata",
+        "regex": "Text match",
+        "human": "Entered by a person"
+      },
+      "entityTypes": {
+        "statute": "Statute",
+        "section": "Section",
+        "judgment": "Judgment",
+        "court": "Court",
+        "amendment_act": "Amending act"
+      },
+      "openSource": "Open {label}",
+      "validFrom": "Valid from {date}"
+    },
+    "source": {
+      "back": "Back to relationships",
+      "loading": "Loading the source…",
+      "unavailable": "The source is unavailable right now.",
+      "citation": "Citation",
+      "court": "Court",
+      "decidedOn": "Decided",
+      "official": "Open on the official source"
+    },
+    "errors": {
+      "network": "Couldn't reach the server. Check your connection and try again.",
+      "tooMany": "Too many searches. Wait a few minutes and try again.",
+      "unavailable": "Precedent search is unavailable right now. Try again shortly.",
+      "invalid": "Check the search words and filters.",
+      "generic": "Something went wrong. Try again."
+    }
   }
 }
