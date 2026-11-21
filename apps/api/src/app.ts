@@ -15,6 +15,7 @@ import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { casesRouter } from "./routes/cases.js";
 import { notificationsRouter } from "./routes/notifications.js";
+import { precedentsRouter } from "./routes/precedents.js";
 import { conversationsRouter } from "./routes/conversations.js";
 import { documentsRouter } from "./routes/documents.js";
 import { healthRouter } from "./routes/health.js";
@@ -91,6 +92,7 @@ export function createApp(deps: AppDeps) {
   v1.use(
     draftsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai, encryptionKey }),
   );
+  v1.use(precedentsRouter({ db: deps.orm, jwtSecret: deps.env.JWT_SECRET, ai: deps.ai }));
   app.use("/api/v1", v1);
 
   app.use(notFound);
