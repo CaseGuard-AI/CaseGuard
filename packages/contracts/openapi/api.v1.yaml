@@ -1095,6 +1095,34 @@ paths:
               schema: { $ref: "#/components/schemas/LintReport" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [linter]
+      operationId: updateLintReport
+      summary: Save a lint report to a case, detach it or rename it (FR-CASE-5)
+      description: |
+        Partial update: send only the fields that change. The text, findings and `inputSha256`
+        never change, so the report stays the record of what was linted (FR-LINT-3).
+
+        - **Case.** `caseId` saves the report to that case; `null` detaches it. The case must be
+          the caller's and active, else 400 with `errors[].path` of `caseId`.
+        - **Title.** Trimmed, like `createLintReport`.
+
+        Another user's report is a 404 (FR-AUTH-4). Invalid values are a 400 and nothing is
+        saved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LintReportUpdate" }
+      responses:
+        "200":
+          description: The report after the change
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LintReport" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [linter]
       operationId: deleteLintReport
@@ -1858,6 +1886,18 @@ components:
           maxLength: 200
         caseId: { type: [string, "null"], format: uuid }
         draftId: { type: [string, "null"], format: uuid }
+
+    LintReportUpdate:
+      description: Save a report to a case, or detach it with `null`, or rename it (FR-CASE-5).
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        caseId: { type: [string, "null"], format: uuid }
 
     LintReportSummary:
       type: object

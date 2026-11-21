@@ -836,7 +836,19 @@ export interface paths {
         delete: operations["deleteLintReport"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Save a lint report to a case, detach it or rename it (FR-CASE-5)
+         * @description Partial update: send only the fields that change. The text, findings and `inputSha256`
+         *     never change, so the report stays the record of what was linted (FR-LINT-3).
+         *
+         *     - **Case.** `caseId` saves the report to that case; `null` detaches it. The case must be
+         *       the caller's and active, else 400 with `errors[].path` of `caseId`.
+         *     - **Title.** Trimmed, like `createLintReport`.
+         *
+         *     Another user's report is a 404 (FR-AUTH-4). Invalid values are a 400 and nothing is
+         *     saved.
+         */
+        patch: operations["updateLintReport"];
         trace?: never;
     };
     "/citations/{citationId}": {
@@ -1399,6 +1411,12 @@ export interface components {
             caseId?: string | null;
             /** Format: uuid */
             draftId?: string | null;
+        };
+        /** @description Save a report to a case, or detach it with `null`, or rename it (FR-CASE-5). */
+        LintReportUpdate: {
+            title?: string;
+            /** Format: uuid */
+            caseId?: string | null;
         };
         LintReportSummary: {
             /** Format: uuid */
@@ -3253,6 +3271,35 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateLintReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reportId: components["parameters"]["LintReportId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LintReportUpdate"];
+            };
+        };
+        responses: {
+            /** @description The report after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintReport"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
