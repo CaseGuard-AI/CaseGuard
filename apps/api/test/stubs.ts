@@ -58,13 +58,25 @@ export const noLint: Pick<AiClient, "listLintRulesets" | "lint"> = {
   lint: unused,
 };
 
-/** The ingestion methods of AiClient (and the linter's), for stubs that don't use them. */
+/** AiClient's ingestion, drafting, precedent and lint methods, for stubs that don't use them. */
 export const noIngestion: Pick<
   AiClient,
-  "startIngestion" | "getIngestion" | "purgeDocument" | "listLintRulesets" | "lint"
+  | "startIngestion"
+  | "getIngestion"
+  | "purgeDocument"
+  | "listDraftTemplates"
+  | "draftSection"
+  | "searchPrecedents"
+  | "getPrecedentRelationships"
+  | "listLintRulesets"
+  | "lint"
 > = {
   startIngestion: unused,
   getIngestion: unused,
   purgeDocument: unused,
+  listDraftTemplates: unused,
+  draftSection: unused,
+  searchPrecedents: unused,
+  getPrecedentRelationships: unused,
   ...noLint,
 };

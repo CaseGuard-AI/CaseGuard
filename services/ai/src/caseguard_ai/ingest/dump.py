@@ -318,7 +318,13 @@ def restore_dump(
         return None
     with engine.begin() as conn, tarfile.open(dump_dir / DUMP_FILE, "r") as tar:
         # One transaction: a failure part-way leaves the old corpus exactly as it was.
-        conn.execute(text("TRUNCATE corpus.chunks, corpus.documents, corpus.corpus_meta"))
+        # The graph is derived from the documents and not dumped: rebuild it with ai:graph-build.
+        conn.execute(
+            text(
+                "TRUNCATE corpus.graph_edges, corpus.graph_entities, corpus.chunks,"
+                " corpus.documents, corpus.corpus_meta"
+            )
+        )
         cursor = conn.connection.driver_connection.cursor()  # type: ignore[union-attr]
         try:
             for table in TABLES:

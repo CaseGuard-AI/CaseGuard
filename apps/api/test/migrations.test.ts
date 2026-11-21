@@ -75,6 +75,8 @@ describe.skipIf(!url)("app schema migrations", () => {
       { tablename: "conversations", tableowner: role },
       { tablename: "document_stages", tableowner: role },
       { tablename: "documents", tableowner: role },
+      { tablename: "draft_citations", tableowner: role },
+      { tablename: "drafts", tableowner: role },
       { tablename: "lint_reports", tableowner: role },
       { tablename: "messages", tableowner: role },
       { tablename: "notifications", tableowner: role },
@@ -114,6 +116,7 @@ describe.skipIf(!url)("app schema migrations", () => {
     const roleOf = async (email: string) =>
       (await pool.query("SELECT role FROM app.users WHERE email = $1", [email])).rows[0]?.role;
     expect(await migrateDown(pool)).toBe("0015_lint_reports");
+    expect(await migrateDown(pool)).toBe("0014_drafts");
     expect(await migrateDown(pool)).toBe("0013_notifications");
     expect(await migrateDown(pool)).toBe("0012_documents");
     expect(await migrateDown(pool)).toBe("0011_cases");
@@ -129,6 +132,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0011_cases",
       "0012_documents",
       "0013_notifications",
+      "0014_drafts",
       "0015_lint_reports",
     ]);
     expect(await roleOf("old-user@example.com")).toBe("lawyer");
@@ -139,6 +143,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       role: "researcher",
     });
     expect(await migrateDown(pool)).toBe("0015_lint_reports");
+    expect(await migrateDown(pool)).toBe("0014_drafts");
     expect(await migrateDown(pool)).toBe("0013_notifications");
     expect(await migrateDown(pool)).toBe("0012_documents");
     expect(await migrateDown(pool)).toBe("0011_cases");
@@ -155,6 +160,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0011_cases",
       "0012_documents",
       "0013_notifications",
+      "0014_drafts",
       "0015_lint_reports",
     ]);
   });
@@ -231,6 +237,11 @@ describe.skipIf(!url)("app schema migrations", () => {
       ).rowCount === 1;
     const hasTheme = () => hasColumn("users", "theme");
     expect(await migrateDown(pool)).toBe("0015_lint_reports");
+    expect((await tables()).map((t) => t.tablename)).not.toContain("lint_reports");
+    expect(await hasColumn("ai_audit_records", "draft_id")).toBe(true);
+    expect(await migrateDown(pool)).toBe("0014_drafts");
+    expect((await tables()).map((t) => t.tablename)).not.toContain("drafts");
+    expect(await hasColumn("ai_audit_records", "draft_id")).toBe(false);
     expect(await migrateDown(pool)).toBe("0013_notifications");
     expect((await tables()).map((t) => t.tablename)).not.toContain("notifications");
     expect(await migrateDown(pool)).toBe("0012_documents");
@@ -286,6 +297,7 @@ describe.skipIf(!url)("app schema migrations", () => {
       "0011_cases",
       "0012_documents",
       "0013_notifications",
+      "0014_drafts",
       "0015_lint_reports",
     ]);
     expect((await tables()).map((t) => t.tablename)).toEqual([
@@ -296,6 +308,8 @@ describe.skipIf(!url)("app schema migrations", () => {
       "conversations",
       "document_stages",
       "documents",
+      "draft_citations",
+      "drafts",
       "lint_reports",
       "messages",
       "notifications",

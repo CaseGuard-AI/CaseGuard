@@ -1,6 +1,6 @@
 {
-  "id": "01b8d2e3-ebe1-46b4-9154-c22021a0fc09",
-  "prevId": "23addcfe-fecb-40eb-9743-81485d93fb72",
+  "id": "dc7fe939-b77b-479c-8e6b-a846aea72114",
+  "prevId": "11c65339-0f64-4bbc-9ac4-4a27a3c7a0e0",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -73,6 +73,12 @@
         },
         "case_id": {
           "name": "case_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "draft_id": {
+          "name": "draft_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -883,6 +889,277 @@
         "documents_size_check": {
           "name": "documents_size_check",
           "value": "size_bytes > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "app.draft_citations": {
+      "name": "draft_citations",
+      "schema": "app",
+      "columns": {
+        "draft_id": {
+          "name": "draft_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "citation_id": {
+          "name": "citation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "draft_citations_citation_idx": {
+          "name": "draft_citations_citation_idx",
+          "columns": [
+            {
+              "expression": "citation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "draft_citations_draft_id_drafts_id_fk": {
+          "name": "draft_citations_draft_id_drafts_id_fk",
+          "tableFrom": "draft_citations",
+          "tableTo": "drafts",
+          "schemaTo": "app",
+          "columnsFrom": [
+            "draft_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "draft_citations_draft_id_citation_id_pk": {
+          "name": "draft_citations_draft_id_citation_id_pk",
+          "columns": [
+            "draft_id",
+            "citation_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "app.drafts": {
+      "name": "drafts",
+      "schema": "app",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "owner_user_id": {
+          "name": "owner_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "case_id": {
+          "name": "case_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "template_id": {
+          "name": "template_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "template_version": {
+          "name": "template_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fields": {
+          "name": "fields",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "sections": {
+          "name": "sections",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "drafts_owner_updated_idx": {
+          "name": "drafts_owner_updated_idx",
+          "columns": [
+            {
+              "expression": "owner_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "drafts_case_updated_idx": {
+          "name": "drafts_case_updated_idx",
+          "columns": [
+            {
+              "expression": "case_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "drafts_owner_user_id_users_id_fk": {
+          "name": "drafts_owner_user_id_users_id_fk",
+          "tableFrom": "drafts",
+          "tableTo": "users",
+          "schemaTo": "app",
+          "columnsFrom": [
+            "owner_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "drafts_account_id_accounts_id_fk": {
+          "name": "drafts_account_id_accounts_id_fk",
+          "tableFrom": "drafts",
+          "tableTo": "accounts",
+          "schemaTo": "app",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "drafts_case_id_cases_id_fk": {
+          "name": "drafts_case_id_cases_id_fk",
+          "tableFrom": "drafts",
+          "tableTo": "cases",
+          "schemaTo": "app",
+          "columnsFrom": [
+            "case_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "drafts_template_id_check": {
+          "name": "drafts_template_id_check",
+          "value": "template_id in ('bail_application', 'plaint', 'legal_notice')"
+        },
+        "drafts_fields_check": {
+          "name": "drafts_fields_check",
+          "value": "jsonb_typeof(\"app\".\"drafts\".\"fields\") = 'object'"
+        },
+        "drafts_sections_check": {
+          "name": "drafts_sections_check",
+          "value": "jsonb_typeof(\"app\".\"drafts\".\"sections\") = 'array'"
+        },
+        "drafts_version_check": {
+          "name": "drafts_version_check",
+          "value": "version >= 1"
         }
       },
       "isRLSEnabled": false

@@ -30,6 +30,8 @@ TABLES = {
     "corpus.documents",
     "corpus.chunks",
     "corpus.corpus_meta",
+    "corpus.graph_entities",
+    "corpus.graph_edges",
     "ai.answer_traces",
     "ai.citations",
     "ai.verifications",
@@ -208,8 +210,84 @@ def test_vectors_and_full_text_search_work(conn: Connection) -> None:
 def test_corpus_can_be_truncated_while_citations_exist(conn: Connection) -> None:
     # A dump restore replaces corpus (#154). Citations in ai must not block it.
     _citation(conn, _document(conn))
-    conn.execute(text("TRUNCATE corpus.chunks, corpus.documents"))
+    conn.execute(
+        text("TRUNCATE corpus.graph_edges, corpus.graph_entities, corpus.chunks, corpus.documents")
+    )
     assert conn.execute(text("SELECT count(*) FROM ai.citations")).scalar_one() == 1
+
+
+# ── the knowledge graph (#210, PRD §9.1) ──────────────────────────────────────────────────
+
+
+def _entity(conn: Connection, type_: str = "judgment", key: str | None = None) -> uuid.UUID:
+    entity_id: uuid.UUID = conn.execute(
+        text(
+            "INSERT INTO corpus.graph_entities (type, label, key) VALUES (:t, 'x', :k) RETURNING id"
+        ),
+        {"t": type_, "k": key or uuid.uuid4().hex},
+    ).scalar_one()
+    return entity_id
+
+
+_EDGE = text(
+    "INSERT INTO corpus.graph_edges (type, src_entity, dst_entity, provenance_doc_id, "
+    "extraction_method, confidence, verification_status) "
+    "VALUES (:type, :src, :dst, :doc, :method, :confidence, :status)"
+)
+
+
+def _edge_params(conn: Connection, **overrides: object) -> dict[str, object]:
+    return {
+        "type": "CITES_JUDGMENT",
+        "src": _entity(conn),
+        "dst": _entity(conn),
+        "doc": _document(conn, kind="judgment"),
+        "method": "regex",
+        "confidence": 0.7,
+        "status": "unverified",
+        **overrides,
+    }
+
+
+def test_a_graph_edge_with_provenance_is_accepted(conn: Connection) -> None:
+    conn.execute(_EDGE, _edge_params(conn))
+    row = conn.execute(
+        text("SELECT human_confirmed, recorded_at IS NOT NULL FROM corpus.graph_edges")
+    ).one()
+    assert tuple(row) == (False, True)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [{"type": "LIKES"}, {"method": "llm"}, {"confidence": 1.5}, {"status": "blue"}],
+)
+def test_the_graph_allows_only_the_p0_taxonomy(
+    conn: Connection, overrides: dict[str, object]
+) -> None:
+    with pytest.raises(DBAPIError):
+        conn.execute(_EDGE, _edge_params(conn, **overrides))
+
+
+def test_graph_entities_allow_only_p0_types_and_one_row_per_key(conn: Connection) -> None:
+    _entity(conn, "section", "s.497 crpc")
+    with pytest.raises(DBAPIError), conn.begin_nested():
+        _entity(conn, "section", "s.497 crpc")
+    with pytest.raises(DBAPIError):
+        _entity(conn, "person")
+
+
+def test_one_edge_per_type_endpoints_and_provenance(conn: Connection) -> None:
+    params = _edge_params(conn)
+    conn.execute(_EDGE, params)
+    with pytest.raises(DBAPIError):
+        conn.execute(_EDGE, params)
+
+
+def test_deleting_a_document_removes_the_edges_it_provided(conn: Connection) -> None:
+    params = _edge_params(conn)
+    conn.execute(_EDGE, params)
+    conn.execute(text("DELETE FROM corpus.documents WHERE id = :d"), {"d": params["doc"]})
+    assert conn.execute(text("SELECT count(*) FROM corpus.graph_edges")).scalar_one() == 0
 
 
 # ── ADR-0002 grants ────────────────────────────────────────────────────────────────────────
@@ -221,8 +299,11 @@ def test_apps_api_can_read_corpus_but_never_write_it_or_see_ai(engine: Engine) -
     try:
         with app.connect() as c:
             c.execute(text("SELECT count(*) FROM corpus.documents")).scalar_one()
+            c.execute(text("SELECT count(*) FROM corpus.graph_edges")).scalar_one()
+            c.execute(text("SELECT count(*) FROM corpus.graph_entities")).scalar_one()
         for sql in (
             "INSERT INTO corpus.corpus_meta (id) VALUES (1)",
+            "DELETE FROM corpus.graph_edges",
             "SELECT count(*) FROM ai.verifications",
             "SELECT count(*) FROM ai.case_chunks",
         ):

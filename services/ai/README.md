@@ -190,6 +190,34 @@ pnpm data:pull -- --dump latest|<date>[-N]|eval-frozen-N [--from DIR] [--yes]  #
   
   The first question loads bge-m3 and the reranker, which takes a while.
 
+## Knowledge graph and precedent search (#210)
+
+- **Tables** (`0002_graph`, PRD §9.1): `corpus.graph_entities` and `corpus.graph_edges`, with the P0 taxonomy as check constraints and provenance on every edge (source document, `extraction_method` `metadata`/`regex`/`human`, `confidence`, `human_confirmed`, `verification_status`).
+- **Build:** `pnpm ai:graph-build` after every load (and after a dump restore, which empties the graph). It reads `raw.cited_cases`, `raw.cited_laws`, `raw.connected_cases` and citations and section references in `full_text` (`graph/citations.py`; the law-report regex is ported from the collector). Citations resolve to `corpus.documents.citation`; unresolved ones stay as labelled entities. `OVERRULES` only from an explicit `raw.overrules` list, never inferred. Idempotent: a re-run changes nothing, and human-confirmed edges are never touched.
+- **Search** (ADR-0011): `POST /ai/v1/precedents/search` runs `retrieve()` over judgments only, groups the chunks by judgment (`retrieved`), then adds judgments one hop away through `CITES_JUDGMENT`, `CONNECTED_CASE` or a shared section (`graph_derived`, with `via`), up to 2 under each retrieved hit. `overruled` comes from an incoming `OVERRULES` edge; `graphAvailable` is false until the graph is built. No model is called.
+- **Relationships:** `GET /ai/v1/precedents/{sourceId}/relationships`, outgoing then incoming, 404 for anything but a judgment. Traversal (`graph/traverse.py`) is one recursive CTE, depth ≤ 2.
+
+## Drafting (#212)
+
+- `GET /ai/v1/drafting/templates`: the bail application (s.497/498 CrPC), plaint (Order VII CPC) and legal notice, from `drafting/templates/*.yaml`. Each template has a `version`, fields (with the `caseField` apps/api fills them from) and sections in document order. Bump `version` whenever a field or section changes. A file that doesn't validate fails at load.
+- `POST /ai/v1/drafting/sections` drafts one `assistable` section. It follows the research pipeline: the allow-list first (503), retrieval within the scope, prompt `draft-section-v1` (same `[[p:N]]` and `QUOTES:` shape as `answer-v1`, so `parse_reply` reads it), then the shared trust checks in `trust/verify.py` and the same store. The citations returned are read back from it (FR-TRUST-10). A section that cites nothing comes back as plain text with no citations.
+- **Audit (FR-TRUST-12):** one `ai.answer_traces` row per `requestId`, with `models.kind = drafting`, `models.prompt = draft-section-v1`, the template and the section. The instruction and the field values are never stored or logged.
+
+## The procedural linter (#214)
+
+`GET /ai/v1/lint/rulesets` and `POST /ai/v1/lint` ([ADR-0012](../../docs/adr/0012-deterministic-read-only-linter.md)). No database and no model: the same text and rule-set version always give the same findings.
+
+- **Rule sets** are `linter/rules/bail_application.yaml` (ss.497 and 498 CrPC) and `linter/rules/plaint.yaml` (Order VII CPC, verification under Order VI r.15). Each is versioned; bump `version` whenever a rule changes, since apps/api stores it with every report.
+- **A rule** has `id`, `kind` (`missing_section`, `missing_particular`, `structure`), `severity`, `title`, `message` and `source` (`{provision, reference}`, or `null` when the requirement is practice rather than a provision; FR-LINT-2). Its `detect` is one of:
+  - `anyOf: [patterns]`, or `allOf: [[patterns], ...]` (every group must match);
+  - either with `near: {anchor, window, direction}`: the match must start within `window` characters of an anchor. A particular missing beside its anchor gets the anchor's span;
+  - `order: [ruleA, ruleB]`: B must not come entirely before A.
+
+  `when` / `unless` (a detection) switch a rule on or off, e.g. the s.498 apprehension-of-arrest rule. Patterns are Python regexes, case-insensitive and multi-line.
+- **Loading is strict** (`linter/rules.py`): an unknown key, bad id, unknown kind or severity, duplicate id, bad pattern or missing `source` fails at import and in the tests.
+- **Findings** are in document order, then those without a span in rule order. Spans are UTF-16 code units; `inputSha256` is the SHA-256 of the text's UTF-8 bytes (FR-LINT-3). Text with a lone surrogate is a 400 on `text`.
+- **Adding a rule:** add it to the YAML, then add its seeded defect to `SEEDED` in `tests/test_linter.py`. The test that every rule has one fails until you do.
+
 ## Checks
 
 ```bash
@@ -205,6 +233,7 @@ src/caseguard_ai/
   security.py    service-token guard for /ai/v1
   api/v1.py      /ai/v1 router: add feature routers here
   gateway/       model gateway (ADR-0005); check.py = provider connectivity check
+  linter/        procedural linter (ADR-0012): rules/*.yaml, rules.py, engine.py, router.py
   db/            tables.py (corpus + ai), engine.py
 migrations/      Alembic revisions (alembic.ini beside it)
 tests/
