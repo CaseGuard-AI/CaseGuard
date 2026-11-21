@@ -5,6 +5,7 @@ import { AiHttpError, type AiClient } from "../clients/ai.js";
 import { parseCitation, parseSource } from "../clients/ai-schemas.js";
 import { userHasCitation } from "../conversations/store.js";
 import type { Db } from "../db/client.js";
+import { userHasDraftCitation } from "../drafts/store.js";
 import { HttpProblem } from "../lib/problem.js";
 
 const id = z.uuid();
@@ -46,7 +47,12 @@ export function sourcesRouter(deps: { db: Db; jwtSecret: string; ai: AiClient })
   router.get("/citations/:citationId", async (req, res) => {
     const citationId = id.safeParse(req.params.citationId);
     if (!citationId.success) throw notFound("citation");
-    if (!(await userHasCitation(db, req.auth!.userId, citationId.data))) {
+    const userId = req.auth!.userId;
+    // From one of the user's answers, or issued to one of their drafts (#213).
+    if (
+      !(await userHasCitation(db, userId, citationId.data)) &&
+      !(await userHasDraftCitation(db, userId, citationId.data))
+    ) {
       throw notFound("citation");
     }
     res.json(

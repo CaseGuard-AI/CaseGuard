@@ -1,0 +1,110 @@
+# Plaint in a civil suit, following Order VII rules 1-8 of the Code of Civil Procedure, 1908, with
+# the verification of Order VI rule 15. Bump `version` whenever a field or section changes.
+id: plaint
+version: "1"
+title: Plaint (Order VII CPC)
+description: >-
+  A plaint instituting a civil suit, with the particulars Order VII rule 1 CPC requires: the
+  court, the parties, the cause of action, jurisdiction, valuation and court fee, and the relief.
+fields:
+  - key: court
+    label: Court
+    required: true
+    caseField: court
+  - key: suit_number
+    label: Suit number
+    required: false
+    caseField: caseNumber
+  - key: suit_type
+    label: Nature of the suit
+    required: true
+    caseField: caseType
+  - key: parties
+    label: Parties, with description and residence (one per line)
+    required: true
+    caseField: parties
+  - key: cause_of_action_date
+    label: Date the cause of action arose
+    required: true
+    caseField: null
+  - key: suit_valuation
+    label: Value of the suit for jurisdiction
+    required: true
+    caseField: null
+  - key: court_fee
+    label: Court fee paid
+    required: true
+    caseField: null
+  - key: laws
+    label: Laws relied on (one per line)
+    required: false
+    caseField: relevantLaws
+  - key: counsel
+    label: Counsel for the plaintiff
+    required: false
+    caseField: assignedLawyer
+sections:
+  - key: cause_title
+    heading: Cause title
+    required: true
+    assistable: false
+    guidance: >-
+      The name of the court, the suit number, and the plaintiff and the defendant by name,
+      parentage, description and place of residence (Order VII r.1(a)-(c) CPC). Note any party
+      who is a minor or of unsound mind (r.1(d)).
+  - key: facts
+    heading: Facts
+    required: true
+    assistable: true
+    guidance: >-
+      Numbered paragraphs stating the material facts in order, without the evidence that proves
+      them (Order VI r.2 CPC).
+  - key: cause_of_action
+    heading: Cause of action
+    required: true
+    assistable: true
+    guidance: >-
+      The facts constituting the cause of action and when it arose (Order VII r.1(e) CPC).
+  - key: jurisdiction
+    heading: Jurisdiction
+    required: true
+    assistable: true
+    guidance: >-
+      The facts showing that this court has territorial and pecuniary jurisdiction (Order VII
+      r.1(f) CPC, ss.15-20 CPC).
+  - key: limitation
+    heading: Limitation
+    required: true
+    assistable: true
+    guidance: >-
+      That the suit is within time under the applicable article of the Limitation Act, 1908; if
+      it is out of time, the ground of exemption (Order VII r.6 CPC).
+  - key: valuation
+    heading: Valuation and court fee
+    required: true
+    assistable: true
+    guidance: >-
+      The value of the subject matter for jurisdiction and for court fee, and the fee paid under
+      the Court Fees Act, 1870 and the Suits Valuation Act, 1887 (Order VII r.1(i) CPC).
+  - key: relief
+    heading: Relief claimed
+    required: true
+    assistable: true
+    guidance: >-
+      The relief claimed, specifically, simply or in the alternative (Order VII r.1(g) and r.7
+      CPC). In a money suit, the precise amount (r.2). Any set-off or relinquished portion of the
+      claim (r.1(h)).
+  - key: documents
+    heading: List of documents
+    required: false
+    assistable: false
+    guidance: >-
+      The documents the plaintiff relies on and sues upon, filed with the plaint (Order VII r.14
+      CPC).
+  - key: verification
+    heading: Verification
+    required: true
+    assistable: false
+    guidance: >-
+      Signed by the plaintiff, stating by paragraph number what is verified on their own
+      knowledge and what on information believed to be true (Order VI r.15 CPC).

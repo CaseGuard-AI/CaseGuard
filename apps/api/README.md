@@ -119,6 +119,18 @@ Uploads (#101) follow [data-storage §6](../../docs/engineering/data-storage.md)
 - **Existing databases:** a volume bootstrapped before #101 has no `pgboss` schema, and the api won't start. Run `pnpm db:rebootstrap` (or `CREATE SCHEMA pgboss AUTHORIZATION caseguard_app;` as the superuser).
 - `services/ai` doesn't serve ingestion yet (Stream C), so in the running stack an upload ends `failed` after its retries. The tests use a fake that follows ai.v1.
 
+## Drafts
+
+Drafting (#213, FR-DRAFT-1..4) in `src/routes/drafts.ts` and `src/drafts/`. The templates live in services/ai (#212).
+
+- **Templates:** `GET /drafting/templates` proxies ai `listDraftTemplates`, kept in memory after the first good answer (a failure is 503 and isn't cached).
+- **Create** (FR-DRAFT-2, FR-CASE-5): with a `caseId` (the caller's and active, else 400 on `caseId`), every template field that has a `caseField` is filled from the case. List fields go one line per entry, and parties are written as `Name (Label)`. Sections start empty, and the draft keeps the template version it was created from.
+- **Save:** `PUT` carries `version`. A save whose version is stale is a 409, and the web offers a reload. Unknown field or section keys are 400s on their path. Every `[[c:<id>]]` marker must be a citation that assist issued for this draft (`app.draft_citations`), else 400 on `sections.<i>.body`.
+- **Citations** (FR-TRUST-10): `getDraft` and `updateDraft` return the citations marked in the sections, each read from ai `getCitation` at request time. They are never cached or copied into the draft. `GET /citations/{id}` also serves a citation issued to one of the caller's drafts.
+- **Assist** (FR-DRAFT-3): `requireAiEnabled`, the AI rate limit, and the same allow-list and user key as asking a question. Scope: the public corpus plus only the draft's own active case. The returned citations go into `draft_citations`, and the audit record (`ai_audit_records.draft_id`) is written in the same transaction. Nothing is written into the draft.
+- **Export** (FR-DRAFT-4): `GET /drafts/{id}/export?format=docx|pdf` uses `docx` and `pdfkit`. Headings come from the template, and every marker becomes a numbered note giving the source, locator, stored status and last-verified date. The response is an attachment, sent with `nosniff` and `no-store`. The PDF uses the built-in Times font, so non-Latin text (Urdu) isn't rendered there yet; use DOCX for it.
+- **Owner only:** another user's draft is a 404 on every route.
+
 ## Settings
 
 - `GET`/`PATCH /api/v1/me/settings` (FR-SET-1) read and change the signed-in user's `name`, `locale` and `theme`. There's no user id in the path, so a user can only ever reach their own (FR-AUTH-4).
@@ -157,6 +169,7 @@ src/
   clients/ai.ts        /ai/v1 client (bearer service token)
   routes/              one router per contract tag (health, auth, settings, admin, cases, documents, conversations, sources)
   documents/           document store (incl. setDocumentStatus) and the multipart upload reader
+  drafts/              draft store, fill from case, citation markers, DOCX/PDF export
   storage/             blob store for uploaded files (fs driver)
   jobs/                pg-boss queue and the document.ingest / document.purge workers
   auth/                passwords (argon2id), tokens (JWT + refresh), store, requireAuth/requireRole
