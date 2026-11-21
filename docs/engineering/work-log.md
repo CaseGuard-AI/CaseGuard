@@ -348,3 +348,11 @@ Drafts are stored in `app.drafts` (migration `0014_drafts`). A draft created wit
 
 ### Drafting studio in the web app (#107)
 `/drafting` replaces its "coming soon" page. Users pick a template and optionally a case, which fills the particulars. They then edit plain-text sections and can ask AI to draft any assistable section. Suggestions show their citations with the same chips and statuses as research, so a status looks identical everywhere (FR-TRUST-10). Saving handles a concurrent save with a reload, drafts export to DOCX and PDF, and the case dashboard lists the case's drafts. Plan: `plans/0058`.
+
+### The procedural linter's engine and rule sets (#214)
+The first step of Track L (plan `0052`): services/ai now answers `GET /ai/v1/lint/rulesets` and `POST /ai/v1/lint`.
+- Two versioned YAML rule sets, bail application first (ss.497 and 498 CrPC), then the plaint (Order VII CPC, verified under Order VI r.15). A rule cites its provision only where one plainly underlies it; FIR particulars, the prayer, the affidavit and similar practice requirements have `source: null`, which the web shows as "no rule source identified".
+- The engine is pure and deterministic (ADR-0012): no database and no model, so it works with AI features off. Spans are UTF-16 offsets for the web, and `inputSha256` proves the text was not changed.
+- Every rule has a seeded-defect test that produces exactly its finding, and the complete fixtures lint clean.
+
+Next: lint reports in apps/api (#215) and the `/linter` screen (#108). Plan: `plans/0059`.

@@ -8,10 +8,12 @@ from caseguard_ai.api import problems
 from caseguard_ai.api.precedents import router as precedents_router
 from caseguard_ai.api.v1 import router as v1_router
 from caseguard_ai.config import get_settings
+from caseguard_ai.linter.router import router as lint_router
 
 app = FastAPI(title="CaseGuard AI (internal)", version=__version__)
 problems.install(app)
 app.include_router(v1_router)
+app.include_router(lint_router)
 app.include_router(precedents_router)
 
 
