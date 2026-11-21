@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#106](https://github.com/CaseGuard-AI/CaseGuard/issues/106) · **PR:** pending
+> **Status:** In progress · **Issue:** [#106](https://github.com/CaseGuard-AI/CaseGuard/issues/106) · **PR:** [#223](https://github.com/CaseGuard-AI/CaseGuard/pull/223)
 
 # #106: precedent search screen (web)
 
