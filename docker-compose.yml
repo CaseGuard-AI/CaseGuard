@@ -80,7 +80,7 @@ services:
     # HEALTHCHECK on /api/v1/health is defined in apps/api/Dockerfile
 
   mailpit: # dev mail catcher (#61). api sends here; read mail at http://localhost:8025
-    image: axllent/mailpit:v1.33.1
+    image: axllent/mailpit:v1.34.0
     restart: unless-stopped
     ports:
       - "127.0.0.1:8025:8025" # web UI and API
