@@ -5,7 +5,9 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PROJECT_ENVIRONMENT=/opt/venv PAT
 WORKDIR /app
 
 # Tesseract (English) for OCR of scanned uploads (#253); it runs locally, never remotely (ADR-0008).
-RUN apt-get update \n    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \n    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
 
 # Dependencies first (cached layer), then the project itself.
 COPY pyproject.toml uv.lock ./
