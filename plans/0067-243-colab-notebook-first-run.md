@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issues:** [#243](https://github.com/CaseGuard-AI/CaseGuard/issues/243) (notebook), [#244](https://github.com/CaseGuard-AI/CaseGuard/issues/244) (token budget) · **PR:** #243's and #244's PRs
+> **Status:** In progress · **Issues:** [#243](https://github.com/CaseGuard-AI/CaseGuard/issues/243) (notebook), [#244](https://github.com/CaseGuard-AI/CaseGuard/issues/244) (token budget) · **PR:** [#245](https://github.com/CaseGuard-AI/CaseGuard/pull/245), [#246](https://github.com/CaseGuard-AI/CaseGuard/pull/246)
 
 # First real run of the Colab AI notebook
 
