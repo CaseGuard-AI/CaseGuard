@@ -35,9 +35,13 @@ def _parser() -> argparse.ArgumentParser:
 
     push = sub.add_parser("push", help="pack a partition, check it, publish it")
     push.add_argument("--snapshot", required=True, metavar="PARTITION")
-    push.add_argument("--dir", type=Path, help="the partition dir, a full path (default data/partitions/<p>)")
+    push.add_argument(
+        "--dir", type=Path, help="the partition dir, a full path (default data/partitions/<p>)"
+    )
     push.add_argument("--date", help="the folder's day (default today)")
-    push.add_argument("--out", type=Path, help=f"where to pack it, a full path (default {STAGING}/<p>/<folder>)")
+    push.add_argument(
+        "--out", type=Path, help=f"where to pack it, a full path (default {STAGING}/<p>/<folder>)"
+    )
     push.add_argument("--no-upload", action="store_true", help="pack and check only")
     push.add_argument("--yes", action="store_true", help="publish without asking")
 
@@ -45,8 +49,12 @@ def _parser() -> argparse.ArgumentParser:
     pull.add_argument("--snapshot", required=True, metavar="PARTITION")
     pull.add_argument("--date", help="latest (default), a day, or a folder like 2026-11-10-2")
     pull.add_argument("--with-files", action="store_true", help="also files.tar (raw/ + text/)")
-    pull.add_argument("--into", type=Path, help="the partition dir, a full path (default data/partitions/<p>)")
-    pull.add_argument("--from", dest="source", type=Path, help="a local snapshot folder (full path) instead")
+    pull.add_argument(
+        "--into", type=Path, help="the partition dir, a full path (default data/partitions/<p>)"
+    )
+    pull.add_argument(
+        "--from", dest="source", type=Path, help="a local snapshot folder (full path) instead"
+    )
     pull.add_argument("--yes", action="store_true", help="replace an existing partition")
 
     sub.add_parser("status", help="list snapshots and dumps, and the repo's size")
