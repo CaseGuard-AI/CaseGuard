@@ -217,6 +217,40 @@ def test_an_empty_answer_from_a_reasoning_model_is_an_error() -> None:
         )
 
 
+def _sent_budgets(s: Settings, *calls: tuple[str, int | None]) -> list[int]:
+    seen: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content)["max_tokens"])
+        return ok()
+
+    gw = gateway(s, handler)
+    for role, budget in calls:
+        kwargs = {} if budget is None else {"max_tokens": budget}
+        gw.chat(role, [], ["nvidia-nim"], **kwargs)  # type: ignore[arg-type]
+    return seen
+
+
+def test_the_default_budgets_leave_room_for_a_reasoning_model() -> None:
+    # Reasoning models spend ~1,000 tokens thinking before the first word of the answer (#244).
+    s = nim(llm_judge_base_url=NIM, llm_judge_model="m")
+    assert _sent_budgets(s, ("generation", None), ("judge", None)) == [4096, 1024]
+
+
+def test_each_role_uses_its_configured_budget() -> None:
+    s = nim(
+        llm_judge_base_url=NIM,
+        llm_judge_model="m",
+        llm_generation_max_tokens=8000,
+        llm_judge_max_tokens=300,
+    )
+    assert _sent_budgets(s, ("generation", None), ("judge", None)) == [8000, 300]
+
+
+def test_a_callers_budget_wins() -> None:
+    assert _sent_budgets(nim(), ("generation", 50)) == [50]
+
+
 def test_a_connection_failure_is_a_gateway_error() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("refused", request=request)
