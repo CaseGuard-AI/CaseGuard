@@ -89,6 +89,6 @@ are skipped.
 | 09 | Precedent search answers an error or finds nothing |
 | 10 | As 09, or no hit has a relationship in the graph |
 | 12 | Drafting assist shows an error or returns no text |
-| 15 | The uploaded PDF fails, or is still processing after two minutes. Always skipped when the AI service runs on Colab: it reads uploads from its own database, which never sees your local ones |
+| 15 | The uploaded PDF fails, or is still processing after two minutes. Always skipped for now: services/ai doesn't serve `POST /ai/v1/documents/{documentId}/ingestion` yet (Stream C, plan 0046), so every upload ends `failed`. Locally or on Colab makes no difference |
 | 17 | `pnpm db:create-admin` fails |
 | 19 | No "Soon" badge in the sidebar |
