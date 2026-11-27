@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#16](https://github.com/CaseGuard-AI/CaseGuard/issues/16) · **PR:** [#163](https://github.com/CaseGuard-AI/CaseGuard/pull/163)
+> **Status:** Done · **Issue:** [#16](https://github.com/CaseGuard-AI/CaseGuard/issues/16) · **PR:** [#163](https://github.com/CaseGuard-AI/CaseGuard/pull/163)
 
 # #16: load the collector's JSONL into `corpus.documents`
 

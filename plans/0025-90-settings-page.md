@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#90](https://github.com/CaseGuard-AI/CaseGuard/issues/90) · **PR:** [#114](https://github.com/CaseGuard-AI/CaseGuard/pull/114)
+> **Status:** Done · **Issue:** [#90](https://github.com/CaseGuard-AI/CaseGuard/issues/90) · **PR:** [#114](https://github.com/CaseGuard-AI/CaseGuard/pull/114)
 
 # #90: Settings page (profile, language, theme)
 

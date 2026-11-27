@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#14](https://github.com/CaseGuard-AI/CaseGuard/issues/14) · **PR:** [#87](https://github.com/CaseGuard-AI/CaseGuard/pull/87)
+> **Status:** Done · **Issue:** [#14](https://github.com/CaseGuard-AI/CaseGuard/issues/14) · **PR:** [#87](https://github.com/CaseGuard-AI/CaseGuard/pull/87)
 
 # #14: Research Hub, the answer view with citations, trust badges and a source panel (web)
 

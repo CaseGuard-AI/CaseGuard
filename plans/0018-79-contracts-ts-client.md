@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#79](https://github.com/CaseGuard-AI/CaseGuard/issues/79) · **PR:** [#80](https://github.com/CaseGuard-AI/CaseGuard/pull/80)
+> **Status:** Done · **Issue:** [#79](https://github.com/CaseGuard-AI/CaseGuard/issues/79) · **PR:** [#80](https://github.com/CaseGuard-AI/CaseGuard/pull/80)
 
 # #79: Generated TypeScript types for api.v1 and a typed web client (contracts, web)
 

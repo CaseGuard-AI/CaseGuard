@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#62](https://github.com/CaseGuard-AI/CaseGuard/issues/62) · **PR:** [#85](https://github.com/CaseGuard-AI/CaseGuard/pull/85)
+> **Status:** Done · **Issue:** [#62](https://github.com/CaseGuard-AI/CaseGuard/issues/62) · **PR:** [#85](https://github.com/CaseGuard-AI/CaseGuard/pull/85)
 
 # #62: Forgot-password and reset-password pages (web)
 

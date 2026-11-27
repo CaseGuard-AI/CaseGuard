@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#20](https://github.com/CaseGuard-AI/CaseGuard/issues/20)
+> **Status:** Done · **Issue:** [#20](https://github.com/CaseGuard-AI/CaseGuard/issues/20) · **PR:** [#170](https://github.com/CaseGuard-AI/CaseGuard/pull/170)
 
 # #20: research answer with checked, stored citations
 

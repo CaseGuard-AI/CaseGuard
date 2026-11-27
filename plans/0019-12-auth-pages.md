@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#12](https://github.com/CaseGuard-AI/CaseGuard/issues/12) · **PR:** [#84](https://github.com/CaseGuard-AI/CaseGuard/pull/84)
+> **Status:** Done · **Issue:** [#12](https://github.com/CaseGuard-AI/CaseGuard/issues/12) · **PR:** [#84](https://github.com/CaseGuard-AI/CaseGuard/pull/84)
 
 # #12: Login and register pages (web)
 

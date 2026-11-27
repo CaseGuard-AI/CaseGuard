@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#18](https://github.com/CaseGuard-AI/CaseGuard/issues/18)
+> **Status:** Done · **Issue:** [#18](https://github.com/CaseGuard-AI/CaseGuard/issues/18) · **PR:** [#167](https://github.com/CaseGuard-AI/CaseGuard/pull/167)
 
 # #18: chunking, bge-m3 embeddings and FTS vectors
 

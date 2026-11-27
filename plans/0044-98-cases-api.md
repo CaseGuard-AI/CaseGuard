@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#98](https://github.com/CaseGuard-AI/CaseGuard/issues/98) · **PR:** [#195](https://github.com/CaseGuard-AI/CaseGuard/pull/195)
+> **Status:** Done · **Issue:** [#98](https://github.com/CaseGuard-AI/CaseGuard/issues/98) · **PR:** [#195](https://github.com/CaseGuard-AI/CaseGuard/pull/195)
 
 # #98: Cases API, and case scope on ask
 
