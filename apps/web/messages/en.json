@@ -27,19 +27,19 @@
     "search": "Search cases, sources, documents…",
     "notifications": "Notifications",
     "account": "My account",
-    "profile": "Profile",
-    "help": "Help centre",
     "signOut": "Sign out",
     "roles": {
       "lawyer": "Lawyer",
       "researcher": "Researcher",
       "admin": "Admin"
-    }
+    },
+    "soon": "Soon",
+    "searchSoon": "Coming soon"
   },
   "Pages": {
     "dashboard": {
       "title": "Dashboard",
-      "subtitle": "Here’s what needs your attention today."
+      "subtitle": "Pick up where you left off."
     },
     "cases": {
       "title": "Cases",
@@ -88,7 +88,8 @@
   },
   "Common": {
     "comingSoon": "This section is being built.",
-    "close": "Close"
+    "close": "Close",
+    "loading": "Loading…"
   },
   "NotFound": {
     "title": "Page not found",
@@ -176,11 +177,6 @@
       "headnote_only": "Head-note only",
       "amended_since": "Amended since"
     }
-  },
-  "Status": {
-    "api": "API",
-    "up": "up",
-    "down": "down"
   },
   "Research": {
     "placeholder": "Ask a question about Pakistani law…",
@@ -465,13 +461,10 @@
         "empty": "No research saved to this case yet.",
         "loadMore": "Load more"
       },
-      "drafts": {
-        "title": "Drafts",
-        "body": "Drafts for this case will be listed here once drafting is available."
-      },
       "precedents": {
         "title": "Precedents",
-        "body": "Precedents saved to this case will be listed here once precedent search is available."
+        "body": "Find judgments that bear on this case and see how they cite, follow or overrule each other.",
+        "action": "Search precedents for this case"
       }
     },
     "research": {
@@ -506,6 +499,11 @@
       "seeAll": "See all",
       "empty": "No active cases yet. Cases you create will show here.",
       "nextHearing": "Next hearing {date}"
+    },
+    "drafts": {
+      "title": "Recent drafts",
+      "seeAll": "See all",
+      "empty": "No drafts yet. Drafts you start will show here."
     }
   },
   "Documents": {
@@ -543,7 +541,8 @@
       "empty": "No documents yet.",
       "emptyCase": "No documents in this case yet.",
       "loadMore": "Load more",
-      "uploadHint": "To add a document, open its case and upload it there."
+      "uploadHint": "To add a document, open its case and upload it there.",
+      "goToCases": "Go to cases"
     },
     "actions": {
       "download": "Download",
@@ -873,5 +872,10 @@
       "invalid": "Check the search words and filters.",
       "generic": "Something went wrong. Try again."
     }
+  },
+  "RouteError": {
+    "title": "Something went wrong",
+    "body": "This page couldn't be shown. Try again, or come back in a moment.",
+    "retry": "Try again"
   }
 }

@@ -1,7 +1,7 @@
 import { setRequestLocale } from "next-intl/server";
 import { Suspense, use } from "react";
 import { DraftEditor } from "@/components/drafting/draft-editor";
-import { pageMetadata } from "@/components/shell/coming-soon";
+import { pageMetadata } from "@/components/shell/page-metadata";
 
 export const generateMetadata = pageMetadata("drafting");
 

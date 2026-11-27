@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { use } from "react";
 import { CasesList } from "@/components/cases/cases-list";
-import { pageMetadata } from "@/components/shell/coming-soon";
+import { pageMetadata } from "@/components/shell/page-metadata";
 import { PageIntro } from "@/components/shell/page-intro";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";

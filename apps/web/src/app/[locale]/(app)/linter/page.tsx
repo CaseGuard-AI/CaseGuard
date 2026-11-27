@@ -2,7 +2,7 @@ import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { Suspense, use } from "react";
 import { LinterScreen } from "@/components/linter/linter-screen";
-import { pageMetadata } from "@/components/shell/coming-soon";
+import { pageMetadata } from "@/components/shell/page-metadata";
 import { PageIntro } from "@/components/shell/page-intro";
 
 export const generateMetadata = pageMetadata("linter");

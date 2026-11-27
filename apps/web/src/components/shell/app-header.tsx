@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ChevronRight,
   CircleUserRound,
-  HelpCircle,
   LogOut,
   Menu,
   Search,
@@ -51,7 +50,9 @@ export function AppHeader({ onMenu }: { onMenu: () => void }) {
         aria-label={t("Nav.breadcrumb")}
         className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"
       >
-        <span>{t("App.name")}</span>
+        <Link href="/" className="transition-colors hover:text-foreground hover:underline">
+          {t("App.name")}
+        </Link>
         {page && (
           <>
             <ChevronRight className="size-3 rtl:rotate-180" />
@@ -60,12 +61,14 @@ export function AppHeader({ onMenu }: { onMenu: () => void }) {
         )}
       </nav>
 
-      {/* Visual only until global search exists. */}
-      <div className="ms-auto hidden w-full max-w-sm md:block">
+      {/* Disabled until global search exists. A disabled input gets no pointer events, so the
+          wrapper carries the "Coming soon" tooltip. */}
+      <div className="ms-auto hidden w-full max-w-sm md:block" title={t("Nav.searchSoon")}>
         <div className="relative">
           <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             disabled
+            title={t("Nav.searchSoon")}
             aria-label={t("Nav.search")}
             placeholder={t("Nav.search")}
             className="h-9 bg-muted/60 ps-9"
@@ -103,19 +106,9 @@ export function AppHeader({ onMenu }: { onMenu: () => void }) {
           )}
           <DropdownMenuItem asChild>
             <Link href="/settings">
-              <CircleUserRound />
-              {t("Nav.profile")}
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/settings">
               <Settings />
               {t("Nav.settings")}
             </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled>
-            <HelpCircle />
-            {t("Nav.help")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           {/* The session guard then sends this tab (and the others) to the login page. */}

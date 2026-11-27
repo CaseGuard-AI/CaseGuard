@@ -271,6 +271,20 @@ describe("Relationships panel (FR-PREC-4)", () => {
     return undefined;
   };
 
+  it("opens from anywhere on a result card, not only its title", async () => {
+    await renderSearch(routes);
+    searchFor("bail");
+    const list = await hitsList();
+    // The title stays a button, the keyboard path into the same panel.
+    expect(
+      within(hitOf(list, J1)).getByRole("button", {
+        name: `Show the relationships of ${retrieved.title}`,
+      }),
+    ).toBeTruthy();
+    fireEvent.click(within(hitOf(list, J1)).getByText(retrieved.snippet));
+    expect(await screen.findByRole("region", { name: m.relationships.outgoing })).toBeTruthy();
+  });
+
   it("groups edges by direction with provenance and status", async () => {
     await renderSearch(routes);
     searchFor("bail");

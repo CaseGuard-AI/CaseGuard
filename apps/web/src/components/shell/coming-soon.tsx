@@ -1,6 +1,5 @@
-import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { setRequestLocale } from "next-intl/server";
 import { use } from "react";
 import type { PageKey } from "./nav-items";
 import { PageIntro } from "./page-intro";
@@ -21,13 +20,4 @@ export function ComingSoon({ params, page }: { params: Params; page: PageKey }) 
       </div>
     </>
   );
-}
-
-// `generateMetadata` for a screen: its title, joined to the app name by the layout's template.
-export function pageMetadata(page: PageKey) {
-  return async ({ params }: { params: Params }): Promise<Metadata> => {
-    const { locale } = await params;
-    const t = await getTranslations({ locale, namespace: "Pages" });
-    return { title: t(`${page}.title`) };
-  };
 }

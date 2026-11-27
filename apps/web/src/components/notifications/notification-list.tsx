@@ -1,6 +1,13 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, CircleAlert, Info, type LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  CircleAlert,
+  Info,
+  LoaderCircle,
+  type LucideIcon,
+} from "lucide-react";
 import { useFormatter, useNow, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
@@ -25,7 +32,12 @@ export function NotificationList({ open, onNavigate }: { open: boolean; onNaviga
   const unread = query.data?.pages[0]?.unreadCount ?? 0;
 
   if (query.isPending) {
-    return <p className="p-4 text-sm text-muted-foreground">{t("loading")}</p>;
+    return (
+      <p aria-busy="true" className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+        <LoaderCircle className="size-4 animate-spin" aria-hidden />
+        {t("loading")}
+      </p>
+    );
   }
   if (query.isError) {
     return (
