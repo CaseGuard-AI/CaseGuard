@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#154](https://github.com/CaseGuard-AI/CaseGuard/issues/154)
+> **Status:** Done · **Issue:** [#154](https://github.com/CaseGuard-AI/CaseGuard/issues/154) · **PR:** [#174](https://github.com/CaseGuard-AI/CaseGuard/pull/174)
 
 # #154: corpus dump build and restore (`data:dump`, `data:pull --dump`)
 

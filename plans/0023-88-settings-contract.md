@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#88](https://github.com/CaseGuard-AI/CaseGuard/issues/88) · **PR:** [#111](https://github.com/CaseGuard-AI/CaseGuard/pull/111)
+> **Status:** Done · **Issue:** [#88](https://github.com/CaseGuard-AI/CaseGuard/issues/88) · **PR:** [#111](https://github.com/CaseGuard-AI/CaseGuard/pull/111)
 
 # #88: user settings in the api.v1 contract
 

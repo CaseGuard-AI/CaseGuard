@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#11](https://github.com/CaseGuard-AI/CaseGuard/issues/11) · **PR:** [#78](https://github.com/CaseGuard-AI/CaseGuard/pull/78)
+> **Status:** Done · **Issue:** [#11](https://github.com/CaseGuard-AI/CaseGuard/issues/11) · **PR:** [#78](https://github.com/CaseGuard-AI/CaseGuard/pull/78)
 
 # #11: Port the prototype shell and design tokens (web)
 

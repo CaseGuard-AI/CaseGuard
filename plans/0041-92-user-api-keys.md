@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#92](https://github.com/CaseGuard-AI/CaseGuard/issues/92) (also #93, #94, #95)
+> **Status:** Done · **Issue:** [#92](https://github.com/CaseGuard-AI/CaseGuard/issues/92) (also #93, #94, #95) · **PR:** [#176](https://github.com/CaseGuard-AI/CaseGuard/pull/176), [#177](https://github.com/CaseGuard-AI/CaseGuard/pull/177), [#180](https://github.com/CaseGuard-AI/CaseGuard/pull/180), [#182](https://github.com/CaseGuard-AI/CaseGuard/pull/182)
 
 # #92: user API keys and model choice (FR-SET-2)
 

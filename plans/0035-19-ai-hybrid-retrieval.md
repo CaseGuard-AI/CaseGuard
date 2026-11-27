@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#19](https://github.com/CaseGuard-AI/CaseGuard/issues/19)
+> **Status:** Done · **Issue:** [#19](https://github.com/CaseGuard-AI/CaseGuard/issues/19) · **PR:** [#168](https://github.com/CaseGuard-AI/CaseGuard/pull/168)
 
 # #19: hybrid retrieval (pgvector + FTS, RRF k=60, bge-reranker-v2-m3)
 

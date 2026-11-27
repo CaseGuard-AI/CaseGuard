@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#89](https://github.com/CaseGuard-AI/CaseGuard/issues/89) · **PR:** [#112](https://github.com/CaseGuard-AI/CaseGuard/pull/112)
+> **Status:** Done · **Issue:** [#89](https://github.com/CaseGuard-AI/CaseGuard/issues/89) · **PR:** [#112](https://github.com/CaseGuard-AI/CaseGuard/pull/112)
 
 # #89: user settings API (`GET`/`PATCH /me/settings`)
 

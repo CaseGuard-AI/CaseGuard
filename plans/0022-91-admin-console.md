@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#91](https://github.com/CaseGuard-AI/CaseGuard/issues/91) · **PR:** [#109](https://github.com/CaseGuard-AI/CaseGuard/pull/109)
+> **Status:** Done · **Issue:** [#91](https://github.com/CaseGuard-AI/CaseGuard/issues/91) · **PR:** [#109](https://github.com/CaseGuard-AI/CaseGuard/pull/109)
 
 # #91: Admin console for per-user AI access and the provider allow-list (web)
 

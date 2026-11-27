@@ -1,4 +1,4 @@
-> **Status:** In review · **Issue:** none (found on the first `shc-civil` crawl, 2026-11-10)
+> **Status:** Done · **Issue:** none (found on the first `shc-civil` crawl, 2026-11-10) · **PR:** [#169](https://github.com/CaseGuard-AI/CaseGuard/pull/169)
 
 # Collector: retry files whose download failed
 
