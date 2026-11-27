@@ -36,10 +36,15 @@
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
     "test:py": "uv run --directory services/ai pytest -q && uv run --directory services/collector pytest -q",
-    "format": "pnpm -r --if-present run format"
+    "format": "pnpm -r --if-present run format",
+    "screenshots": "playwright test -c scripts/screenshots/screenshots.config.ts",
+    "screenshots:typecheck": "tsc -p scripts/screenshots/tsconfig.json"
   },
   "devDependencies": {
-    "concurrently": "^10.0.7"
+    "@playwright/test": "1.65.0",
+    "@types/node": "24.19.2",
+    "concurrently": "^10.0.7",
+    "typescript": "6.0.3"
   },
   "pnpm": {
     "overrides": {
