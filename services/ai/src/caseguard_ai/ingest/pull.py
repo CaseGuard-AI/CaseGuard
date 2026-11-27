@@ -10,7 +10,8 @@
 3. Show the corpus loaded now next to the incoming one, and ask.
 4. Truncate ``corpus`` and restore, in one transaction. ``app`` and ``ai`` are never touched.
 
-``--snapshot`` (collector partitions) is #152's.
+``pnpm data:pull`` runs through ``scripts/data.mjs``: ``--dump`` comes here, and ``--snapshot``
+(collector partitions, #152) goes to services/collector's ``python -m snapshots pull``.
 """
 
 from __future__ import annotations

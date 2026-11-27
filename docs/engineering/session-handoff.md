@@ -50,17 +50,15 @@ Set up (#151, done 2026-11-18): the org https://huggingface.co/caseguard and the
 
 Code goes to GitHub. `.env` and tokens go nowhere. The models download themselves.
 
-**Uploading the crawls** (from `services/collector`, with no crawl running). Never reuse a date folder: for a second upload on the same day, use `2026-11-10-2`.
-- `shc-meta` has thousands of small files, which upload slowly. Upload only the records and the crawl state:
-  ```powershell
-  hf upload caseguard/corpus data\partitions\shc-meta snapshots/shc-meta/2026-11-10 --repo-type dataset --include "documents/*" --include "state/*"
-  ```
-- For the others, pack each crawl into one file first. Plain `tar -cf` is fast; `-czf` (compressed) is slow while the CPU is busy embedding:
-  ```powershell
-  tar -cf shc-civil.tar -C data\partitions shc-civil
-  hf upload caseguard/corpus shc-civil.tar snapshots/shc-civil/2026-11-10/shc-civil.tar --repo-type dataset
-  ```
-  Do the same for `shc-criminal` and `pk-code-seed`. Keep `raw\` in these: the PDFs are there.
+**Uploading the crawls** (#152; the partition's owner, with no crawl running and `services/collector` committed):
+```powershell
+pnpm data:push -- --snapshot shc-civil --no-upload   # pack and check only
+pnpm data:push -- --snapshot shc-civil               # then publish
+```
+- It packs `data\partitions\<name>\` into `services/collector/.snapshots/<name>/<date>/`: `records.jsonl.gz`, `state.db`, `files.tar` (`raw\` + `text\`, uncompressed) and `manifest.json` (commit, runs, selection, counts, SHA-256 of every file).
+- It refuses a dirty `services/collector`, a checksum or count mismatch, `.env`/key/token-looking files or text, files the collector didn't write, and `hf_*` records outside a bootstrap partition.
+- It asks, then publishes to a new `snapshots/<name>/<date>[-N]/` and tags it `snap/<name>/<date>[-N]`. Put the result in [`PARTITIONS.md`](../../services/collector/PARTITIONS.md)'s Latest snapshot column.
+- The tars uploaded by hand before #152 (`snapshots/pk-code-seed/2026-11-10/`) have no manifest: `data:status` lists them, but `data:pull` can't use them. Push a real snapshot of each partition.
 
 **Uploading the database** (#154; only after `pnpm data:embed` has finished): run `pnpm data:dump`.
 - It refuses an unfinished embed, and builds `corpus.dump` + `manifest.json` in `services/ai/.dumps/<today>/`.
@@ -80,12 +78,14 @@ pnpm ai:graph-build      # the knowledge graph isn't in the dump; about a minute
 - **Downloads that stall** (the dump, or the 2.3 GB models on first use): set `HF_HUB_DISABLE_XET=1` and run the command again.
 - **On an 8 GB laptop**, the AI service's three models need about 5 GB of RAM, which doesn't fit next to Docker. Run the AI service on Colab instead: [`local-setup.md`, "Low on RAM?"](local-setup.md#low-on-ram-run-the-ai-service-on-colab). That notebook also restores the dump for itself.
 
-**Downloading the crawls:**
+**Downloading the crawls** (#152):
 ```powershell
-hf download caseguard/corpus --repo-type dataset --include "snapshots/*" --local-dir hf-corpus
+pnpm data:status                                          # what's published, repo usage, your loaded corpus
+pnpm data:pull -- --snapshot pk-code-seed                 # the latest; or --date 2026-11-28[-N]
+pnpm data:pull -- --snapshot shc-criminal --with-files    # also files.tar: the PDFs and text
 ```
-- To use a crawl, unpack it into `services/collector/data/partitions/` (`tar -xf <file>.tar -C services\collector\data\partitions`).
-- The app doesn't need the crawls, because the database dump has everything. They're only for rebuilding the corpus (next section).
+- It verifies every file against the manifest and unpacks into `services/collector/data/partitions/<name>/`. It refuses to replace a partition you already have unless you pass `--yes`.
+- The app doesn't need the crawls, because the database dump has everything. They're only for rebuilding the corpus (next section), or for taking over a partition (with its `state.db`).
 
 ## Building a corpus on your own machine
 
@@ -123,7 +123,7 @@ The embedder, the reranker and the NLI checker download on first use: about 4.6 
 
 ## Open items
 
-- **#152, crawl snapshots:** `pnpm data:push`, `pull` and `status`, which do the Hugging Face steps above automatically. Unblocked: `caseguard/corpus` is live (#151).
+- **#152, crawl snapshots:** built (`pnpm data:push`, `data:pull --snapshot`, `data:status`). Next: each owner pushes the first real snapshot of their partition.
 - **#154, database dumps:** done. The current dump is `dumps/2026-11-28`, published from `staging` at AI migration `0002`, so `pnpm data:pull -- --dump latest` restores it directly. It replaces `dumps/2026-11-22`, which was made at `0001`.
 - **`--full-text-first` for `data:embed`** (not built): embed the laws and full judgments before the 56k short head-notes, so the demo works within minutes.
 - **Small follow-ups:**

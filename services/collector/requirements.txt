@@ -5,6 +5,9 @@ beautifulsoup4==4.15.0        # HTML parsing
 lxml==6.1.3                   # fast parser backend for BeautifulSoup
 python-dotenv==1.2.4          # .env loading
 
+# --- corpus snapshots (#152) ----------------------------------------------
+huggingface-hub>=2.5.0        # pnpm data:push / data:pull --snapshot / data:status
+
 # --- PDF ------------------------------------------------------------------
 PyMuPDF>=1.25.1             # primary text extraction (fast, accurate)
 pdfplumber==0.11.10            # fallback extractor, better on odd layouts

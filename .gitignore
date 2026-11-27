@@ -38,6 +38,7 @@ services/collector/data_*/
 /uploads/
 /storage/
 services/ai/.dumps/
+services/collector/.snapshots/
 corpus.dump
 *.sqlite
 # (anchored with a leading / on purpose: services/collector has Python packages named models/ and storage/)

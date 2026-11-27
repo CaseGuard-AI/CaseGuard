@@ -2,7 +2,7 @@
 
 Where CaseGuard's data lives, so that **one person crawls and embeds, and everyone else just pulls**.
 
-> **Status:** decided 2026-11-09 in the wayfinder map [#137](https://github.com/CaseGuard-AI/CaseGuard/issues/137). The commands below are **planned**: they don't exist until their build issues land. Terms (partition, corpus snapshot, corpus dump, integrator, user upload) are defined in [`CONTEXT.md`](../../CONTEXT.md).
+> **Status:** decided 2026-11-09 in the wayfinder map [#137](https://github.com/CaseGuard-AI/CaseGuard/issues/137). The commands in §7 are built: snapshots in #152 (`services/collector/snapshots/`), dumps in #154 (`services/ai`), both routed by `scripts/data.mjs`. Terms (partition, corpus snapshot, corpus dump, integrator, user upload) are defined in [`CONTEXT.md`](../../CONTEXT.md).
 
 ## At a glance
 
@@ -143,7 +143,7 @@ Decided in [#145](https://github.com/CaseGuard-AI/CaseGuard/issues/145). It beco
   - deleting a document purges the blob **and** its chunks, through a retryable job;
   - deleting an account (if built) purges `users/{user_id}/`.
 
-## 7. Planned commands
+## 7. Commands
 
 | Command | Who | Does |
 |---|---|---|
@@ -151,13 +151,13 @@ Decided in [#145](https://github.com/CaseGuard-AI/CaseGuard/issues/145). It beco
 | `pnpm data:pull --snapshot <partition> [--date D] [--with-files]` | Anyone | Downloads a snapshot. Skips `files.tar` unless asked. |
 | `pnpm data:dump` | Integrator | Builds and publishes a corpus dump, updates `LATEST` |
 | `pnpm data:pull --dump latest\|<date>\|eval-frozen-<n>` | Anyone | Verifies checksums, checks the Alembic revision, replaces the local `corpus` |
-| `pnpm data:status` | Anyone | Lists snapshots and dumps, shows your loaded dump, shows repo usage |
+| `pnpm data:status` | Anyone | Lists snapshots and dumps, shows your loaded corpus, shows repo usage (warns from 75 GB) |
 
 ## Not covered here
 
 - **Building the commands:** see the build issues:
   - HF org/repo setup: #151 (done: [huggingface.co/caseguard](https://huggingface.co/caseguard), private dataset `caseguard/corpus`)
-  - snapshot push/pull/status: #152
+  - snapshot push/pull/status: #152 (done)
   - collector partition support: #153
   - dump build/restore: #154
   - upload storage: #101
