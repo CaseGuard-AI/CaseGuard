@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#152](https://github.com/CaseGuard-AI/CaseGuard/issues/152) · **PR:** draft
+> **Status:** In progress · **Issue:** [#152](https://github.com/CaseGuard-AI/CaseGuard/issues/152) · **PR:** [#255](https://github.com/CaseGuard-AI/CaseGuard/pull/255)
 
 # #152: corpus snapshot push/pull/status (`data:push`, `data:pull --snapshot`, `data:status`)
 
