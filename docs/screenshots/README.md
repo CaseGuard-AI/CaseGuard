@@ -51,7 +51,10 @@ pnpm dev            # in another terminal
 pnpm screenshots
 ```
 
-Then open every image and check it before committing.
+Then open every image and check it before committing. Each image is the 1440×900 viewport,
+scrolled so the screen's key element is in view (or one element, for 14). The `next dev`
+dev-tools badges are hidden. The repo is public, so 17 masks every user except the run's
+throwaway `@example.com` accounts.
 
 | Variable | Default | Use |
 | --- | --- | --- |
@@ -69,7 +72,16 @@ Other Playwright flags pass through, for example `pnpm screenshots -g 13` to cap
 Screens that need the corpus, the graph or a model are skipped with a logged reason
 (`[screenshots] skip <name>: <reason>`) when the service answers 503 or shows an error, so no image
 ever shows a failure. The old image is deleted first, so a skipped screen never leaves a stale one.
-`19-sidebar-soon-badges` is skipped until the Soon badges exist (#238).
+
+## With the AI service on Colab
+
+On a laptop that can't hold the models, run the AI service with `notebooks/colab-ai-service.ipynb`.
+Set `AI_SERVICE_URL` in `.env` to the tunnel URL its step 10 prints, then start only web and api:
+`pnpm exec concurrently -k -n web,api "pnpm dev:web" "pnpm dev:api"`.
+
+An Admin must enable the cloud provider that `CASEGUARD_ENV` configures (for example NVIDIA NIM)
+under Admin → Model providers. The api sends only enabled providers, so with Ollama alone 07 and 12
+are skipped.
 
 | Image | Skipped when |
 | --- | --- |
@@ -77,6 +89,6 @@ ever shows a failure. The old image is deleted first, so a skipped screen never 
 | 09 | Precedent search answers an error or finds nothing |
 | 10 | As 09, or no hit has a relationship in the graph |
 | 12 | Drafting assist shows an error or returns no text |
-| 15 | The uploaded PDF fails, or is still processing after two minutes |
+| 15 | The uploaded PDF fails, or is still processing after two minutes. Always skipped when the AI service runs on Colab: it reads uploads from its own database, which never sees your local ones |
 | 17 | `pnpm db:create-admin` fails |
 | 19 | No "Soon" badge in the sidebar |

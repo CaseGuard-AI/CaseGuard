@@ -1,4 +1,4 @@
-> **Status:** In progress (scaffolding in a draft PR; captures wait on a live Colab tunnel) · **Issue:** [#239](https://github.com/CaseGuard-AI/CaseGuard/issues/239) · **Parent plan:** [0066](0066-238-ui-audit-screenshots-hf-dump.md), Workstream C
+> **Status:** In review (18 of 19 captured against the Colab tunnel; 15 cannot run with a remote AI service) · **PR:** [#247](https://github.com/CaseGuard-AI/CaseGuard/pull/247) · **Issue:** [#239](https://github.com/CaseGuard-AI/CaseGuard/issues/239) · **Parent plan:** [0066](0066-238-ui-audit-screenshots-hf-dump.md), Workstream C
 
 # #239: Screenshot proof folder, scaffolding and captures
 
@@ -26,3 +26,14 @@ Plan 0066 Workstream C asks for a committed `docs/screenshots/` folder with one 
 - `playwright test --list` lists all 19 captures.
 - CI `ci-ok` is green.
 - After the captures, each PNG shows real content, and none shows an error or an empty state.
+
+## Outcome (2026-11-28)
+- Captured against the Colab tunnel after merging #245 (the notebook allow-list) and #246 (token budgets). The dev DB had to enable NVIDIA NIM (`app.providers`), because the api sends only enabled providers.
+- Script fixes from the real run:
+  - 14: the `has:` locator started from `main`, so it never matched inside a section.
+  - Viewport captures instead of full page. Full page repeated the fixed sidebar mid-image on 12.
+  - The `next dev` overlay is hidden.
+  - 17 masks real users, because the repo is public.
+- 15 is skipped: the Colab AI service has its own database and never sees local uploads (ingestion 404).
+- Seen in 17: the avatar initials for "Admin (screenshots)" render as "A(". It's an app bug and is out of scope here.
+

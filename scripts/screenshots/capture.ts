@@ -304,15 +304,42 @@ async function visibleAlert(page: Page, scope: Locator = page.locator("main")): 
 }
 
 /** Captures the page once `ready` is visible and the screen has settled without an error. */
-async function capture(page: Page, name: string, ready: Locator, target?: Locator) {
+// `next dev` draws its dev-tools button and issue badges here; they're not part of the app.
+const HIDE_DEV_OVERLAY = "nextjs-portal { display: none !important; }";
+
+async function capture(
+  page: Page,
+  name: string,
+  ready: Locator,
+  target?: Locator,
+  mask: Locator[] = [],
+) {
   await expect(ready.first()).toBeVisible();
   await settle(page);
   const alert = await visibleAlert(page);
   if (alert) throw new Error(`${name} shows an error: ${alert}`);
   mkdirSync(OUT_DIR, { recursive: true });
-  const options = { path: file(name), animations: "disabled" as const, caret: "hide" as const };
-  if (target) await target.screenshot(options);
-  else await page.screenshot({ ...options, fullPage: true });
+  const options = {
+    path: file(name),
+    animations: "disabled" as const,
+    caret: "hide" as const,
+    style: HIDE_DEV_OVERLAY,
+    mask,
+    maskColor: "#e5e7eb", // a neutral grey, not the default magenta
+  };
+  if (target) {
+    await target.screenshot(options);
+  } else {
+    // The viewport, not the full page: the app shell's sidebar and header are fixed, so a
+    // full-page capture repeats them halfway down. Centre the screen's key element when it
+    // starts below the fold; a tall one that starts in view (a form) stays at the top.
+    await ready.first().evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      if (box.top < 0 || box.top > window.innerHeight - 120) el.scrollIntoView({ block: "center" });
+    });
+    await settle(page);
+    await page.screenshot(options);
+  }
   console.log(`[screenshots] wrote docs/screenshots/${name}.png`);
 }
 
@@ -468,7 +495,7 @@ test("10-precedent-relationships", async () => {
   if (alert) skip(name, `the relationships panel showed an error: ${alert}`);
   await page.evaluate(() => document.fonts.ready);
   mkdirSync(OUT_DIR, { recursive: true });
-  await page.screenshot({ path: file(name), animations: "disabled", caret: "hide" });
+  await page.screenshot({ path: file(name), animations: "disabled", caret: "hide", style: HIDE_DEV_OVERLAY });
   console.log(`[screenshots] wrote docs/screenshots/${name}.png`);
   await page.keyboard.press("Escape");
 });
@@ -510,7 +537,10 @@ test("14-lint-report-saved-to-case", async () => {
   clear(name);
   await page.goto(`/en/cases/${data.caseId}`);
   const title = page.locator("main").getByText(data.lintTitle, { exact: true });
-  const section = page.locator("main section", { has: title }).last();
+  // `has` is matched inside each section, so it must not start from `main` again.
+  const section = page
+    .locator("main section", { has: page.getByText(data.lintTitle, { exact: true }) })
+    .last();
   await section.scrollIntoViewIfNeeded();
   await capture(page, name, title, section);
 });
@@ -585,7 +615,9 @@ test("17-admin-console", async ({ browser }) => {
   try {
     await signIn(admin, email, password);
     await admin.goto("/en/admin");
-    await capture(admin, name, admin.locator('main [role="tablist"]'));
+    // The repo is public: mask every user but this run's throwaway @example.com ones.
+    const realUsers = admin.locator("main li").filter({ hasNotText: "@example.com" });
+    await capture(admin, name, admin.locator('main [role="tablist"]'), undefined, [realUsers]);
   } finally {
     await admin.context().close();
   }
