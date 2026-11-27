@@ -15,7 +15,7 @@
 
 ## Who does what now
 
-The full corpus is published as a database dump (`dumps/2026-11-22`: 56,658 documents and 60,062 chunks, embedded with bge-m3). Restore it with "Downloading the database" below; nobody needs to embed. None of these tasks waits for it:
+The full corpus is published as a database dump (`dumps/2026-11-28`: 56,658 documents and 60,062 chunks, embedded with bge-m3). Restore it with "Downloading the database" below; nobody needs to embed. None of these tasks waits for it:
 
 | Who | Task | Needs the corpus? |
 |---|---|---|
@@ -77,14 +77,6 @@ pnpm data:pull -- --dump latest
 pnpm ai:graph-build      # the knowledge graph isn't in the dump; about a minute
 ```
 - `data:pull` checks the checksum, the migration revision and every dumped table's columns. It shows what you have and asks before replacing your local `corpus`. Your `app` and `ai` data are untouched.
-- **Revision mismatch on the 2026-11-22 dump.** It was made at AI migration `0001`, and `staging` is at `0002`, so `data:pull` refuses it, on purpose. `0002` only adds the graph tables (`corpus.graph_*`), which the dump never contains. Until it is re-published from current `staging` (`pnpm data:dump`), restore across the gap:
-  ```powershell
-  uv run --directory services/ai alembic stamp 0001
-  pnpm data:pull -- --dump latest --yes
-  uv run --directory services/ai alembic stamp 0002   # run this even if the pull failed
-  pnpm ai:graph-build
-  ```
-  This is safe only for `0001` → `0002`. For any other pair, read the migration first.
 - **Downloads that stall** (the dump, or the 2.3 GB models on first use): set `HF_HUB_DISABLE_XET=1` and run the command again.
 - **On an 8 GB laptop**, the AI service's three models need about 5 GB of RAM, which doesn't fit next to Docker. Run the AI service on Colab instead: [`local-setup.md`, "Low on RAM?"](local-setup.md#low-on-ram-run-the-ai-service-on-colab). That notebook also restores the dump for itself.
 
@@ -132,7 +124,7 @@ The embedder, the reranker and the NLI checker download on first use: about 4.6 
 ## Open items
 
 - **#152, crawl snapshots:** `pnpm data:push`, `pull` and `status`, which do the Hugging Face steps above automatically. Unblocked: `caseguard/corpus` is live (#151).
-- **#154, database dumps:** done. The first dump was published on 2026-11-22 (`dumps/2026-11-22`). Next: publish it again from current `staging` (AI migration `0002`), so `data:pull` works without the `alembic stamp` step above.
+- **#154, database dumps:** done. The current dump is `dumps/2026-11-28`, published from `staging` at AI migration `0002`, so `pnpm data:pull -- --dump latest` restores it directly. It replaces `dumps/2026-11-22`, which was made at `0001`.
 - **`--full-text-first` for `data:embed`** (not built): embed the laws and full judgments before the 56k short head-notes, so the demo works within minutes.
 - **Small follow-ups:**
   - add the 10 unmapped SHC case-type codes to `selections/matter_type_map.csv`, marked `confirmed=no`;

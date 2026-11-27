@@ -381,3 +381,8 @@ Restored `dumps/2026-11-22` (56,658 documents, 60,062 chunks, bge-m3) into a dev
 - **Revision gap:** the dump was made at AI migration `0001`, and `staging` is at `0002`. `0002` only adds the graph tables, which the dump never contains, so `alembic stamp 0001` → `data:pull` → `alembic stamp 0002` restores it safely. The steps are in `session-handoff.md`. The real fix is to publish the dump again from current `staging`.
 - **8 GB laptops:** they can't load the AI service's three models (about 5 GB together) next to Docker, and `huggingface_hub` restarts a stalled 2.3 GB download from zero. `notebooks/colab-ai-service.ipynb` runs `services/ai` on a free Colab T4 instead. It restores the dump, runs the smoke tests, and can expose the service to the local api through a Cloudflare quick tunnel, guarded by `AI_SERVICE_TOKEN`. How to use it: `local-setup.md`, "Low on RAM?".
 - **Stale statuses:** set plans 0017–0038, 0041 and 0044, and the Stream A roadmap, to match what is merged.
+
+## 2026-11-28
+
+### Corpus dump re-published at AI migration 0002 (#240)
+Published `dumps/2026-11-28` (tag `dump/2026-11-28`) from `staging` at AI migration `0002`, with a clean tree. It holds the same corpus as `dumps/2026-11-22`: 56,658 documents, 60,062 chunks, bge-m3. `latest` now resolves to it, so `pnpm data:pull -- --dump latest` restores without the `alembic stamp 0001` → pull → `alembic stamp 0002` workaround from 2026-11-27, and that workaround is gone from `session-handoff.md`.

@@ -30,7 +30,7 @@ The GitHub issues labelled `stream:A` are almost all closed. **But the PRD gives
 | Research history, item A6 | #86 | FR-RES-8 (UI) |
 | Documents and uploads: contract, API, job queue and the web page with case uploads, item A8 | #100, #101, #102 | FR-DOC-1, FR-DOC-2, FR-DOC-3, FR-DOC-4, FR-DOC-6, SEC-6, NFR-13 |
 
-**End to end:** the AI side (#16, #18, #19, #20) is merged, and the full corpus is published as a database dump (#154, `dumps/2026-11-22`). Any machine can run M1's definition of done ("Research Hub answers in English with citations") after `pnpm data:pull`. On an 8 GB laptop, run the AI service on Colab: see [`local-setup.md`](local-setup.md#low-on-ram-run-the-ai-service-on-colab).
+**End to end:** the AI side (#16, #18, #19, #20) is merged, and the full corpus is published as a database dump (#154, `dumps/2026-11-28`). Any machine can run M1's definition of done ("Research Hub answers in English with citations") after `pnpm data:pull`. On an 8 GB laptop, run the AI service on Colab: see [`local-setup.md`](local-setup.md#low-on-ram-run-the-ai-service-on-colab).
 
 ## 2. What's left
 
