@@ -172,6 +172,21 @@ An LLM classifier is **not** proposed for M1. It would be harder to reproduce an
   - **Proposed bar:** at least 85% correct on the sample before area filters are switched on in the product. Below that, the filter stays hidden and the label is used only for corpus statistics.
 - **Taxonomy version:** labels carry the taxonomy version (`v1`). Changing the lists means a new version and re-labelling, never a silent edit.
 
+### 6.1 Running the classifier and the review (#200)
+
+The classifier is `services/ai/src/caseguard_ai/taxonomy/classify.py`. Its module docstring sets out the weights and thresholds, which are named constants so the review can tune them. It writes `corpus.documents.area` and `subcategory`, and keeps the evidence, the confidence, the reason and `taxonomy_version: "v1"` under `raw.area_label`.
+
+```sh
+pnpm ai:classify-areas --dry-run              # area distribution and unclassified rate, nothing written
+pnpm ai:classify-areas                        # label every judgment (a re-run changes nothing)
+pnpm ai:classify-areas --sample 200 --out area-review.csv [--full-text-only] [--seed 200]
+pnpm ai:classify-areas --score area-review.csv
+```
+
+1. **Sample.** `--sample` takes judgments a reviewer can read: full judgments, plus head-notes unless you pass `--full-text-only`. It spreads them evenly over proceeding types (the SHC case type until `proceeding_type` is filled), and within each type over the benches (SHC seats). The same corpus and seed give the same sample.
+2. **Label.** Each reviewer fills `gold_area` (an area id from the YAML, or `unclassified` if the text cannot tell), `gold_subcategory` if known, `reviewer` and `notes`. Hide the `predicted_*`, `confidence`, `reason` and `evidence` columns while labelling, so the labels stay blind. Split the rows between reviewers and have a second reviewer check a few disagreements.
+3. **Score.** `--score` prints the per-area precision and recall table for the final report, the `unclassified` rate, the share of the sample labelled correctly and whether it meets the 85% bar. Rows without a gold label are skipped, and gold values that are not area ids are listed.
+
 ## 7. What it changes
 
 | Work | Change |
@@ -179,7 +194,7 @@ An LLM classifier is **not** proposed for M1. It would be harder to reproduce an
 | **#153 selection files** | `shc-criminal` = criminal proceeding types; `shc-civil` = civil proceeding types, **sampled across all judges and benches** (civil share ranges 1–38% by judge). Constitutional petitions join a branch once their area is known. |
 | **#148** | Answered in principle: about 11% civil by case type in the full listings. The exact count comes from the full `shc-meta` pass. |
 | **#22 test set** | Half civil, half criminal. Within each branch, spread across seed areas and proceeding types. Civil questions lean on the seed civil statutes (CPC, Contract, Specific Relief, Limitation) because civil judgments are fewer. Proposed criminal mix: bail, appeals, quashing/revision, plus the PPC/CrPC/QSO statute questions. |
-| **#16 loader** | Fills `proceeding_type` from the map. `area` / `subcategory` start as `unclassified` until the classifier lands. |
+| **#16 loader** | Fills `proceeding_type` from the map. `area` / `subcategory` stay empty until `pnpm ai:classify-areas` runs (§6.1). |
 | **Filters, cases, drafting, linter** | One shared vocabulary file in `packages/contracts` (§8), so the web filters, the case form and the template choice all use the same values. |
 
 ## 8. Where the vocabulary lives
