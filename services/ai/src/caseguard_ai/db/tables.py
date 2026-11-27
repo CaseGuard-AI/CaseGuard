@@ -362,3 +362,32 @@ case_chunks = Table(
     Index("case_chunks_tsv_idx", "tsv", postgresql_using="gin"),
     schema="ai",
 )
+
+INGESTION_STATES = ("queued", "running", "done", "flagged", "failed")  # ai.v1 IngestionState
+
+# One row per uploaded document (#253, ADR-0010): its current attempt, state, stage log and
+# flags, so getIngestion answers the same after a restart. A newer attempt overwrites the row.
+ingestions = Table(
+    "ingestions",
+    metadata,
+    Column("document_id", UUID(as_uuid=True), primary_key=True),  # app.documents
+    Column("attempt", Integer, nullable=False),
+    Column("user_id", UUID(as_uuid=True), nullable=False),
+    Column("case_id", UUID(as_uuid=True), nullable=False),
+    Column("storage_key", Text, nullable=False),
+    Column("media_type", Text, nullable=False),
+    Column("filename", Text, nullable=False),  # for logs only, never a path
+    Column("state", Text, nullable=False, server_default=text("'queued'")),
+    Column("stages", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("flags", JSONB, nullable=False, server_default=text("'[]'::jsonb")),
+    Column("error", Text),
+    Column("retryable", Boolean, nullable=False, server_default=text("false")),
+    Column("pages", Integer),
+    Column("chunk_count", Integer),
+    _now(),
+    Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")),
+    CheckConstraint("attempt >= 1", name="ingestions_attempt_check"),
+    CheckConstraint(_in("state", INGESTION_STATES), name="ingestions_state_check"),
+    Index("ingestions_state_idx", "state", "updated_at"),
+    schema="ai",
+)

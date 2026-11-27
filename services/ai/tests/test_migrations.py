@@ -36,6 +36,7 @@ TABLES = {
     "ai.citations",
     "ai.verifications",
     "ai.case_chunks",
+    "ai.ingestions",
 }
 
 
