@@ -194,17 +194,29 @@ def _timeout(request: httpx.Request) -> httpx.Response:
 
 
 @pytest.mark.parametrize(
-    ("handler", "status"),
+    ("handler", "status", "reason"),
     [
-        (ok, 200),
-        (lambda r: httpx.Response(500, text=f"upstream echoed {r.headers['authorization']}"), 503),
-        (lambda r: httpx.Response(401, text=f"bad key {r.headers['authorization']}"), 503),
-        (_timeout, 503),
+        (ok, 200, None),
+        (
+            lambda r: httpx.Response(500, text=f"upstream echoed {r.headers['authorization']}"),
+            503,
+            "HTTP 500",
+        ),
+        (
+            lambda r: httpx.Response(401, text=f"bad key {r.headers['authorization']}"),
+            503,
+            "HTTP 401",
+        ),
+        (_timeout, 503, "timed out"),
     ],
     ids=["ok", "http-500", "http-401", "timeout"],
 )
 def test_the_key_is_in_no_log_and_no_response(
-    harness: Harness, caplog: pytest.LogCaptureFixture, handler: Handler, status: int
+    harness: Harness,
+    caplog: pytest.LogCaptureFixture,
+    handler: Handler,
+    status: int,
+    reason: str | None,
 ) -> None:
     harness.handler = handler
     caplog.set_level(logging.DEBUG)
@@ -218,6 +230,12 @@ def test_the_key_is_in_no_log_and_no_response(
     assert all(KEY not in str(rec.args) for rec in caplog.records)
     if status == 503:
         assert r.json()["detail"] == "the model provider failed"
-        assert {"event": "generation_failed", "provider": "gemini", "log_level": "warning"} in logs
+        # The reason says why, and never carries the upstream body or the key.
+        assert {
+            "event": "generation_failed",
+            "provider": "gemini",
+            "reason": reason,
+            "log_level": "warning",
+        } in logs
     else:
         assert any(e["event"] == "llm_call" and e["model"] == "gemini-2.5-flash" for e in logs)

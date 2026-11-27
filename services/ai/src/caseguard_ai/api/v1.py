@@ -157,7 +157,7 @@ def _pipeline_errors() -> Iterator[None]:
     except NoProviderError as exc:
         raise Problem(503, "Service Unavailable", str(exc)) from exc
     except GatewayError as exc:
-        log.warning("generation_failed", provider=exc.provider_id)
+        log.warning("generation_failed", provider=exc.provider_id, reason=exc.reason)
         raise Problem(503, "Service Unavailable", "the model provider failed") from exc
     except (CorpusNotReady, EmbeddingMismatch) as exc:
         log.error("corpus_unavailable", reason=type(exc).__name__)
