@@ -1,4 +1,4 @@
-> **Status:** Done · **Issue:** [#209](https://github.com/CaseGuard-AI/CaseGuard/issues/209) · **PR:** [#216](https://github.com/CaseGuard-AI/CaseGuard/pull/216); Phase 2: #230, #231, #232 and this one
+> **Status:** Done · **Issue:** [#209](https://github.com/CaseGuard-AI/CaseGuard/issues/209) · **PR:** [#216](https://github.com/CaseGuard-AI/CaseGuard/pull/216); Phase 2: #230, #231, #232, #233
 
 # #209 (and A12 overall): #106 precedent search, #107 drafting studio, #108 linter, built as full verticals in parallel
 

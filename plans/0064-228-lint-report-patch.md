@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#228](https://github.com/CaseGuard-AI/CaseGuard/issues/228) · **PR:** TBD
+> **Status:** Done · **Issue:** [#228](https://github.com/CaseGuard-AI/CaseGuard/issues/228) · **PR:** [#232](https://github.com/CaseGuard-AI/CaseGuard/pull/232)
 
 # #228: implement `PATCH /lint-reports/{reportId}` and use it for Save to case
 

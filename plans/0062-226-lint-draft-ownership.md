@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#226](https://github.com/CaseGuard-AI/CaseGuard/issues/226) · **PR:** TBD
+> **Status:** Done · **Issue:** [#226](https://github.com/CaseGuard-AI/CaseGuard/issues/226) · **PR:** [#230](https://github.com/CaseGuard-AI/CaseGuard/pull/230)
 
 # #226: lint report `draftId` must be the caller's draft
 
