@@ -1,4 +1,4 @@
-> **Status:** In progress (Workstream A in review; B and C not started) · **Issues:** [#238](https://github.com/CaseGuard-AI/CaseGuard/issues/238) (UI audit), [#239](https://github.com/CaseGuard-AI/CaseGuard/issues/239) (screenshots), [#240](https://github.com/CaseGuard-AI/CaseGuard/issues/240) (HF corpus dump) · **PR:** [#241](https://github.com/CaseGuard-AI/CaseGuard/pull/241) (A)
+> **Status:** In progress (A done in #241; B done in #242; C in progress for #239) · **Issues:** [#238](https://github.com/CaseGuard-AI/CaseGuard/issues/238) (UI audit), [#239](https://github.com/CaseGuard-AI/CaseGuard/issues/239) (screenshots), [#240](https://github.com/CaseGuard-AI/CaseGuard/issues/240) (HF corpus dump) · **PRs:** [#241](https://github.com/CaseGuard-AI/CaseGuard/pull/241) (A), [#242](https://github.com/CaseGuard-AI/CaseGuard/pull/242) (B)
 
 # UI audit fixes, HF corpus dump, screenshot proof folder
 
@@ -47,7 +47,7 @@ This needs the user to add `HF_TOKEN=` to `.env` themselves, or run `! hf auth l
 6. Check the result: `pnpm research:ask "What is the punishment under s. 302 PPC?"`, then precedent search (it needs judgments in the dump) and drafting assist. Also confirm that `corpus_meta` matches `EMBEDDING_MODEL` and `EMBEDDING_REVISION` (`retrieval/guard.py`).
 7. Docs PR: update `docs/engineering/session-handoff.md` and `local-setup.md` with the pull steps. Fix the stale status lines in plans 0017–0038, 0041 and 0044, and in `docs/engineering/stream-a-roadmap.md` (A3, A5, A6 and #102 shipped). Note #154 and #192 as unblocked.
 
-## Workstream C: Screenshot proof (`feat/<issue>-screenshots`)
+## Workstream C: Screenshot proof (`feature/<issue>-screenshots`)
 Run as a parallel agent once A's branch exists. Captures happen after A merges and B finishes.
 - Add `@playwright/test` as a root devDependency. Chromium is already in `%LOCALAPPDATA%\ms-playwright`.
 - Add `scripts/screenshots/capture.ts` and a `screenshots.config.ts`, plus `pnpm screenshots`. The flow assumes `pnpm dev` is running:
