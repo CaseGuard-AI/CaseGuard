@@ -1,4 +1,4 @@
-> **Status:** In review · **Issue:** [#253](https://github.com/CaseGuard-AI/CaseGuard/issues/253) · **PR:** draft, see the issue · **Contract:** [0046](0046-100-documents-contract.md), "Stream C"
+> **Status:** In review · **Issue:** [#253](https://github.com/CaseGuard-AI/CaseGuard/issues/253) · **PR:** [#256](https://github.com/CaseGuard-AI/CaseGuard/pull/256) · **Contract:** [0046](0046-100-documents-contract.md), "Stream C"
 
 # #253: Document ingestion routes and worker in services/ai
 
