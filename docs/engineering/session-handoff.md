@@ -1,6 +1,6 @@
 # Session handoff: continue from here
 
-*Updated 2026-11-10.* This file covers only **what to do next**. For what has been done, see [`work-log.md`](work-log.md), one heading per piece of work.
+*Updated 2026-11-27.* This file covers only **what to do next**. For what has been done, see [`work-log.md`](work-log.md), one heading per piece of work.
 
 - **To continue with Claude Code:** pull `staging` and say "read docs/engineering/session-handoff.md and continue".
 - **Background:** [`handoff.md`](handoff.md) is the team handoff; [`handoff-plan.md`](handoff-plan.md) is the plan for implementing it.
@@ -15,7 +15,7 @@
 
 ## Who does what now
 
-The full corpus is being embedded on one laptop (about 8 hours on CPU). None of these tasks waits for it:
+The full corpus is published as a database dump (`dumps/2026-11-22`: 56,658 documents and 60,062 chunks, embedded with bge-m3). Restore it with "Downloading the database" below; nobody needs to embed. None of these tasks waits for it:
 
 | Who | Task | Needs the corpus? |
 |---|---|---|
@@ -23,9 +23,9 @@ The full corpus is being embedded on one laptop (about 8 hours on CPU). None of 
 | One member | **#22, test set:** 60 dev + 40 held-out questions, half civil and half criminal, about 10% unanswerable, each with its gold section (e.g. "PPC s. 302"). Written from the law texts. **Freeze it before any tuning.** | No |
 | One member | **#17, Supreme Court probe:** `uv run python main.py --source supreme_court --probe` from a home or university network; record the result in the collector README §1 | No |
 | One member | **Demo model:** install Ollama and `ollama pull qwen2.5:7b`, or get a free NVIDIA NIM or Gemini key | No |
-| Partner | **Research history (#86), user API keys (#92–#95), "law as of" date (#96):** steps in [`handoff-res8-set2-res11.md`](handoff-res8-set2-res11.md) | No |
 | Others | **Stream A P1 items** (#86–#113), in the order of the [Stream A roadmap](stream-a-roadmap.md) | No |
-| Whoever tries the demo | **M1 demo** (see "Running the demo") | Yes: a small one is enough |
+| Whoever tries the demo | **M1 demo** (see "Running the demo") | Yes: pull the published dump |
+| One member | **#192, answer format on the real laws:** `pnpm research:ask -- "<question>" --providers nvidia-nim` over the full corpus. Unblocked now that the dump is published | Yes: pull the published dump |
 
 ## Hugging Face (`caseguard` org)
 
@@ -68,16 +68,32 @@ Code goes to GitHub. `.env` and tokens go nowhere. The models download themselve
 - Use `-- --freeze eval-frozen-1` for the dump behind an evaluation.
 - Don't upload a `pg_dump` by hand: `data:pull` can't restore it.
 
-**Downloading the database:** run `pnpm db:migrate:ai`, then `pnpm data:pull -- --dump latest`.
-- It checks the checksum and the migration revision, shows what you have, and asks before replacing your local `corpus`.
-- Your `app` and `ai` data are untouched.
+**Downloading the database** (about 255 MB; the restore takes a few minutes):
+```powershell
+pnpm db:up
+pnpm db:migrate
+pnpm db:migrate:ai
+pnpm data:pull -- --dump latest
+pnpm ai:graph-build      # the knowledge graph isn't in the dump; about a minute
+```
+- `data:pull` checks the checksum, the migration revision and every dumped table's columns. It shows what you have and asks before replacing your local `corpus`. Your `app` and `ai` data are untouched.
+- **Revision mismatch on the 2026-11-22 dump.** It was made at AI migration `0001`, and `staging` is at `0002`, so `data:pull` refuses it, on purpose. `0002` only adds the graph tables (`corpus.graph_*`), which the dump never contains. Until it is re-published from current `staging` (`pnpm data:dump`), restore across the gap:
+  ```powershell
+  uv run --directory services/ai alembic stamp 0001
+  pnpm data:pull -- --dump latest --yes
+  uv run --directory services/ai alembic stamp 0002   # run this even if the pull failed
+  pnpm ai:graph-build
+  ```
+  This is safe only for `0001` → `0002`. For any other pair, read the migration first.
+- **Downloads that stall** (the dump, or the 2.3 GB models on first use): set `HF_HUB_DISABLE_XET=1` and run the command again.
+- **On an 8 GB laptop**, the AI service's three models need about 5 GB of RAM, which doesn't fit next to Docker. Run the AI service on Colab instead: [`local-setup.md`, "Low on RAM?"](local-setup.md#low-on-ram-run-the-ai-service-on-colab). That notebook also restores the dump for itself.
 
 **Downloading the crawls:**
 ```powershell
 hf download caseguard/corpus --repo-type dataset --include "snapshots/*" --local-dir hf-corpus
 ```
 - To use a crawl, unpack it into `services/collector/data/partitions/` (`tar -xf <file>.tar -C services\collector\data\partitions`).
-- Until the first dump is published, build your own small corpus (next section).
+- The app doesn't need the crawls, because the database dump has everything. They're only for rebuilding the corpus (next section).
 
 ## Building a corpus on your own machine
 
@@ -111,12 +127,12 @@ Then pass all four partition folders to one `pnpm data:load` command.
 2. In the admin console, enable a provider: Ollama with `OLLAMA_MODEL`, or NIM/Gemini with a key in `.env`.
 3. In the Research Hub, ask "What is the punishment under s. 302 PPC?". You should get a cited answer with statuses.
 
-The reranker downloads on first use (about 2.3 GB). How well a model follows the answer format hasn't been measured yet: `pnpm research:ask -- "<question>" --providers nvidia-nim` runs the answer path from the terminal and shows the raw reply (#191); the measurement on the real seed laws is #192.
+The embedder, the reranker and the NLI checker download on first use: about 4.6 GB together, pinned to the revisions in `services/ai/src/caseguard_ai/config.py`. On an 8 GB laptop, use the Colab notebook instead ([`local-setup.md`](local-setup.md#low-on-ram-run-the-ai-service-on-colab)). How well a model follows the answer format hasn't been measured yet: `pnpm research:ask -- "<question>" --providers nvidia-nim` runs the answer path from the terminal and shows the raw reply (#191); the measurement on the real laws is #192, unblocked now that the dump is published.
 
 ## Open items
 
 - **#152, crawl snapshots:** `pnpm data:push`, `pull` and `status`, which do the Hugging Face steps above automatically. Unblocked: `caseguard/corpus` is live (#151).
-- **#154, database dumps:** `pnpm data:dump` and `data:pull --dump` are built (plan 0038). Next: publish the first real dump once the full embed finishes.
+- **#154, database dumps:** done. The first dump was published on 2026-11-22 (`dumps/2026-11-22`). Next: publish it again from current `staging` (AI migration `0002`), so `data:pull` works without the `alembic stamp` step above.
 - **`--full-text-first` for `data:embed`** (not built): embed the laws and full judgments before the 56k short head-notes, so the demo works within minutes.
 - **Small follow-ups:**
   - add the 10 unmapped SHC case-type codes to `selections/matter_type_map.csv`, marked `confirmed=no`;

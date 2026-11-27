@@ -126,6 +126,22 @@ uv run python main.py --help
 
 Each service also has its own README with its commands.
 
+### Corpus data
+
+The app runs without a corpus, but research, precedent search and drafting assist return 503 until there is one. Restore the published database dump: see "Downloading the database" in [`session-handoff.md`](session-handoff.md#hugging-face-caseguard-org). You need `HF_TOKEN` in `.env`, with read access to `caseguard/corpus`.
+
+### Low on RAM? Run the AI service on Colab
+
+The AI service loads three models: the bge-m3 embedder, the reranker and the NLI checker. Together they need about 5 GB of RAM, which an 8 GB laptop can't spare next to Docker. [`notebooks/colab-ai-service.ipynb`](../../notebooks/colab-ai-service.ipynb) runs `services/ai` on a free Colab GPU, with its own Postgres and a copy of the corpus dump. Your local api then talks to it through a tunnel.
+
+1. Open the notebook in Colab: https://colab.research.google.com/github/CaseGuard-AI/CaseGuard/blob/staging/notebooks/colab-ai-service.ipynb
+2. **Runtime → Change runtime type → T4 GPU.** Add the three secrets the notebook's first cell lists: `HF_TOKEN`, `CASEGUARD_ENV` (your `LLM_*` lines from `.env`) and `AI_SERVICE_TOKEN` (32+ random characters).
+3. **Runtime → Run all.** It takes about 15–20 minutes, and it runs the smoke tests for research, precedents and drafting. Step 10 prints a `https://….trycloudflare.com` URL.
+4. On your laptop, set `AI_SERVICE_URL=<that URL>` in `.env`, and set `AI_SERVICE_TOKEN` to the same value as the Colab secret. Then run `pnpm dev:web` and `pnpm dev:api` only, not `dev:ai`.
+5. When you're done, set `AI_SERVICE_URL` back to `http://localhost:8000`.
+
+Any Google account works. A Colab Pro plan only gives longer sessions and more RAM. A free session lasts up to about 12 hours, and the URL changes each time you run the notebook. Your cases, drafts and users stay in your local database; only the questions and draft text the api sends go to Colab.
+
 ## 5. Checks before you push
 
 ```bash

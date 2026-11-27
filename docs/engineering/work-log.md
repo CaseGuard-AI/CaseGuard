@@ -373,3 +373,11 @@ The last step of Track L (plan `0052`). `/linter` is no longer a placeholder:
 - a report can be saved to a case, and the case dashboard lists the case's lint reports (FR-CASE-5).
 
 Every lint is kept as a report, because `POST /lint-reports` is the only lint operation in api.v1. Saving an existing report to a case re-creates it in the case and deletes the old one, since the contract has no way to move a report. Built against the contract with the API stubbed, like #102. The new Urdu strings need native review (#105). Plan: `plans/0061`.
+
+## 2026-11-27
+
+### The published corpus dump restores, and a Colab notebook for low-RAM laptops (#240)
+Restored `dumps/2026-11-22` (56,658 documents, 60,062 chunks, bge-m3) into a dev database and rebuilt the graph: 66,330 entities and 11,885 edges.
+- **Revision gap:** the dump was made at AI migration `0001`, and `staging` is at `0002`. `0002` only adds the graph tables, which the dump never contains, so `alembic stamp 0001` → `data:pull` → `alembic stamp 0002` restores it safely. The steps are in `session-handoff.md`. The real fix is to publish the dump again from current `staging`.
+- **8 GB laptops:** they can't load the AI service's three models (about 5 GB together) next to Docker, and `huggingface_hub` restarts a stalled 2.3 GB download from zero. `notebooks/colab-ai-service.ipynb` runs `services/ai` on a free Colab T4 instead. It restores the dump, runs the smoke tests, and can expose the service to the local api through a Cloudflare quick tunnel, guarded by `AI_SERVICE_TOKEN`. How to use it: `local-setup.md`, "Low on RAM?".
+- **Stale statuses:** set plans 0017–0038, 0041 and 0044, and the Stream A roadmap, to match what is merged.
