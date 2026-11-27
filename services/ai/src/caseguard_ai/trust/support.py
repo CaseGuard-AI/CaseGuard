@@ -180,7 +180,7 @@ class LlmSupportChecker:
             {"role": "user", "content": prompt.user_message(claim, evidence)},
         ]
         try:
-            result = self._gateway.chat("judge", messages, allowed_providers, max_tokens=256)
+            result = self._gateway.chat("judge", messages, allowed_providers)
         except Exception as exc:  # never let the judge break an answer
             log.warning("support_judge_failed", error=type(exc).__name__)
             return SupportResult("uncertain", None, "llm")

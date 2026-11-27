@@ -92,6 +92,11 @@ class Settings(EmbeddingSettings):
     # that the api lists in allowedProviders (SEC-11).
     llm_generation_provider: str = ""
     llm_judge_provider: str = ""
+    # Output budget (max_tokens) per call, unless the caller sets one. Reasoning models spend
+    # about 1,000 tokens thinking before the first word, so a smaller budget can return nothing
+    # (#244). The judge only answers one word, but it reasons too.
+    llm_generation_max_tokens: int = 4096
+    llm_judge_max_tokens: int = 1024
     # Local fallback, reachable under every allow-list that includes "ollama" (and the default).
     ollama_base_url: str = ""
     ollama_model: str = ""

@@ -91,10 +91,17 @@ class ModelGateway:
         allowed_providers: list[str] | None,
         *,
         override: ProviderConfig | None = None,
-        max_tokens: int = 1024,
+        max_tokens: int | None = None,
         temperature: float = 0.0,
     ) -> ChatResult:
+        """``max_tokens`` defaults to the role's LLM_<ROLE>_MAX_TOKENS."""
         provider = self.provider_for(role, allowed_providers, override)
+        if max_tokens is None:
+            max_tokens = (
+                self._settings.llm_judge_max_tokens
+                if role == "judge"
+                else self._settings.llm_generation_max_tokens
+            )
         body = {
             "model": provider.model,
             "messages": messages,

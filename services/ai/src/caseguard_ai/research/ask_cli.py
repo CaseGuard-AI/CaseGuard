@@ -57,7 +57,7 @@ class RecordingGateway(ModelGateway):
         allowed_providers: list[str] | None,
         *,
         override: ProviderConfig | None = None,
-        max_tokens: int = 1024,
+        max_tokens: int | None = None,
         temperature: float = 0.0,
     ) -> ChatResult:
         result = super().chat(
