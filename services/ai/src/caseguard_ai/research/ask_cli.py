@@ -252,7 +252,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--providers",
         type=_providers,
         default=None,
-        help="comma-separated allow-list of provider ids (default: every configured provider)",
+        help="comma-separated allow-list of provider ids (default: local providers only, SEC-11)",
     )
     parser.add_argument("--language", choices=["en", "ur", "roman_ur"], default=None)
     parser.add_argument(
