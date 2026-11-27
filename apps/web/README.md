@@ -85,7 +85,7 @@ src/components/auth/       session provider and guard, login, register and passw
 src/components/admin/      Admin console: users' AI access, provider allow-list
 src/components/settings/   Settings page, settings queries, AccountPreferences (saved theme and locale)
 src/components/research/   Research Hub: thread, ask box, citation chips, sources list, source panel, queries
-src/components/            TrustBadge, ApiStatus, Providers (TanStack Query, Radix direction, tooltips, session)
+src/components/            TrustBadge, Providers (TanStack Query, Radix direction, tooltips, session)
 src/i18n/                  routing, request config, locale-aware navigation
 src/lib/api.ts             typed api.v1 client (openapi-fetch + @caseguard/contracts), problemOf()
 src/lib/api-query.ts       ApiError and unwrap() for TanStack Query over the api client

@@ -1,4 +1,5 @@
-import { ComingSoon, pageMetadata } from "@/components/shell/coming-soon";
+import { ComingSoon } from "@/components/shell/coming-soon";
+import { pageMetadata } from "@/components/shell/page-metadata";
 
 export const generateMetadata = pageMetadata("strategy");
 

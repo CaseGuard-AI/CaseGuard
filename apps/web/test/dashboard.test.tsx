@@ -63,9 +63,23 @@ const problem = (status: number) => json({ type: "about:blank", title: "Error", 
 
 type Route = (path: string) => Response | undefined;
 
+const draft = (n: number, updatedAt: string) => ({
+  id: id(80 + n),
+  title: `Bail application ${n}`,
+  templateId: "bail_application",
+  caseId: null,
+  version: 1,
+  updatedAt,
+});
+// Six drafts on the first page: the dashboard shows only the top five.
+const drafts = [1, 2, 3, 4, 5, 6].map((n) =>
+  draft(n, n === 1 ? "2026-11-12T10:00:00Z" : "2026-11-02T09:00:00Z"),
+);
+
 const routes: Route = (path) => {
   if (path === "/conversations") return json({ items: conversations, nextCursor: "next" });
   if (path === "/cases") return json({ items: cases, nextCursor: null });
+  if (path === "/drafts") return json({ items: drafts, nextCursor: "next" });
 };
 
 async function renderDashboard(route: Route = routes) {
@@ -93,6 +107,7 @@ async function renderDashboard(route: Route = routes) {
 const section = (name: string) => screen.getByRole("region", { name });
 const research = () => section(ur.Dashboard.research.title);
 const caseList = () => section(ur.Dashboard.cases.title);
+const draftList = () => section(ur.Dashboard.drafts.title);
 const hrefs = (el: HTMLElement) =>
   within(el)
     .getAllByRole("listitem")
@@ -149,20 +164,36 @@ describe("Dashboard (FR-DASH-1)", () => {
     ).toBe("/cases");
   });
 
-  it("says when there is no research and no case yet", async () => {
+  it("lists the five most recent drafts, each opening in the Drafting Studio", async () => {
+    await renderDashboard();
+    await within(draftList()).findByText("Bail application 1");
+    expect(hrefs(draftList())).toEqual([1, 2, 3, 4, 5].map((n) => `/drafting/${id(80 + n)}`));
+    expect(within(draftList()).queryByText("Bail application 6")).toBeNull();
+    // Two hours before NOW, in Urdu.
+    expect(within(draftList()).getAllByRole("listitem")[0].textContent).toContain("2 گھنٹے پہلے");
+    expect(
+      within(draftList())
+        .getByRole("link", { name: ur.Dashboard.drafts.seeAll })
+        .getAttribute("href"),
+    ).toBe("/drafting");
+  });
+
+  it("says when there is no research, no case and no draft yet", async () => {
     await renderDashboard((path) =>
-      path === "/conversations" || path === "/cases"
+      path === "/conversations" || path === "/cases" || path === "/drafts"
         ? json({ items: [], nextCursor: null })
         : undefined,
     );
     expect(await within(research()).findByText(ur.Dashboard.research.empty)).toBeTruthy();
     expect(await within(caseList()).findByText(ur.Dashboard.cases.empty)).toBeTruthy();
+    expect(await within(draftList()).findByText(ur.Dashboard.drafts.empty)).toBeTruthy();
   });
 
   it("shows an error with a retry in one section without hiding the other", async () => {
     let fail = true;
     await renderDashboard((path) => (path === "/cases" && fail ? problem(503) : routes(path)));
-    expect(await within(caseList()).findByText(ur.Dashboard.error)).toBeTruthy();
+    expect(await within(caseList()).findByRole("alert")).toBeTruthy();
+    expect(within(caseList()).getByText(ur.Dashboard.error)).toBeTruthy();
     await within(research()).findByText("Question 1");
     fail = false;
     fireEvent.click(within(caseList()).getByRole("button", { name: ur.Dashboard.retry }));

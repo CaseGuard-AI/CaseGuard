@@ -70,21 +70,29 @@ export function Sidebar({ collapsed = false, onToggle, onNavigate }: SidebarProp
       </nav>
 
       <div className="border-t border-primary-foreground/10 p-2">
-        {user?.role === "admin" && (
-          <NavLink
-            item={adminNav}
-            active={active === adminNav.key}
-            collapsed={collapsed}
-            onNavigate={onNavigate}
-          />
-        )}
+        {user?.role === "admin" &&
+          adminNav.map((item) => (
+            <NavLink
+              key={item.key}
+              item={item}
+              active={active === item.key}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+            />
+          ))}
         <NavLink
           item={settingsNav}
           active={active === settingsNav.key}
           collapsed={collapsed}
           onNavigate={onNavigate}
         />
-        <div className="flex h-12 items-center gap-3 px-3 text-primary-foreground/65">
+        {/* The account block opens the user's settings, where the profile is edited. */}
+        <Link
+          href="/settings"
+          onClick={onNavigate}
+          aria-label={collapsed ? (user?.name ?? t("Nav.account")) : undefined}
+          className="flex h-12 items-center gap-3 rounded-sm px-3 text-primary-foreground/65 transition-colors hover:bg-primary-foreground/8 hover:text-primary-foreground"
+        >
           {user ? (
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-foreground/15 text-xs font-bold text-primary-foreground">
               {initials(user.name)}
@@ -104,7 +112,7 @@ export function Sidebar({ collapsed = false, onToggle, onNavigate }: SidebarProp
               )}
             </div>
           )}
-        </div>
+        </Link>
       </div>
     </div>
   );
@@ -124,6 +132,8 @@ function NavLink({
   const t = useTranslations("Nav");
   const locale = useLocale() as Locale;
   const label = t(item.key);
+  // Collapsed, the badge is hidden, so the name and tooltip carry it.
+  const fullLabel = item.soon ? `${label} (${t("soon")})` : label;
   const Icon = item.icon;
 
   const link = (
@@ -131,7 +141,7 @@ function NavLink({
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? label : undefined}
+      aria-label={collapsed ? fullLabel : undefined}
       className={cn(
         "flex h-10 items-center gap-3 rounded-sm px-3 text-[13px] font-medium text-primary-foreground/65 transition-colors hover:bg-primary-foreground/8 hover:text-primary-foreground",
         active &&
@@ -140,6 +150,14 @@ function NavLink({
     >
       <Icon className="size-[17px] shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
+      {!collapsed && item.soon && (
+        <span
+          data-soon
+          className="ms-auto shrink-0 rounded-sm bg-primary-foreground/12 px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground/70 uppercase"
+        >
+          {t("soon")}
+        </span>
+      )}
     </Link>
   );
 
@@ -149,7 +167,7 @@ function NavLink({
     <Tooltip>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
       <TooltipContent side={directionOf(locale) === "rtl" ? "left" : "right"}>
-        {label}
+        {fullLabel}
       </TooltipContent>
     </Tooltip>
   );

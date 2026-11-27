@@ -1,6 +1,14 @@
 "use client";
 
-import { Archive, ArchiveRestore, LoaderCircle, Pencil, Search } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowRight,
+  LoaderCircle,
+  Network,
+  Pencil,
+  Search,
+} from "lucide-react";
 import { useFormatter, useNow, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import {
@@ -24,8 +32,8 @@ import { formatDay } from "./format";
 import { useArchiveCase, useCase, useCaseConversations, type Case, type Party } from "./queries";
 import { CaseLoadState } from "./states";
 
-// The case dashboard (FR-CASE-4): the case's fields, its research, its documents, and the places
-// drafts and precedents will appear once those modules exist. Nothing here is sample data.
+// The case dashboard (FR-CASE-4): the case's fields, its research, documents, lint reports and
+// drafts, and a way into precedent search. Nothing here is sample data.
 export function CaseDashboard({ caseId }: { caseId: string }) {
   const found = useCase(caseId);
 
@@ -48,7 +56,7 @@ export function CaseDashboard({ caseId }: { caseId: string }) {
       <CaseLintReports caseId={item.id} archived={item.archivedAt !== null} />
       <div className="grid gap-6 md:grid-cols-2">
         <CaseDrafts caseId={item.id} archived={item.archivedAt !== null} />
-        <Placeholder area="precedents" />
+        <PrecedentsCard />
       </div>
     </div>
   );
@@ -299,7 +307,23 @@ function CaseResearch({ caseId }: { caseId: string }) {
   );
 }
 
-function Placeholder({ area }: { area: "drafts" | "precedents" }) {
-  const t = useTranslations(`Cases.dashboard.${area}`);
-  return <Card title={t("title")} body={t("body")} />;
+// Precedents can't be saved to a case yet, so the card is a way into precedent search.
+function PrecedentsCard() {
+  const t = useTranslations("Cases.dashboard.precedents");
+  return (
+    <Link
+      href="/precedents"
+      className="group block rounded-md border bg-card p-5 transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring sm:p-6"
+    >
+      <h2 className="flex items-center gap-2 text-base font-semibold">
+        <Network className="size-4 text-muted-foreground" aria-hidden />
+        {t("title")}
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">{t("body")}</p>
+      <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary group-hover:underline">
+        {t("action")}
+        <ArrowRight className="size-4 rtl:rotate-180" aria-hidden />
+      </span>
+    </Link>
+  );
 }

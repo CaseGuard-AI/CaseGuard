@@ -323,6 +323,16 @@ describe("Case dashboard (FR-CASE-4)", () => {
     expect(screen.getByRole("heading", { name: en.Documents.card.title })).toBeTruthy();
   });
 
+  it("links the whole precedents card to precedent search", async () => {
+    await renderDashboard(dashRoute());
+    const heading = await screen.findByRole("heading", { name: m.dashboard.precedents.title });
+    const card = heading.closest("a");
+    expect(card?.getAttribute("href")).toBe("/precedents");
+    expect(card?.textContent).toContain(m.dashboard.precedents.action);
+    // The old placeholder said precedent search wasn't available yet.
+    expect(screen.queryByText(/once precedent search is available/)).toBeNull();
+  });
+
   it("archives only after the confirmation, then hides asking in the case", async () => {
     const { calls } = await renderDashboard(dashRoute());
     fireEvent.click(await screen.findByRole("button", { name: m.dashboard.archive }));

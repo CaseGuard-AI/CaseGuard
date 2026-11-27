@@ -65,13 +65,15 @@ function DraftRow({ draft, showCase }: { draft: DraftSummary; showCase: boolean 
   const templates = useDraftTemplates();
   const template = templates.data?.items.find((x) => x.id === draft.templateId);
 
+  // The whole row opens the draft, like a case row. The title link stretches over the row, and
+  // the case link sits above it, since links can't nest.
   return (
-    <li className="flex items-start gap-3 px-4 py-3">
+    <li className="relative flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent">
       <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
       <div className="min-w-0">
         <Link
           href={`/drafting/${draft.id}`}
-          className="block truncate text-sm font-medium hover:underline"
+          className="block truncate text-sm font-medium after:absolute after:inset-0"
           dir="auto"
         >
           {draft.title}
@@ -90,7 +92,11 @@ function CaseName({ caseId }: { caseId: string }) {
   const t = useTranslations("Drafting.list");
   const found = useCase(caseId);
   return (
-    <Link href={`/cases/${caseId}`} className="underline-offset-2 hover:underline" dir="auto">
+    <Link
+      href={`/cases/${caseId}`}
+      className="relative z-10 underline-offset-2 hover:underline"
+      dir="auto"
+    >
       {found.data?.title ?? t("openCase")}
     </Link>
   );

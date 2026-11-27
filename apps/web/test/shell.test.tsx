@@ -43,8 +43,11 @@ const navKeys = [
   "linter",
   "stressTest",
   "documents",
-  "evaluation",
 ] as const;
+// Placeholder screens, badged "Soon" in the sidebar.
+const soonKeys = new Set<string>(["strategy", "stressTest"]);
+const navText = (messages: typeof en, key: (typeof navKeys)[number]) =>
+  soonKeys.has(key) ? `${messages.Nav[key]}${messages.Nav.soon}` : messages.Nav[key];
 
 function renderShell(locale: Locale, messages: typeof en) {
   const dir = directionOf(locale);
@@ -97,7 +100,7 @@ describe("AppShell", () => {
     renderShell("ur", ur);
     const main = screen.getByRole("navigation", { name: ur.Nav.main });
     for (const key of navKeys) {
-      expect(within(main).getByRole("link", { name: ur.Nav[key] })).toBeTruthy();
+      expect(within(main).getByText(ur.Nav[key]).closest("a")).toBeTruthy();
     }
     expect(screen.getByRole("link", { name: ur.Nav.settings })).toBeTruthy();
     expect(screen.getByText("content")).toBeTruthy();
@@ -110,7 +113,41 @@ describe("AppShell", () => {
       within(main)
         .getAllByRole("link")
         .map((a) => a.textContent),
-    ).toEqual(navKeys.map((key) => en.Nav[key]));
+    ).toEqual(navKeys.map((key) => navText(en, key)));
+  });
+
+  it("badges the placeholder screens as coming soon", () => {
+    renderShell("en", en);
+    const main = screen.getByRole("navigation", { name: en.Nav.main });
+    const badged = within(main)
+      .getAllByRole("link")
+      .filter((a) => a.querySelector("[data-soon]"))
+      .map((a) => a.getAttribute("href"));
+    expect(badged).toEqual(["/strategy", "/stress-test"]);
+    expect(
+      within(main).getByRole("link", { name: en.Nav.research }).querySelector("[data-soon]"),
+    ).toBeNull();
+    // Collapsed, the badge is gone, so the link's name says it instead.
+    fireEvent.click(screen.getByRole("button", { name: en.Nav.collapse }));
+    expect(
+      within(main).getByRole("link", { name: `${en.Nav.strategy} (${en.Nav.soon})` }),
+    ).toBeTruthy();
+  });
+
+  it("links the app name in the breadcrumb to the dashboard", () => {
+    nav.pathname = "/research";
+    renderShell("en", en);
+    const breadcrumb = screen.getByRole("navigation", { name: en.Nav.breadcrumb });
+    expect(within(breadcrumb).getByRole("link", { name: en.App.name }).getAttribute("href")).toBe(
+      "/",
+    );
+  });
+
+  it("keeps the header search disabled and says it is coming soon", () => {
+    renderShell("en", en);
+    const search = screen.getByRole("textbox", { name: en.Nav.search });
+    expect((search as HTMLInputElement).disabled).toBe(true);
+    expect(search.getAttribute("title")).toBe(en.Nav.searchSoon);
   });
 
   it("marks the current page and shows it in the breadcrumb", () => {
@@ -151,15 +188,43 @@ describe("AppShell with a signed-in user", () => {
     expect(screen.getByText(ur.Nav.roles.admin)).toBeTruthy();
   });
 
-  it("links the admin console for an Admin only", () => {
+  it("links the admin console and evaluation for an Admin only (FR-EVAL-3)", () => {
+    const evaluation = `${ur.Nav.evaluation}${ur.Nav.soon}`;
     renderShell("ur", ur);
     expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
+    expect(screen.queryByRole("link", { name: evaluation })).toBeNull();
     act(() => signIn(ayesha));
     expect(screen.getByRole("link", { name: ur.Nav.admin }).getAttribute("href")).toBe("/admin");
-    act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "researcher" } }));
-    expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
-    act(() => signIn({ ...ayesha, user: { ...ayesha.user, role: "lawyer" } }));
-    expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
+    const link = screen.getByRole("link", { name: evaluation });
+    expect(link.getAttribute("href")).toBe("/evaluation");
+    expect(link.querySelector("[data-soon]")).toBeTruthy();
+    // Not in the main nav, which every role sees.
+    const main = screen.getByRole("navigation", { name: ur.Nav.main });
+    expect(within(main).queryByRole("link", { name: evaluation })).toBeNull();
+    for (const role of ["researcher", "lawyer"] as const) {
+      act(() => signIn({ ...ayesha, user: { ...ayesha.user, role } }));
+      expect(screen.queryByRole("link", { name: ur.Nav.admin })).toBeNull();
+      expect(screen.queryByRole("link", { name: evaluation })).toBeNull();
+    }
+  });
+
+  it("links the account block in the sidebar to settings", () => {
+    renderShell("en", en);
+    act(() => signIn(ayesha));
+    // The block shows the role under the name; the admin nav link says "Admin" too.
+    const role = screen.getAllByText(en.Nav.roles.admin).find((el) => el.tagName === "P");
+    expect(role?.closest("a")?.getAttribute("href")).toBe("/settings");
+    expect(role?.closest("a")?.textContent).toContain("Ayesha Khan");
+  });
+
+  it("has one settings item and no disabled items in the account menu", async () => {
+    renderShell("en", en);
+    act(() => signIn(ayesha));
+    fireEvent.keyDown(screen.getByRole("button", { name: en.Nav.account }), { key: "Enter" });
+    await screen.findByRole("menuitem", { name: en.Nav.signOut });
+    const items = screen.getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual([en.Nav.settings, en.Nav.signOut]);
+    expect(items.some((item) => item.hasAttribute("data-disabled"))).toBe(false);
   });
 
   it("saves the language to the account before switching", async () => {
@@ -210,9 +275,10 @@ describe("activePage", () => {
   it("maps pathnames to screens", () => {
     expect(activePage("/")).toBe("dashboard");
     expect(activePage("/stress-test")).toBe("stressTest");
-    expect(activePage("/case/42")).toBe("cases");
+    expect(activePage("/cases/42")).toBe("cases");
     expect(activePage("/cases/new")).toBe("cases");
     expect(activePage("/admin")).toBe("admin");
+    expect(activePage("/evaluation")).toBe("evaluation");
     expect(activePage("/nowhere")).toBeUndefined();
   });
 });

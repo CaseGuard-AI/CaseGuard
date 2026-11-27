@@ -2,8 +2,9 @@ import { useTranslations } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { use } from "react";
 import { DocumentsList } from "@/components/documents/documents-list";
-import { pageMetadata } from "@/components/shell/coming-soon";
+import { pageMetadata } from "@/components/shell/page-metadata";
 import { PageIntro } from "@/components/shell/page-intro";
+import { Link } from "@/i18n/navigation";
 
 export const generateMetadata = pageMetadata("documents");
 
@@ -17,7 +18,12 @@ export default function DocumentsPage({ params }: PageProps<"/[locale]/documents
   return (
     <>
       <PageIntro title={t("Pages.documents.title")} subtitle={t("Pages.documents.subtitle")} />
-      <p className="mb-4 text-sm text-muted-foreground">{t("Documents.list.uploadHint")}</p>
+      <p className="mb-4 text-sm text-muted-foreground">
+        {t("Documents.list.uploadHint")}{" "}
+        <Link href="/cases" className="font-medium text-primary underline-offset-2 hover:underline">
+          {t("Documents.list.goToCases")}
+        </Link>
+      </p>
       <DocumentsList showCase />
     </>
   );

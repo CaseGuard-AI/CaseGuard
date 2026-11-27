@@ -3,7 +3,7 @@ import { setRequestLocale } from "next-intl/server";
 import { Suspense, use } from "react";
 import { DraftsList } from "@/components/drafting/drafts-list";
 import { NewDraft } from "@/components/drafting/new-draft";
-import { pageMetadata } from "@/components/shell/coming-soon";
+import { pageMetadata } from "@/components/shell/page-metadata";
 import { PageIntro } from "@/components/shell/page-intro";
 
 export const generateMetadata = pageMetadata("drafting");

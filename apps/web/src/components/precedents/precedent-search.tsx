@@ -228,20 +228,22 @@ function HitCard({
 }) {
   const t = useTranslations("Precedents");
   const format = useFormatter();
+  // The whole card opens the relationships panel. The title is the button, so keyboard users tab
+  // to it; a click anywhere else on the card bubbles up to the same handler.
   return (
     <li
       data-hit={hit.sourceId}
       data-origin={hit.origin}
+      onClick={onOpen}
       className={cn(
-        "space-y-2 rounded-md border bg-card p-4",
+        "cursor-pointer space-y-2 rounded-md border bg-card p-4 transition-colors focus-within:ring-2 focus-within:ring-ring hover:bg-accent/50",
         hit.origin === "graph_derived" && "ms-4 border-dashed sm:ms-8",
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <button
           type="button"
-          onClick={onOpen}
-          className="text-start text-sm font-semibold hover:underline"
+          className="text-start text-sm font-semibold outline-none hover:underline"
           aria-label={t("results.open", { title: hit.title })}
           dir="auto"
         >

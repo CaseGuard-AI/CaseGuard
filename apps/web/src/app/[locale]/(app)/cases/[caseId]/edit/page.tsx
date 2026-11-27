@@ -1,7 +1,7 @@
 import { setRequestLocale } from "next-intl/server";
 import { use } from "react";
 import { CaseEdit } from "@/components/cases/case-edit";
-import { pageMetadata } from "@/components/shell/coming-soon";
+import { pageMetadata } from "@/components/shell/page-metadata";
 
 export const generateMetadata = pageMetadata("cases");
 

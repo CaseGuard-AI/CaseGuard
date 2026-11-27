@@ -1,15 +1,23 @@
 "use client";
 
-import { ArrowRight, Briefcase, LoaderCircle, MessageSquareText, Search } from "lucide-react";
+import {
+  ArrowRight,
+  Briefcase,
+  FileText,
+  LoaderCircle,
+  MessageSquareText,
+  Search,
+} from "lucide-react";
 import { useFormatter, useNow, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
+import { useDrafts } from "@/components/drafting/queries";
 import { useConversations } from "@/components/research/queries";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { RECENT_LIMIT, useRecentCases } from "./queries";
 
-// The home screen (FR-DASH-1): a way into research, then the user's latest conversations and
-// active cases. Each section loads and fails on its own. Drafts join once they have a contract.
+// The home screen (FR-DASH-1): a way into research, then the user's latest conversations, active
+// cases and drafts. Each section loads and fails on its own.
 export function Dashboard() {
   const t = useTranslations("Dashboard");
   return (
@@ -29,6 +37,7 @@ export function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <RecentResearch />
         <RecentCases />
+        <RecentDrafts />
       </div>
     </div>
   );
@@ -127,6 +136,44 @@ function RecentCases() {
   );
 }
 
+function RecentDrafts() {
+  const t = useTranslations("Dashboard.drafts");
+  const format = useFormatter();
+  const now = useNow({ updateInterval: 60_000 });
+  // The Drafting Studio's list query: its first page, of which the dashboard shows the top few.
+  const drafts = useDrafts();
+  const items = (drafts.data?.pages[0]?.items ?? []).slice(0, RECENT_LIMIT);
+
+  return (
+    <Section
+      title={t("title")}
+      seeAll={{ href: "/drafting", label: t("seeAll") }}
+      query={drafts}
+      count={items.length}
+      empty={t("empty")}
+    >
+      {items.map((item) => (
+        <li key={item.id}>
+          <Link
+            href={`/drafting/${item.id}`}
+            className="flex items-start gap-3 rounded-md px-3 py-2 transition-colors hover:bg-accent"
+          >
+            <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="min-w-0">
+              <span className="block truncate text-sm" dir="auto">
+                {item.title}
+              </span>
+              <span className="block text-[11px] text-muted-foreground">
+                {format.relativeTime(new Date(item.updatedAt), now)}
+              </span>
+            </span>
+          </Link>
+        </li>
+      ))}
+    </Section>
+  );
+}
+
 // A dashboard card: heading with "See all", then loading, error (with retry), empty or the list.
 function Section({
   title,
@@ -163,7 +210,7 @@ function Section({
         </p>
       )}
       {query.isError && count === 0 && (
-        <div className="space-y-2 text-xs text-muted-foreground">
+        <div role="alert" className="space-y-2 text-xs text-muted-foreground">
           <p>{t("error")}</p>
           <Button variant="link" size="xs" className="px-0" onClick={() => query.refetch()}>
             {t("retry")}
