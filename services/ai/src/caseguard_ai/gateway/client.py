@@ -41,6 +41,8 @@ class GatewayError(Exception):
     def __init__(self, provider_id: str, message: str) -> None:
         super().__init__(f"{provider_id}: {message}")
         self.provider_id = provider_id
+        # Safe to log: built from a status code or a fixed phrase, never the upstream body.
+        self.reason = message
 
 
 @dataclass(frozen=True)
