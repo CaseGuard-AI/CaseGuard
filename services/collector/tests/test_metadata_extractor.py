@@ -65,6 +65,15 @@ def test_document_type_guessing():
     assert guess_document_type("") == "unknown"
 
 
+def test_a_title_that_starts_with_its_type_word_is_classified():
+    # #263: CrPC and CPC were "unknown", so the corpus never split them by section.
+    assert guess_document_type("Code of Criminal Procedure (CrPC), 1898 (Under Review)") == "code"
+    assert guess_document_type("Code of Civil Procedure (CPC) , 1908 (Under Review)") == "code"
+    assert guess_document_type("Pakistan Penal Code (PPC),1860 (Under Review)") == "code"
+    assert guess_document_type("Act of Parliament 1990") == "act"
+    assert guess_document_type("Contractors Registry") == "unknown"  # not "act" inside a word
+
+
 def test_cited_laws():
     text = "challenged under the Income Tax Ordinance, 2001 and the Customs Act"
     laws = extract_cited_laws(text)

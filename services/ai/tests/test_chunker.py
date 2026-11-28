@@ -165,6 +165,41 @@ def test_without_an_enacting_formula_the_contents_table_is_skipped() -> None:
     assert "Example Ordinance" in sections[0].lines[0]
 
 
+def test_a_long_contents_table_is_skipped_even_past_its_eleventh_entry() -> None:
+    # #263: the PPC has no enacting formula and its contents list ss. 1-511. "11." and "21."
+    # also read as "1" with a footnote mark stripped, which ended the contents at "11.": the
+    # contents became the body, and s. 34 pointed at the contents entry for s. 334.
+    contents = ["THE PAKISTAN PENAL CODE", "CONTENTS"]
+    for n in range(1, 511):
+        contents += [f"{n}.", f"Title of section {n}"]
+    special = {
+        1: [
+            "1.",
+            "Title and extent of operation of the Code. This Act shall be called the Penal Code.",
+        ],
+        34: [
+            "1[34. Acts done by several persons in furtherance of common intention. When a",
+            "criminal act is done by several persons, each of them is liable for that act.]",
+        ],
+        334: [
+            "334.",
+            "Punishment for itlaf-i-udw.__ Whoever causes itlaf-i-udw shall be punished.",
+        ],
+        375: ["3[2[375. Rape.__ A person A is said to commit rape if A does any of these acts.]]"],
+        500: ["1500. Punishment for defamation. Whoever defames another shall be punished."],
+    }
+    body: list[str] = []
+    for n in range(1, 511):
+        body += special.get(n, [f"{n}. Section {n} of the Code. It provides for matter {n}."])
+    text = "\n".join(contents + body)
+    sections = {s.section_id: " ".join(s.lines) for s in statute_sections(text)}
+    assert "Title of section" not in " ".join(sections.values())
+    assert "Acts done by several persons" in sections["34"]
+    assert "Whoever causes itlaf-i-udw" in sections["334"]
+    assert "said to commit rape" in sections["375"]  # two nested amendment marks
+    assert "Whoever defames another" in sections["500"]
+
+
 def test_the_constitution_is_cut_into_articles() -> None:
     text = "Now, therefore, we, the people of Pakistan, do hereby adopt, enact and give to ourselves, this Constitution.\n"
     text += "199. Jurisdiction of High Court. Subject to the Constitution, a High Court may.\n"

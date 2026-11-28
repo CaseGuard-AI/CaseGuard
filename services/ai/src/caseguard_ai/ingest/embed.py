@@ -62,6 +62,7 @@ class EmbedReport:
     documents_chunked: int = 0
     chunks_written: int = 0
     chunks_embedded: int = 0
+    embeddings_kept: int = 0  # re-chunked to the same text: the old vector is kept (#263)
     documents_without_chunks: int = 0
     seconds: float = 0.0
 
@@ -69,6 +70,7 @@ class EmbedReport:
         return (
             f"chunked {self.documents_chunked} documents into {self.chunks_written} chunks, "
             f"embedded {self.chunks_embedded} chunks in {self.seconds:.0f}s"
+            + (f" (kept {self.embeddings_kept} unchanged)" if self.embeddings_kept else "")
             + (
                 f"; {self.documents_without_chunks} documents gave no chunks"
                 if self.documents_without_chunks
@@ -178,6 +180,16 @@ def chunk_pending(
             if not rows:
                 return
             ids = [r.id for r in rows]
+            # A chunk whose text is unchanged keeps its vector: after a chunker change most
+            # documents re-chunk to the same text, and only the rest need the model (#263).
+            kept = {
+                (r.document_id, r.text): r.embedding
+                for r in conn.execute(
+                    select(chunks.c.document_id, chunks.c.text, chunks.c.embedding).where(
+                        chunks.c.document_id.in_(ids), chunks.c.embedding.is_not(None)
+                    )
+                )
+            }
             conn.execute(delete(chunks).where(chunks.c.document_id.in_(ids)))
             new_rows: list[dict[str, Any]] = []
             for row in rows:
@@ -198,6 +210,7 @@ def chunk_pending(
                         "locator": piece.locator,
                         "section_id": piece.section_id,
                         "text": piece.text,
+                        "embedding": kept.get((row.id, piece.text)),
                         "token_count": piece.token_count,
                         "headnote_only": row.headnote_only,
                         "third_party": row.third_party,
@@ -207,6 +220,7 @@ def chunk_pending(
                 )
             if new_rows:
                 conn.execute(insert(chunks), new_rows)
+            report.embeddings_kept += sum(r["embedding"] is not None for r in new_rows)
         report.documents_chunked += len(rows)
         report.chunks_written += len(new_rows)
         progress(f"chunked {report.documents_chunked} documents ({report.chunks_written} chunks)")

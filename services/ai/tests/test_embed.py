@@ -13,6 +13,7 @@ from alembic.config import Config
 from sqlalchemy import Engine, create_engine, text
 
 from caseguard_ai.config import _sqlalchemy_url
+from caseguard_ai.ingest.chunker import CHUNKER_VERSION
 from caseguard_ai.ingest.embed import ModelMismatch, run
 from caseguard_ai.ingest.embedder import HashEmbedder
 from caseguard_ai.ingest.load import load
@@ -97,7 +98,8 @@ def test_the_corpus_records_what_it_was_built_with(engine: Engine) -> None:
     meta = _meta(engine)
     assert (meta["embedding_model"], meta["embedding_revision"]) == ("caseguard/hash-bow", "1")
     assert (meta["embedding_dims"], meta["embedding_normalized"]) == (1024, True)
-    assert meta["chunker_version"] == "1" and meta["chunker_settings"]["target_tokens"] == 500
+    assert meta["chunker_version"] == CHUNKER_VERSION
+    assert meta["chunker_settings"]["target_tokens"] == 500
     assert meta["input_snapshots"] == ["p@1", "shc-meta@1"]
     assert meta["built_at"] is not None
 
@@ -135,7 +137,29 @@ def test_a_new_chunker_version_re_chunks_everything(engine: Engine) -> None:
     with engine.begin() as conn:
         conn.execute(text("UPDATE corpus.chunks SET chunker_version = '0'"))
     assert run(engine, HashEmbedder()).documents_chunked == 3
-    assert {c["chunker_version"] for c in _chunks(engine)} == {"1"}
+    assert {c["chunker_version"] for c in _chunks(engine)} == {CHUNKER_VERSION}
+
+
+def _vectors(engine: Engine) -> dict[str, str]:
+    with engine.connect() as conn:
+        rows = conn.execute(text("SELECT text, embedding::text AS v FROM corpus.chunks"))
+        return {r.text: r.v for r in rows}
+
+
+def test_re_chunking_keeps_the_vectors_of_unchanged_chunks(engine: Engine) -> None:
+    # #263: a chunker change re-chunks all 56k documents; only chunks whose text changed may
+    # go back to the model, or a fix to three statutes re-embeds the whole corpus.
+    run(engine, HashEmbedder())
+    before = _vectors(engine)
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE corpus.chunks SET chunker_version = '0'"))
+        # One chunk as an older chunker cut it: its text differs from what this one produces.
+        conn.execute(text("UPDATE corpus.chunks SET text = 'stale' WHERE locator = 's. 302'"))
+    report = run(engine, HashEmbedder())
+    assert report.documents_chunked == 3
+    assert report.chunks_embedded == 1  # only s. 302, whose text came out different
+    assert report.embeddings_kept == len(before) - 1
+    assert _vectors(engine) == before
 
 
 def test_another_model_is_refused_unless_rebuilding(engine: Engine) -> None:
