@@ -19,7 +19,8 @@ uv run python main.py --partition shc-meta
 uv run python main.py --partition shc-criminal --limit 200   # a first batch
 ```
 
-- Each partition writes to its own directory, `data/partitions/<name>/` (with `documents/`, `raw/`, `text/`, `state/state.db`), so it can be snapshotted on its own (#152).
+- Each partition writes to its own directory, `data/partitions/<name>/` (with `documents/`, `raw/`, `text/`, `state/state.db`), so it can be snapshotted on its own.
+- **Publishing it** (owner only): `pnpm data:push -- --snapshot <name>` from the repo root (#152, `snapshots/`). Then put `<name>@<folder>` in the Latest snapshot column above. `pnpm data:pull -- --snapshot <name>` fetches it, and `pnpm data:status` lists what is published.
 - **Set `PKLEGAL_USER_AGENT` to a real team contact address before a full crawl.**
 - Each run records the partition, the selection file, its SHA-256 and the source snapshot in `state.db`'s `runs` table, for the snapshot manifest.
 - Selected items that were never found are logged at the end of the run (`selection_missing` event).
