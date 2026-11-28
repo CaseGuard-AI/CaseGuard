@@ -388,6 +388,6 @@ ingestions = Table(
     Column("updated_at", TIMESTAMP(timezone=True), nullable=False, server_default=text("now()")),
     CheckConstraint("attempt >= 1", name="ingestions_attempt_check"),
     CheckConstraint(_in("state", INGESTION_STATES), name="ingestions_state_check"),
-    Index("ingestions_state_idx", "state", "updated_at"),
+    Index("ingestions_state_idx", "state", "created_at"),  # the queue order (claim)
     schema="ai",
 )

@@ -7,8 +7,10 @@ The pure stages run everywhere. The round trips into ai.case_chunks need AI_TEST
 
 from __future__ import annotations
 
+import asyncio
 import io
 import os
+import threading
 import time
 import uuid
 from collections.abc import Callable, Iterator
@@ -20,10 +22,12 @@ import pytest
 from docx import Document
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, text
+from sqlalchemy.exc import ProgrammingError
 
 from caseguard_ai.api import deps
 from caseguard_ai.config import get_document_settings, get_settings
 from caseguard_ai.ingest import documents, ingestion
+from caseguard_ai.ingest.chunker import Chunk
 from caseguard_ai.ingest.embedder import HashEmbedder
 from caseguard_ai.main import app
 from tests.conftest import TOKEN
@@ -520,3 +524,224 @@ def test_the_background_worker_processes_a_submitted_document(
         app.dependency_overrides.clear()
         get_document_settings.cache_clear()
         get_settings.cache_clear()
+
+
+# ── review fixes (PR #256), one regression test each ───────────────────────────────────────
+
+
+def _fake_ocr(calls: list[str]) -> Callable[[bytes], tuple[str, float]]:
+    def ocr_page(image: bytes) -> tuple[str, float]:
+        assert image.startswith(b"\x89PNG")
+        calls.append("ocr")
+        return "Recognised text of a scanned page, clearly read.", 95.0
+
+    return ocr_page
+
+
+def _count_renders(opened: documents.Opened, calls: list[str]) -> None:
+    for page in opened.pages:
+        if page.render is not None:
+            inner = page.render
+
+            def render(inner: Callable[[], bytes] = inner) -> bytes:
+                calls.append("render")
+                return inner()
+
+            page.render = render
+
+
+def test_scanned_pdf_pages_are_rendered_one_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 1: no page image exists until OCR reaches that page, and each is OCR'd before the next.
+    monkeypatch.setattr(documents, "ocr_available", lambda: True)
+    calls: list[str] = []
+    monkeypatch.setattr(documents, "ocr_page", _fake_ocr(calls))
+    with documents.open_document(make_pdf(["", "", ""]), documents.PDF) as opened:
+        assert all(p.needs_ocr and p.render for p in opened.pages)
+        assert not any(hasattr(p, "image") for p in opened.pages)
+        _count_renders(opened, calls)
+        assert documents.run_ocr(opened) == ("done", [])
+    assert calls == ["render", "ocr"] * 3
+
+
+def test_tiff_frames_are_rendered_one_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
+    from PIL import Image
+
+    monkeypatch.setattr(documents, "ocr_available", lambda: True)
+    out = io.BytesIO()
+    first, second = Image.new("RGB", (40, 20), "white"), Image.new("RGB", (30, 60), "white")
+    first.save(out, format="TIFF", save_all=True, append_images=[second])
+    with documents.open_document(out.getvalue(), "image/tiff") as opened:
+        assert opened.page_count == 2
+        sizes = []
+        for page in opened.pages:
+            assert page.render is not None
+            sizes.append(Image.open(io.BytesIO(page.render())).size)
+    assert sizes == [(40, 20), (30, 60)]
+
+
+def test_ocr_stops_between_pages_when_asked(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 4: a newer attempt, a purge or shutdown stops OCR at the next page.
+    monkeypatch.setattr(documents, "ocr_available", lambda: True)
+    calls: list[str] = []
+    monkeypatch.setattr(documents, "ocr_page", _fake_ocr(calls))
+
+    def check() -> None:
+        if calls:
+            raise ingestion.Superseded
+
+    with documents.open_document(make_pdf(["", "", ""]), documents.PDF) as opened:
+        with pytest.raises(ingestion.Superseded):
+            documents.run_ocr(opened, check)
+    assert calls == ["ocr"]
+
+
+def _worker(monkeypatch: pytest.MonkeyPatch, seconds: float, shutdown: float) -> list[str]:
+    """A worker whose attempts take ``seconds`` each; returns its event log."""
+    events: list[str] = []
+    started = threading.Event()
+
+    def slow(*_: Any) -> bool:
+        events.append("start")
+        started.set()
+        time.sleep(seconds)
+        events.append("end")
+        return True
+
+    monkeypatch.setattr(ingestion, "recover", lambda _engine: 0)
+    monkeypatch.setattr(ingestion, "run_once", slow)
+    settings = ingestion.DocumentSettings(
+        ingest_poll_seconds=0.01, ingest_shutdown_seconds=shutdown
+    )
+
+    async def main() -> None:
+        worker = ingestion.Worker(lambda: None, HashEmbedder, settings)  # type: ignore[arg-type,return-value]
+        worker.start()
+        await asyncio.to_thread(started.wait, 5)
+        began = time.monotonic()
+        await worker.close()
+        events.append(f"closed after {time.monotonic() - began:.2f}")
+
+    asyncio.run(main())
+    return events
+
+
+def test_worker_close_waits_for_the_attempt_in_flight(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 4: close() no longer cancels the task while its thread keeps running.
+    events = _worker(monkeypatch, seconds=0.3, shutdown=5)
+    assert events[:2] == ["start", "end"]
+    assert events[2].startswith("closed")
+    assert events.count("start") == 1  # nothing new is claimed once stop is set
+
+
+def test_worker_close_gives_up_after_the_shutdown_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    events = _worker(monkeypatch, seconds=1.0, shutdown=0.1)
+    closed = next(e for e in events if e.startswith("closed"))
+    assert float(closed.split()[-1]) < 0.8
+
+
+def test_clean_removes_furniture_only_at_page_edges() -> None:
+    # 2: a bare number mid-page (a paragraph number, a year, an amount) is not a page number.
+    pages = [
+        (n, f"IN THE HIGH COURT\nThe sum claimed is\n150000\n12\nas of\n2019\n{n}")
+        for n in range(1, 5)
+    ]
+    cleaned = documents.clean(documents.Text(pages), max_chars=10_000)
+    assert cleaned.pages[0] == (1, "The sum claimed is\n150000\n12\nas of\n2019")
+
+
+@pytest.mark.parametrize(
+    ("raw", "joined"),
+    [
+        ("was ar-\nrested", "was arrested"),
+        ("in 2019-\n2020 the", "in 2019-2020 the"),
+        ("the Anti-\nTerrorism Act", "the Anti-Terrorism Act"),
+    ],
+)
+def test_hyphen_breaks_join_only_between_lower_case_letters(raw: str, joined: str) -> None:
+    # 5: digits or capitals keep their hyphen; only a soft break between lower-case letters goes.
+    cleaned = documents.clean(documents.Text([(1, raw)]), max_chars=10_000)
+    assert cleaned.pages[0][1] == joined
+
+
+def test_docx_keeps_adjacent_cells_with_the_same_text_but_merged_cells_once() -> None:
+    # 6: dedupe by the cell element, not its text.
+    document = Document()
+    table = document.add_table(rows=2, cols=2)
+    table.cell(0, 0).text = "Nil"
+    table.cell(0, 1).text = "Nil"
+    table.cell(1, 0).merge(table.cell(1, 1)).text = "Merged"
+    out = io.BytesIO()
+    document.save(out)
+    opened = documents.open_document(out.getvalue(), documents.DOCX)
+    lines = opened.pages[0].text.split("\n")
+    assert "Nil | Nil" in lines
+    assert "Merged" in lines
+
+
+def test_no_text_mentions_scans_only_when_a_page_needed_ocr(no_ocr: None) -> None:
+    # 7: an empty Word file or text PDF is not "a scan".
+    out = io.BytesIO()
+    Document().save(out)
+    with pytest.raises(documents.DocumentError) as err:
+        documents.extract(documents.open_document(out.getvalue(), documents.DOCX))
+    assert "scan" not in err.value.message
+    with documents.open_document(make_pdf([""]), documents.PDF) as scanned:
+        with pytest.raises(documents.DocumentError) as err:
+            documents.extract(scanned)
+    assert "scan" in err.value.message
+
+
+def test_a_chunk_not_found_after_the_last_one_gets_no_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 8: the old fallback searched from the start and matched page 1's copy of the text.
+    repeated = "The same standard paragraph appears on both pages of this order sheet."
+    other = "Only the second page carries this sentence about the next hearing date."
+    pieces = [
+        Chunk(0, other, 12, None, None),
+        Chunk(1, repeated, 12, None, None),
+    ]
+    monkeypatch.setattr(documents, "chunk_document", lambda **_: pieces)
+    text = documents.Text([(1, repeated), (2, other)])
+    located = documents.chunk(text, "order.pdf")
+    assert [c.locator for c in located] == ["p. 2", None]
+
+
+class _BrokenEngine:
+    """An engine whose every connection fails as if ai.ingestions did not exist."""
+
+    def _fail(self) -> Any:
+        raise ProgrammingError("SELECT", {}, Exception("relation ai.ingestions does not exist"))
+
+    begin = connect = _fail
+
+
+def test_any_database_error_is_a_503(client: TestClient) -> None:
+    # 9: a ProgrammingError (migration 0003 not applied) was a bare 500.
+    app.dependency_overrides[deps.get_engine] = _BrokenEngine
+    try:
+        document, payload = body()
+        for res in (
+            client.post(f"/ai/v1/documents/{document}/ingestion", json=payload, headers=AUTH),
+            client.get(f"/ai/v1/documents/{document}/ingestion", headers=AUTH),
+            client.delete(f"/ai/v1/documents/{document}", headers=AUTH),
+        ):
+            assert res.status_code == 503
+            assert res.headers["content-type"].startswith("application/problem+json")
+    finally:
+        app.dependency_overrides.clear()
+
+
+@db
+def test_a_retry_keeps_its_place_in_the_queue(
+    api: TestClient, engine: Engine, upload: Callable[..., Any]
+) -> None:
+    # 3: a resubmit no longer goes to the back of the queue while apps/api's deadline runs.
+    first, first_payload = upload(make_docx(), mediaType=documents.DOCX)
+    second, second_payload = upload(make_docx(), mediaType=documents.DOCX)
+    post(api, first, first_payload)
+    post(api, second, second_payload)
+    post(api, first, {**first_payload, "attempt": 2})
+    claimed = ingestion.claim(engine)
+    assert claimed is not None
+    assert (claimed.document_id, claimed.attempt) == (first, 2)

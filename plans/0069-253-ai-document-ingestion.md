@@ -39,6 +39,18 @@ apps/api already uploads documents, submits each attempt to services/ai and poll
 - The recovery at start-up assumes one services/ai process per database, as Compose runs it.
 - The contract's media types have no `text/plain`, so there is no text-file path.
 
+## Review fixes (PR #256)
+Each fix has its own regression test in `tests/test_ingestion.py`.
+1. Scanned PDF pages and TIFF frames are rendered one at a time inside `run_ocr` and freed after OCR. Before, every page was rendered to a 300 DPI PNG up front. The open file is now closed when OCR and extraction are done.
+2. Running headers and footers are removed only from a page's first and last non-empty lines, so a bare number mid-page survives.
+3. The queue is ordered by `created_at`, and a resubmit keeps it, so a retry keeps its place. apps/api's deadline is set at submit time (`ingest.ts`), so it does count time spent queued. Fixing that needs more than a config change, so it is left for a follow-up (see the PR).
+4. `run_ocr` checks for a stop between pages; embedding already did between batches. `Worker.close()` now waits for the attempt in flight, at most `INGEST_SHUTDOWN_SECONDS`.
+5. A line-break hyphen is dropped only between lower-case letters. Otherwise only the line break goes: `2019-2020`, `Anti-Terrorism`.
+6. DOCX merged cells are deduplicated by their `<w:tc>` element, not by their text.
+7. The "looks like a scan" hint is given only when a page needed OCR.
+8. A chunk whose text isn't found after the previous chunk gets no page locator. There is no fallback search from the start.
+9. Every `DBAPIError` is a 503 problem, including a `ProgrammingError` when `0003` hasn't been applied.
+
 ## Verification
 - `uv run pytest` in services/ai, with `AI_TEST_DATABASE_URL` pointing at a bootstrapped pgvector database.
 - `ruff check`, `ruff format --check` and `mypy` pass.

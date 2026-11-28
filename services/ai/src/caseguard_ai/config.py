@@ -84,6 +84,7 @@ class DocumentSettings(BaseSettings):
     # The background worker that processes submitted documents. Off only in tests.
     ingest_workers_enabled: bool = True
     ingest_poll_seconds: float = 2.0  # how often an idle worker looks for queued documents
+    ingest_shutdown_seconds: float = 30.0  # how long shutdown waits for the attempt in flight
     # A longer text is cut (and flagged `truncated`): about 1,500 pages of dense text.
     ingest_max_chars: int = 5_000_000
 

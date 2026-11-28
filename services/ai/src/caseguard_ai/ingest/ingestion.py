@@ -125,7 +125,9 @@ def submit(engine: Engine, sub: Submission) -> dict[str, Any]:
         .values(document_id=sub.document_id, **fresh)
         .on_conflict_do_update(
             index_elements=[ingestions.c.document_id],
-            set_={**fresh, "created_at": text("now()"), "updated_at": text("now()")},
+            # created_at is kept: it is the document's place in the queue (``claim``), so a
+            # retry never goes to the back while apps/api's deadline runs.
+            set_={**fresh, "updated_at": text("now()")},
             where=ingestions.c.attempt < sub.attempt,
         )
         .returning(*ingestions.c)
@@ -185,11 +187,12 @@ def recover(engine: Engine) -> int:
 
 
 def claim(engine: Engine) -> Any | None:
-    """Take the oldest queued attempt and mark it running, or None if there is none."""
+    """Take the queued attempt of the document submitted first and mark it running, or None if
+    there is none. Ordered by the first submission, not the latest attempt's."""
     oldest = (
         select(ingestions.c.document_id)
         .where(ingestions.c.state == "queued")
-        .order_by(ingestions.c.updated_at, ingestions.c.document_id)
+        .order_by(ingestions.c.created_at, ingestions.c.document_id)
         .limit(1)
         .with_for_update(skip_locked=True)
         .scalar_subquery()
@@ -266,18 +269,19 @@ class Attempt:
                 data = blob_path(self.settings.uploads_path, self.row.storage_key).read_bytes()
             except FileNotFoundError as exc:
                 raise documents.DocumentError("extract", MISSING) from exc
-            opened = documents.open_document(data, self.row.media_type)
-            self.pages = opened.page_count
+            with documents.open_document(data, self.row.media_type) as opened:
+                del data
+                self.pages = opened.page_count
 
-            stage = "ocr"
-            self._start(stage)
-            state, flags = documents.run_ocr(opened)
-            self._finish(stage, flags, state)
+                stage = "ocr"
+                self._start(stage)
+                state, flags = documents.run_ocr(opened, self._check)
+                self._finish(stage, flags, state)
 
-            stage = "extract"
-            self._start(stage)
-            extracted = documents.extract(opened)
-            self._finish(stage, [])
+                stage = "extract"
+                self._start(stage)
+                extracted = documents.extract(opened)
+                self._finish(stage, [])
 
             stage = "clean"
             self._start(stage)
@@ -302,7 +306,7 @@ class Attempt:
             vectors: list[list[float]] = []
             for i in range(0, len(pieces), EMBED_BATCH):
                 if i:
-                    self._check()
+                    self._check()  # a newer attempt, a purge or shutdown stops it here
                 vectors.extend(self.embedder.embed([p.text for p in pieces[i : i + EMBED_BATCH]]))
             self._finish(stage, [])
 
@@ -429,19 +433,33 @@ class Worker:
     ) -> None:
         self.engine, self.embedder, self.settings = engine, embedder, settings
         self.stop = threading.Event()
+        self._wake = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
 
     def start(self) -> None:
         self._task = asyncio.get_running_loop().create_task(self._loop())
 
     async def close(self) -> None:
+        """Ask the in-flight attempt to stop (it checks between stages, OCR pages and embedding
+        batches) and wait for its thread, at most INGEST_SHUTDOWN_SECONDS. An attempt still
+        running after that stays `running` and the next start-up reports it failed and
+        retryable."""
         self.stop.set()
-        if self._task:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
+        self._wake.set()
+        if not self._task:
+            return
+        try:
+            await asyncio.wait_for(self._task, timeout=self.settings.ingest_shutdown_seconds)
+        except TimeoutError:
+            log.warning("ingestion_worker_shutdown_timeout")
+        except asyncio.CancelledError:
+            pass
+
+    async def _idle(self) -> None:
+        try:
+            await asyncio.wait_for(self._wake.wait(), timeout=self.settings.ingest_poll_seconds)
+        except TimeoutError:
+            pass
 
     async def _loop(self) -> None:
         recovered = False
@@ -461,5 +479,5 @@ class Worker:
                 log.warning("ingestion_worker_db_unavailable", reason=type(exc).__name__)
             except Exception:
                 log.exception("ingestion_worker_error")
-            if not busy:
-                await asyncio.sleep(self.settings.ingest_poll_seconds)
+            if not busy and not self.stop.is_set():
+                await self._idle()

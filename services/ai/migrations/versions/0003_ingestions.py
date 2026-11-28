@@ -69,7 +69,7 @@ def upgrade() -> None:
         schema="ai",
     )
     op.create_index(
-        "ingestions_state_idx", "ingestions", ["state", "updated_at"], unique=False, schema="ai"
+        "ingestions_state_idx", "ingestions", ["state", "created_at"], unique=False, schema="ai"
     )
 
 

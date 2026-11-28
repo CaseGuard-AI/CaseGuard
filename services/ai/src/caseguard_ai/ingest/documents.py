@@ -20,6 +20,7 @@ import io
 import re
 import unicodedata
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
@@ -81,11 +82,13 @@ def sniff(data: bytes) -> str | None:
 
 @dataclass
 class Page:
-    """One page: its text layer, or an image to OCR when it has none."""
+    """One page: its text layer, or a way to render it for OCR when it has none."""
 
     number: int | None  # 1-based; None for a DOCX, which has no pages
     text: str = ""
-    image: bytes | None = None  # PNG bytes, rendered only for pages that need OCR
+    # Renders the page as PNG bytes when OCR reaches it. Pages are rendered one at a time, so a
+    # long scan never holds more than one 300 DPI image in memory.
+    render: Callable[[], bytes] | None = None
     needs_ocr: bool = False
 
 
@@ -93,10 +96,18 @@ class Page:
 class Opened:
     pages: list[Page]
     page_count: int | None  # IngestionStatus.pages; None for a DOCX
+    close: Callable[[], None] = lambda: None  # releases the open file once OCR is done
+
+    def __enter__(self) -> Opened:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
 
 def open_document(data: bytes, media_type: str) -> Opened:
-    """Read the file into pages. Raises DocumentError (stage ``extract``) for a bad file."""
+    """Read the file into pages. Raises DocumentError (stage ``extract``) for a bad file.
+    Close the result (it is a context manager): a PDF or image stays open for OCR."""
     found = sniff(data)
     if found != media_type:
         raise DocumentError("extract", "The file is damaged or is not the type it was uploaded as.")
@@ -114,22 +125,28 @@ def _open_pdf(data: bytes) -> Opened:
         doc: Any = pymupdf.open(stream=data, filetype="pdf")  # type: ignore[no-untyped-call]
     except Exception as exc:  # PyMuPDF raises its own types for a broken file
         raise DocumentError("extract", "The PDF is damaged and could not be read.") from exc
-    with doc:
+    try:
         if doc.needs_pass:
             raise DocumentError(
                 "extract",
                 "The PDF is password-protected. Upload a copy without a password.",
                 code="encrypted_file",
             )
+
+        def renderer(index: int) -> Callable[[], bytes]:
+            return lambda: bytes(doc[index].get_pixmap(dpi=OCR_DPI).tobytes("png"))
+
         pages: list[Page] = []
         for index, page in enumerate(doc):
             text = page.get_text("text") or ""
             if len(text.strip()) >= MIN_TEXT_LAYER_CHARS:
                 pages.append(Page(index + 1, text))
             else:
-                image = page.get_pixmap(dpi=OCR_DPI).tobytes("png") if ocr_available() else None
-                pages.append(Page(index + 1, text, image, needs_ocr=True))
-        return Opened(pages, len(pages))
+                pages.append(Page(index + 1, text, renderer(index), needs_ocr=True))
+    except BaseException:
+        doc.close()
+        raise
+    return Opened(pages, len(pages), doc.close)
 
 
 def _open_docx(data: bytes) -> Opened:
@@ -148,11 +165,18 @@ def _open_docx(data: bytes) -> Opened:
             lines.append(Paragraph(element, document).text)
         elif tag == "tbl":
             for row in Table(element, document).rows:
-                cells = [c.text.strip() for c in row.cells]
-                # A merged cell repeats in every column it spans; keep it once.
-                unique = [c for i, c in enumerate(cells) if c and (i == 0 or c != cells[i - 1])]
-                if unique:
-                    lines.append(" | ".join(unique))
+                # A merged cell repeats in every column it spans, as the same <w:tc> element;
+                # keep it once. Two cells that merely hold the same text are both kept.
+                seen: set[int] = set()
+                texts: list[str] = []
+                for cell in row.cells:
+                    if id(cell._tc) in seen:
+                        continue
+                    seen.add(id(cell._tc))
+                    if cell.text.strip():
+                        texts.append(cell.text.strip())
+                if texts:
+                    lines.append(" | ".join(texts))
             lines.append("")
     return Opened([Page(None, "\n".join(lines))], None)
 
@@ -160,18 +184,25 @@ def _open_docx(data: bytes) -> Opened:
 def _open_image(data: bytes, media_type: str) -> Opened:
     if not ocr_available():
         return Opened([Page(1, needs_ocr=True)], 1)
-    from PIL import Image, ImageSequence
+    from PIL import Image
 
     try:
         image = Image.open(io.BytesIO(data))
-        pages: list[Page] = []
-        for index, frame in enumerate(ImageSequence.Iterator(image)):
-            out = io.BytesIO()
-            frame.convert("RGB").save(out, format="PNG")
-            pages.append(Page(index + 1, image=out.getvalue(), needs_ocr=True))
+        frames = int(getattr(image, "n_frames", 1))
     except Exception as exc:  # Pillow raises many types for a broken image
         raise DocumentError("extract", "The image is damaged and could not be read.") from exc
-    return Opened(pages, len(pages))
+
+    def renderer(index: int) -> Callable[[], bytes]:
+        def render() -> bytes:
+            image.seek(index)  # one TIFF frame at a time
+            out = io.BytesIO()
+            image.convert("RGB").save(out, format="PNG")
+            return out.getvalue()
+
+        return render
+
+    pages = [Page(i + 1, render=renderer(i), needs_ocr=True) for i in range(frames)]
+    return Opened(pages, frames, image.close)
 
 
 # ── OCR ─────────────────────────────────────────────────────────────────────────────────────
@@ -216,15 +247,19 @@ def ocr_page(image: bytes) -> tuple[str, float]:
     return "\n".join(text), mean
 
 
-def run_ocr(opened: Opened) -> tuple[str, list[dict[str, Any]]]:
-    """OCR every page that needs it. Returns the stage state and its flags."""
+def run_ocr(
+    opened: Opened, check: Callable[[], None] = lambda: None
+) -> tuple[str, list[dict[str, Any]]]:
+    """OCR every page that needs it, rendering one page at a time. ``check`` runs before each
+    page and raises to stop (a newer attempt, a purge, or shutdown). Returns the stage state
+    and its flags."""
     needed = [p for p in opened.pages if p.needs_ocr]
     if not needed:
         return "skipped", []
     flags: list[dict[str, Any]] = []
     available = ocr_available()
     for page in needed:
-        if not available or page.image is None:
+        if not available or page.render is None:
             flags.append(
                 flag(
                     "ocr",
@@ -235,8 +270,11 @@ def run_ocr(opened: Opened) -> tuple[str, list[dict[str, Any]]]:
                 )
             )
             continue
-        text, confidence = ocr_page(page.image)
-        page.text, page.image = text, None
+        check()
+        image = page.render()
+        text, confidence = ocr_page(image)
+        del image  # freed before the next page is rendered
+        page.text = text
         if not text.strip():
             flags.append(
                 flag(
@@ -281,17 +319,26 @@ class Text:
 def extract(opened: Opened) -> Text:
     text = Text([(p.number, p.text) for p in opened.pages])
     if not any(t.strip() for _, t in text.pages):
+        scanned = any(p.needs_ocr for p in opened.pages)
         raise DocumentError(
             "extract",
             "No text could be read from this document."
-            + ("" if ocr_available() else " It looks like a scan, and text recognition is off."),
+            + (
+                " It looks like a scan, and text recognition is off."
+                if scanned and not ocr_available()
+                else ""
+            ),
             code="no_text",
         )
     return text
 
 
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f​﻿]")
-_HYPHEN_BREAK = re.compile(r"(\w)-\n(\w)")
+# A word broken across lines: lower-case on both sides ("ar-\nrested") is joined without the
+# hyphen. Anything else ("2019-\n2020", "Anti-\nTerrorism") keeps the hyphen and loses only the
+# line break. "self-\nemployed" can't be told from "ar-\nrested" by its letters, so it joins.
+_SOFT_HYPHEN_BREAK = re.compile(r"(?<=[a-z])-\n(?=[a-z])")
+_HARD_HYPHEN_BREAK = re.compile(r"(?<=\w)-\n(?=\w)")
 _SPACES = re.compile(r"[ \t ]+")
 _BLANKS = re.compile(r"\n{3,}")
 _DIGITS = re.compile(r"\d+")
@@ -304,7 +351,7 @@ def _furniture(pages: list[str]) -> set[str]:
         return set()
     counts: Counter[str] = Counter()
     for page in pages:
-        lines = [line.strip() for line in page.split("\n") if line.strip()]
+        lines = [_SPACES.sub(" ", line).strip() for line in page.split("\n") if line.strip()]
         edge = {_DIGITS.sub("#", line) for line in lines[:1] + lines[-1:]}
         counts.update(edge)
     return {line for line, n in counts.items() if n >= max(3, len(pages) // 2 + 1)}
@@ -321,12 +368,13 @@ def clean(text: Text, max_chars: int) -> Text:
     total = 0
     flags: list[dict[str, Any]] = []
     for (number, _), page in zip(text.pages, pages, strict=True):
-        lines = [
-            _SPACES.sub(" ", line).strip()
-            for line in page.split("\n")
-            if _DIGITS.sub("#", line.strip()) not in furniture
-        ]
-        body = _BLANKS.sub("\n\n", _HYPHEN_BREAK.sub(r"\1\2", "\n".join(lines))).strip()
+        lines = [_SPACES.sub(" ", line).strip() for line in page.split("\n")]
+        # Furniture only ever sits at a page's edges: a bare "12" mid-page is a paragraph number.
+        filled = [i for i, line in enumerate(lines) if line]
+        drop = {i for i in filled[:1] + filled[-1:] if _DIGITS.sub("#", lines[i]) in furniture}
+        joined = "\n".join(line for i, line in enumerate(lines) if i not in drop)
+        joined = _HARD_HYPHEN_BREAK.sub("-", _SOFT_HYPHEN_BREAK.sub("", joined))
+        body = _BLANKS.sub("\n\n", joined).strip()
         if total + len(body) > max_chars:
             body = body[: max(0, max_chars - total)]
             flags.append(
@@ -406,9 +454,9 @@ def chunk(text: Text, title: str, settings: ChunkerSettings | None = None) -> li
     for piece in pieces:
         body = _flat(piece.text)
         head, tail = body[:60], body[-60:]
+        # Only forward from the last chunk: searching from the start again could match an
+        # earlier repeat of the same text and give the wrong page. Not found = no page locator.
         begin = flat.find(head, cursor)
-        if begin < 0:
-            begin = flat.find(head)
         pages: tuple[int | None, int | None] = (None, None)
         if begin >= 0:
             end = flat.find(tail, begin)

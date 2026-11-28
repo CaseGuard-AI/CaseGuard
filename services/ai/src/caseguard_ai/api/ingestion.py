@@ -9,11 +9,12 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Any, Literal
 
+import structlog
 from fastapi import APIRouter, Depends, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DBAPIError
 
 from caseguard_ai.api.deps import get_engine
 from caseguard_ai.api.problems import Problem
@@ -21,6 +22,7 @@ from caseguard_ai.api.v1 import ScopeIn
 from caseguard_ai.ingest import ingestion
 from caseguard_ai.security import require_service_token
 
+log = structlog.get_logger("api")
 router = APIRouter(
     prefix="/ai/v1/documents",
     tags=["ingestion"],
@@ -48,7 +50,10 @@ class IngestionRequest(BaseModel):
     attempt: Annotated[int, Field(ge=1)]
 
 
-def _unavailable(exc: OperationalError) -> Problem:
+def _unavailable(exc: DBAPIError) -> Problem:
+    """Any database error is a 503 for apps/api to retry: the database down, or ai.ingestions
+    not migrated yet (a ProgrammingError). The reason goes to the log, never the response."""
+    log.warning("ingestion_db_error", reason=type(exc.orig).__name__ if exc.orig else None)
     return Problem(503, "Service Unavailable", "the database is unavailable")
 
 
@@ -78,7 +83,7 @@ def start_ingestion(
         )
     except ingestion.StaleAttempt as exc:
         raise Problem(409, "Conflict", "a later attempt has been submitted") from exc
-    except OperationalError as exc:
+    except DBAPIError as exc:
         raise _unavailable(exc) from exc
     return JSONResponse(found, status_code=status.HTTP_202_ACCEPTED)
 
@@ -87,7 +92,7 @@ def start_ingestion(
 def get_ingestion(documentId: uuid.UUID, engine: Annotated[Engine, Depends(get_engine)]) -> Any:
     try:
         found = ingestion.status(engine, documentId)
-    except OperationalError as exc:
+    except DBAPIError as exc:
         raise _unavailable(exc) from exc
     if found is None:
         raise Problem(404, "Not Found", "nothing was submitted for this document")
@@ -100,6 +105,6 @@ def purge_document(
 ) -> Response:
     try:
         ingestion.purge(engine, documentId)
-    except OperationalError as exc:
+    except DBAPIError as exc:
         raise _unavailable(exc) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
