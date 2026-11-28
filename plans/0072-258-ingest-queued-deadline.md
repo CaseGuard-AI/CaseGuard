@@ -1,4 +1,4 @@
-> **Status:** In review · **Issue:** [#258](https://github.com/CaseGuard-AI/CaseGuard/issues/258) · **PR:** (this PR)
+> **Status:** In review · **Issue:** [#258](https://github.com/CaseGuard-AI/CaseGuard/issues/258) · **PR:** [#260](https://github.com/CaseGuard-AI/CaseGuard/pull/260)
 
 # #258: the ingest attempt deadline no longer counts time spent queued
 
