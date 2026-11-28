@@ -386,3 +386,6 @@ Restored `dumps/2026-11-22` (56,658 documents, 60,062 chunks, bge-m3) into a dev
 
 ### Corpus dump re-published at AI migration 0002 (#240)
 Published `dumps/2026-11-28` (tag `dump/2026-11-28`) from `staging` at AI migration `0002`, with a clean tree. It holds the same corpus as `dumps/2026-11-22`: 56,658 documents, 60,062 chunks, bge-m3. `latest` now resolves to it, so `pnpm data:pull -- --dump latest` restores without the `alembic stamp 0001` → pull → `alembic stamp 0002` workaround from 2026-11-27, and that workaround is gone from `session-handoff.md`.
+
+### Corpus dump re-published at AI migration 0003
+Migration `0003` (#253, `ai.ingestions`) made the 0002 dump refuse to restore: `data:pull --dump` and Colab step 5 both stopped with "the dump is at 0002 and the code at 0003". Published `dumps/2026-11-28-2` (tag `dump/2026-11-28-2`) from `staging` at `0003`. It holds the same corpus (56,658 documents, 60,062 chunks, bge-m3), and `latest` resolves to it. #261 also lets the Colab notebook restore across 0001/0002 → 0003, because 0003 adds only `ai.ingestions`, which a dump never contains.
