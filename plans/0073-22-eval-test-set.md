@@ -1,4 +1,4 @@
-> **Status:** In review · **Issue:** [#22](https://github.com/CaseGuard-AI/CaseGuard/issues/22) · **PR:** (see the issue)
+> **Status:** Done (held-out frozen, tag `eval-heldout-v1`) · **Issue:** [#22](https://github.com/CaseGuard-AI/CaseGuard/issues/22) · **PR:** [#264](https://github.com/CaseGuard-AI/CaseGuard/pull/264)
 
 # #22: evaluation test set (60 dev + 40 held-out)
 
