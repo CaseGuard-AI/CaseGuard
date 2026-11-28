@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#263](https://github.com/CaseGuard-AI/CaseGuard/issues/263)
+> **Status:** Done (corpus `dumps/2026-11-28-4`, `eval-frozen-2`) · **Issue:** [#263](https://github.com/CaseGuard-AI/CaseGuard/issues/263) · **PR:** [#272](https://github.com/CaseGuard-AI/CaseGuard/pull/272)
 
 # #263: statute chunks lack or mislabel `section_id`
 

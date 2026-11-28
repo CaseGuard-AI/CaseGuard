@@ -15,7 +15,7 @@
 
 ## Who does what now
 
-The full corpus is published as a database dump (`dumps/2026-11-28-2`: 56,658 documents and 60,062 chunks, embedded with bge-m3). Restore it with "Downloading the database" below; nobody needs to embed. None of these tasks waits for it:
+The full corpus is published as a database dump (`dumps/2026-11-28-4`: 56,658 documents and 60,769 chunks, embedded with bge-m3). Restore it with "Downloading the database" below; nobody needs to embed. None of these tasks waits for it:
 
 | Who | Task | Needs the corpus? |
 |---|---|---|
@@ -124,7 +124,7 @@ The embedder, the reranker and the NLI checker download on first use: about 4.6 
 ## Open items
 
 - **#152, crawl snapshots:** built (`pnpm data:push`, `data:pull --snapshot`, `data:status`). Next: each owner pushes the first real snapshot of their partition.
-- **#154, database dumps:** done. The current dump is `dumps/2026-11-28-2`, published from `staging` at AI migration `0003`, so `pnpm data:pull -- --dump latest` restores it directly after `pnpm db:migrate:ai`. It replaces `dumps/2026-11-28` (made at `0002`) and `dumps/2026-11-22` (made at `0001`).
+- **#154, database dumps:** done. The current dump is `dumps/2026-11-28-4` (also tagged `eval-frozen-2`), published from `staging` at AI migration `0003` and chunker version 2 (#263), so `pnpm data:pull -- --dump latest` restores it directly after `pnpm db:migrate:ai`. It replaces `dumps/2026-11-28` (made at `0002`) and `dumps/2026-11-22` (made at `0001`).
 - **`--full-text-first` for `data:embed`** (not built): embed the laws and full judgments before the 56k short head-notes, so the demo works within minutes.
 - **Small follow-ups:**
   - add the 10 unmapped SHC case-type codes to `selections/matter_type_map.csv`, marked `confirmed=no`;
