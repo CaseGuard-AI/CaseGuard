@@ -18,7 +18,9 @@ Taxonomy v1 (#164, `packages/contracts/taxonomy/case-taxonomy.v1.yaml`) defines 
    - Procedural law is evidence only.
    - Weights: a reference within 150 characters of a law-report citation or case-law wording counts as a precedent (0.25). One in the opening or closing 1,500 characters, or next to offence or relief wording, is operative (2.0). Head-note 1.5, cited_laws 1.0, body 1.0.
    - Each statute rule (Act or PPC range) scores once at its strongest. The winner needs a score of at least 1.0 and 1.5× the runner-up.
-   - Keywords give +0.5 each, only for areas within 1.5× of the leader, and then any lead wins.
+   - Keywords give +0.5 each, only for areas within 1.5× of the leader. The tie is broken only if the new leader has keyword hits of its own and then has a 1.5× lead.
+   - The leader needs a reference that is not a precedent mention. A head-note reference is always `headnote` weight. The relief cue is "relief sought/claimed/prayed", and the reference itself is left out of the context check.
+   - The loader (`ingest/load.py`) keeps `raw.area_label` on upsert and ignores it when deciding whether a row changed, so a reload neither drops labels nor rewrites every labelled row (#257 review).
    - Otherwise `unclassified`, keeping the evidence and the leader's confidence.
    - Head-note-only records are labelled from the head-note, or `unclassified` without one.
    - PPC sub-category hints (homicide, hurt, theft...) apply only inside the area the rule gives.

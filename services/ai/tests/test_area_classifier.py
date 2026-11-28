@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,7 @@ from caseguard_ai.taxonomy.classify import (
     STATUTE_ALIASES,
     SUBCATEGORY_KEYWORDS,
     Classifier,
+    tie_break,
 )
 from caseguard_ai.taxonomy.review import (
     GOLD_COLUMNS,
@@ -190,18 +192,82 @@ def test_precedent_mentions_alone_are_too_weak(classifier: Classifier) -> None:
 def test_keywords_only_break_a_tie(classifier: Classifier) -> None:
     tie = "The suit under the Specific Relief Act and the Transfer of Property Act."
     assert classifier.classify(tie).area == UNCLASSIFIED
-    label = classifier.classify(tie + " The plaintiff seeks pre-emption of the land.")
+    # One keyword (2.5 v 2.0) is not a clear lead; two (3.0 v 2.0) are.
+    one = classifier.classify(tie + " The plaintiff seeks pre-emption of the land.")
+    assert one.area == UNCLASSIFIED and one.reason == "no clear lead"
+    label = classifier.classify(
+        tie + " The plaintiff seeks pre-emption, as the pre-emption suit precedes any partition."
+    )
     assert (label.area, label.reason) == ("property_and_land", "keyword tie-break")
     assert label.subcategory == "pre_emption"
-    assert label.keywords == ("property_and_land:pre-?emption",)
+    assert label.keywords == ("property_and_land:pre-?emption", "property_and_land:partitions?")
+
+
+@pytest.mark.parametrize(
+    ("hits", "winner"),
+    [
+        ({"c": 1}, None),  # the runner-up's hit must not crown the leader (#257 review)
+        ({"c": 2}, None),  # c leads 2.4 v 2.0, but not by CLEAR_LEAD
+        ({"c": 4}, "c"),  # 3.4 v 2.0
+        ({"a": 1}, "a"),  # the leader's own hit: 2.5 v 1.5
+    ],
+)
+def test_a_tie_break_needs_the_winners_own_keywords_and_a_clear_lead(
+    hits: dict[str, int], winner: str | None
+) -> None:
+    scores = {"a": 2.0, "b": 1.5, "c": 1.4}
+    assert tie_break(scores, hits, grounded={"a", "b", "c"})[0] == winner
+
+
+def test_a_tie_break_never_crowns_an_area_with_only_precedent_mentions() -> None:
+    assert tie_break({"a": 2.0, "b": 2.0}, {"a": 4}, grounded={"b"})[0] is None
+    assert tie_break({"a": 2.0, "b": 2.0}, {"a": 4}, grounded={"a", "b"})[0] == "a"
+
+
+def test_min_score_needs_a_reference_outside_precedent_mentions(
+    classifier: Classifier, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # With precedent mentions weighted up, three person ranges reach MIN_SCORE (1.5), but all
+    # sit beside a citation: still too weak.
+    monkeypatch.setitem(classify_module.WEIGHTS, "precedent", 0.5)
+    judgment = FILLER + "Reliance is placed on 2019 SCMR 984 (sections 302, 365, 376 PPC)." + FILLER
+    label = classifier.classify(judgment)
+    assert label.scores == {"offences_against_person": 1.5}
+    assert (label.area, label.reason) == (UNCLASSIFIED, "weak evidence (precedent mentions only)")
+
+
+def test_the_relief_act_is_not_its_own_relief_cue(classifier: Classifier) -> None:
+    plain = classifier.classify(FILLER + "Section 12 of the Specific Relief Act applies." + FILLER)
+    assert plain.evidence[0].where == "body"
+    assert plain.scores == {"contract_and_commercial": 1.0}
+    sought = classifier.classify(
+        FILLER + "The relief sought under the Specific Relief Act is a decree." + FILLER
+    )
+    assert sought.evidence[0].where == "operative"
+
+
+def test_a_head_note_statute_beside_a_cited_case_keeps_the_head_note_weight(
+    classifier: Classifier,
+) -> None:
+    headnote = "Bail under s. 9(c) CNSA refused; 2019 SCMR 984 relied upon."
+    label = classifier.classify("listing", headnote=headnote, headnote_only=True)
+    assert label.area == "narcotics"
+    assert (label.evidence[0].where, label.evidence[0].weight) == ("headnote", 1.5)
+
+
+def test_keywords_match_plurals(classifier: Classifier) -> None:
+    tie = "Under the SRPO and the Transfer of Property Act."
+    label = classifier.classify(tie + " The tenants and the landlords disagree.")
+    assert (label.area, label.reason) == ("rent_and_tenancy", "keyword tie-break")
+    assert any(re.fullmatch(p, "pistols") for p in AREA_KEYWORDS["arms_and_explosives"])
 
 
 def test_a_charge_list_counts_each_ppc_range_once(classifier: Classifier) -> None:
-    # 302 and 324 share one range, 147/148/149 another: 2.0 v 2.0, decided by the keyword.
+    # 302 and 324 share one range, 147/148/149 another: 2.0 v 2.0, decided by two keywords.
     judgment = "FIR for offences under sections 302, 324, 147, 148, 149 PPC."
     label = classifier.classify(judgment)
     assert label.area == UNCLASSIFIED and label.reason == "no clear lead"
-    label = classifier.classify(judgment + " The accused party committed the murder.")
+    label = classifier.classify(judgment + " The accused committed the murder and caused injuries.")
     assert (label.area, label.subcategory) == ("offences_against_person", "homicide")
     assert label.reason == "keyword tie-break"
 
@@ -296,31 +362,31 @@ def test_sample_csv_round_trips_and_scores(tmp_path: Path) -> None:
 AI_URL = os.environ.get("AI_TEST_DATABASE_URL")
 
 
+def _records(
+    first_text: str = "Bail for the offence under section 9(c) of CNS Act, 1997. ",
+    first_hash: str = "a1",
+) -> list[dict[str, Any]]:
+    from tests.test_load import judgment
+
+    return [
+        judgment(1, full_text=first_text * 3, content_hash=first_hash),
+        judgment(
+            2,
+            full_text="Bail under section 497 Cr.P.C. was refused on the facts. " * 3,
+            content_hash="a2",
+        ),
+    ]
+
+
 @pytest.fixture
 def engine() -> Iterator[Engine]:
     from caseguard_ai.ingest.load import load
     from tests.test_graph import RESET, migrated_engine
-    from tests.test_load import judgment
 
     eng = migrated_engine()
     with eng.begin() as conn:
         conn.execute(text(RESET))
-    load(
-        eng,
-        [
-            judgment(
-                1,
-                full_text="Bail for the offence under section 9(c) of CNS Act, 1997. " * 3,
-                content_hash="a1",
-            ),
-            judgment(
-                2,
-                full_text="Bail under section 497 Cr.P.C. was refused on the facts. " * 3,
-                content_hash="a2",
-            ),
-        ],
-        "p@1",
-    )
+    load(eng, _records(), "p@1")
     yield eng
     with eng.begin() as conn:
         conn.execute(text(RESET))
@@ -354,3 +420,39 @@ def test_the_corpus_pass_writes_labels_and_keeps_other_raw_keys(engine: Engine) 
     assert rows["2/2024"].area == UNCLASSIFIED
 
     assert run(engine, TAXONOMY)[2] == 0  # a re-run changes nothing
+
+
+@pytest.mark.skipif(not AI_URL, reason="needs AI_TEST_DATABASE_URL (set in CI)")
+def test_a_reload_keeps_the_area_label(engine: Engine) -> None:
+    """#257 review: the loader replaced raw on upsert, dropping raw.area_label."""
+    from caseguard_ai.ingest.load import load
+    from caseguard_ai.taxonomy.cli import run
+
+    run(engine, TAXONOMY)
+    report = load(engine, _records(), "p@1")  # the same rows again
+    assert (report.inserted, report.updated, report.unchanged) == (0, 0, 2)
+
+    # A changed record is updated, and keeps its label until the classifier runs again.
+    revised = _records("Bail under section 9(c) CNSA, the text revised. ", "a1-revised")
+    report = load(engine, revised, "p@1")
+    assert (report.inserted, report.updated) == (0, 1)
+    with engine.connect() as conn:
+        raws = {
+            r.case_number: r.raw
+            for r in conn.execute(text("SELECT case_number, raw FROM corpus.documents"))
+        }
+    assert raws["1/2024"]["area_label"]["area"] == "narcotics"
+    assert raws["1/2024"]["file_status"] == "ok"
+    assert raws["2/2024"]["area_label"]["area"] == UNCLASSIFIED
+    assert run(engine, TAXONOMY)[2] == 1  # only the revised judgment's evidence changed
+
+
+def test_a_sample_of_zero_is_refused_before_touching_the_database(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    from caseguard_ai.taxonomy.cli import main
+
+    with pytest.raises(SystemExit) as exit_:
+        main(["--sample", "0"])
+    assert exit_.value.code == 2
+    assert "--sample needs at least 1" in capsys.readouterr().err

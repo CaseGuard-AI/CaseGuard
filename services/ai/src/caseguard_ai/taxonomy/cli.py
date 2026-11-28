@@ -194,6 +194,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--score", type=Path, metavar="CSV", help="score a filled review sample")
     parser.add_argument("--taxonomy", type=Path, help="the taxonomy YAML (default: found)")
     args = parser.parse_args([a for a in (sys.argv[1:] if argv is None else argv) if a != "--"])
+    if args.sample is not None and args.sample < 1:
+        parser.error("--sample needs at least 1 judgment")
 
     taxonomy = load_taxonomy(args.taxonomy)
     if args.score:
@@ -203,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
 
     engine = create_engine(DatabaseSettings().sqlalchemy_url)
     try:
-        if args.sample:
+        if args.sample is not None:
             with engine.connect() as conn:
                 count = sample(
                     conn,

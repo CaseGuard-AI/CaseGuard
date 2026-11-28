@@ -20,17 +20,20 @@ How a judgment is labelled:
      mentions in cited precedents are told apart from the judgment's own subject.
    - ``operative`` (2.0): in the opening (title, FIR offences, prayer) or the closing (the order
      itself), or next to wording about the offence or relief ("offence", "FIR", "punishable",
-     "prayed").
+     "prayed", "relief sought"). The reference itself is left out of that check.
+   - A head-note reference is always ``headnote``: the head-note is the court's own summary.
    - ``headnote`` (1.5) for the head-note, ``cited_laws`` (1.0) for the collector's list,
      ``body`` (1.0) for everything else.
 
    Each statute rule (a whole Act, or one PPC section range) then scores once, at its
    strongest reference: "ss. 302, 324, 147, 148, 149 PPC" is one homicide-and-hurt reference
    and one rioting reference, not two against three. An area's score is the sum over its rules.
-   The leader wins if it has at least ``MIN_SCORE`` and ``CLEAR_LEAD`` times the runner-up.
+   The leader wins if it has at least ``MIN_SCORE``, at least one reference that is not a
+   precedent mention, and ``CLEAR_LEAD`` times the runner-up.
 3. **Keywords** only break a tie between areas that already have statute evidence and are within
    ``CLEAR_LEAD`` of the leader (*khula*, *ejectment*, *pre-emption*...): ``KEYWORD_WEIGHT`` per
-   distinct keyword, and then any lead wins. They never label a judgment on their own.
+   distinct keyword. The tie is broken only if the new leader has keyword hits of its own and
+   then meets ``CLEAR_LEAD``. Keywords never label a judgment on their own.
 4. **Otherwise ``unclassified``**, with the evidence and the leader's confidence kept.
 
 Head-note-only records are labelled from the head-note, or are ``unclassified`` without one.
@@ -64,7 +67,7 @@ CITED_LAWS_WEIGHT = 1.0
 PRECEDENT_WEIGHT = 0.25
 KEYWORD_WEIGHT = 0.5  # per distinct keyword, in a tie-break only
 CLEAR_LEAD = 1.5  # the leader needs this many times the runner-up's score
-MIN_SCORE = 1.0  # ...and at least one non-precedent reference
+MIN_SCORE = 1.0  # ...and at least one reference that is not a precedent mention
 FULL_CONFIDENCE_SCORE = 2.0  # a leader at this score or more is not discounted for weak evidence
 OPENING_CHARS = 1500
 CLOSING_CHARS = 1500
@@ -148,7 +151,8 @@ PRECEDENT_CUE = re.compile(
 )
 OFFENCE_CUE = re.compile(
     r"\b(?:offen[cs]es?|F\.?I\.?R|crime\s+no|charged?|punishable|booked|convicted|sentenced"
-    r"|prayed|prayer|relief|suit\s+for|petition\s+under|appeal\s+under)\b",
+    r"|prayed|prayer|relief\s+(?:sought|claimed|prayed)|suit\s+for|petition\s+under"
+    r"|appeal\s+under)\b",
     re.I,
 )
 
@@ -162,9 +166,9 @@ AREA_KEYWORDS: dict[str, tuple[str, ...]] = {
         r"custody\s+of",
         r"maintenance",
     ),
-    "rent_and_tenancy": (r"ejectment", r"tenan(?:t|cy)", r"landlord", r"fair\s+rent"),
-    "property_and_land": (r"pre-?emption", r"shufa", r"partition", r"mutation"),
-    "service_and_employment": (r"regulari[sz]ation", r"promotion", r"seniority", r"pension"),
+    "rent_and_tenancy": (r"ejectment", r"tenan(?:ts?|cy)", r"landlords?", r"fair\s+rent"),
+    "property_and_land": (r"pre-?emption", r"shufa", r"partitions?", r"mutations?"),
+    "service_and_employment": (r"regulari[sz]ation", r"promotions?", r"seniority", r"pensions?"),
     "contract_and_commercial": (
         r"specific\s+performance",
         r"agreement\s+to\s+sell",
@@ -177,20 +181,25 @@ AREA_KEYWORDS: dict[str, tuple[str, ...]] = {
         r"legal\s+heirs",
     ),
     "tax_customs_revenue": (r"income\s+tax", r"sales\s+tax", r"customs\s+duty", r"assessment"),
-    "company_and_insolvency": (r"winding\s+up", r"liquidator", r"insolven(?:t|cy)"),
+    "company_and_insolvency": (r"winding\s+up", r"liquidators?", r"insolven(?:t|cy)"),
     "public_and_administrative": (
         r"nomination\s+papers",
-        r"election",
+        r"elections?",
         r"local\s+government",
         r"building\s+control",
     ),
     "torts_and_damages": (r"malicious\s+prosecution", r"defamation", r"damages"),
     "narcotics": (r"charas", r"heroin", r"narcotics?", r"opium"),
     "terrorism": (r"terroris[mt]",),
-    "arms_and_explosives": (r"pistol", r"unlicen[cs]ed", r"kalashnikov", r"explosives?"),
+    "arms_and_explosives": (r"pistols?", r"unlicen[cs]ed", r"kalashnikovs?", r"explosives?"),
     "corruption_and_accountability": (r"accountability\s+court", r"corruption"),
-    "offences_against_person": (r"murder", r"qatl", r"injur(?:y|ies)"),
-    "offences_against_property": (r"theft", r"robbery", r"dacoity", r"dishono(?:u)?red\s+cheque"),
+    "offences_against_person": (r"murder(?:s|ed)?", r"qatl", r"injur(?:y|ies)"),
+    "offences_against_property": (
+        r"thefts?",
+        r"robber(?:y|ies)",
+        r"dacoit(?:y|ies)",
+        r"dishono(?:u)?red\s+cheque",
+    ),
     "documents_and_forgery": (r"forg(?:ed|ery)", r"counterfeit"),
     "public_order_and_state": (r"rioting", r"unlawful\s+assembly"),
 }
@@ -345,11 +354,15 @@ class Classifier:
     # ---- references in one piece of text ----
 
     def _where(self, text: str, start: int, end: int, base: str) -> str:
-        window = text[max(0, start - WINDOW) : end + WINDOW]
-        if CITATION.search(window) or PRECEDENT_CUE.search(window):
-            return "precedent"
+        # A head-note is the court's own summary: a statute in it is the case's subject even
+        # beside a cited case.
         if base == "headnote":
             return "headnote"
+        # The context around the reference, without the reference itself (so "Specific Relief
+        # Act" is not its own relief cue).
+        window = text[max(0, start - WINDOW) : start] + " " + text[end : end + WINDOW]
+        if CITATION.search(window) or PRECEDENT_CUE.search(window):
+            return "precedent"
         if start < OPENING_CHARS or end > len(text) - CLOSING_CHARS or OFFENCE_CUE.search(window):
             return "operative"
         return "body"
@@ -462,7 +475,9 @@ class Classifier:
         leader, top = ranked[0]
         second = ranked[1][1] if len(ranked) > 1 else 0.0
         keywords: tuple[str, ...] = ()
-        if top < MIN_SCORE:
+        # Areas with at least one reference that is not a precedent mention.
+        grounded = {e.area for e in per_rule.values() if e.where != "precedent"}
+        if top < MIN_SCORE or leader not in grounded:
             return self._label(
                 UNCLASSIFIED,
                 "weak evidence (precedent mentions only)",
@@ -476,21 +491,17 @@ class Classifier:
             return self._label(leader, "clear lead", leader, scores, evidence, haystack, keywords)
 
         # Tie-break: keywords for the areas close to the leader, and only for them.
-        adjusted = dict(scores)
-        hits: list[str] = []
-        for area, score in ranked:
-            if score * CLEAR_LEAD < top:
-                continue
-            matched = [p for p, rx in self._keywords.get(area, []) if rx.search(haystack)]
-            adjusted[area] = score + KEYWORD_WEIGHT * len(matched)
-            hits += [f"{area}:{p}" for p in matched]
-        keywords = tuple(hits)
-        ranked = _ranked(adjusted)
-        leader, top = ranked[0]
-        second = ranked[1][1] if len(ranked) > 1 else 0.0
-        if keywords and top > second:  # a tie-break: any lead will do
+        matched = {
+            area: [p for p, rx in self._keywords.get(area, []) if rx.search(haystack)]
+            for area, score in ranked
+            if score * CLEAR_LEAD >= top
+        }
+        keywords = tuple(f"{area}:{p}" for area, ps in matched.items() for p in ps)
+        winner, adjusted = tie_break(scores, {a: len(ps) for a, ps in matched.items()}, grounded)
+        leader = _ranked(adjusted)[0][0]
+        if winner is not None:
             return self._label(
-                leader, "keyword tie-break", leader, adjusted, evidence, haystack, keywords
+                winner, "keyword tie-break", winner, adjusted, evidence, haystack, keywords
             )
         return self._label(
             UNCLASSIFIED, "no clear lead", leader, adjusted, evidence, haystack, keywords
@@ -543,6 +554,23 @@ WEIGHTS = {
     "cited_laws": CITED_LAWS_WEIGHT,
     "precedent": PRECEDENT_WEIGHT,
 }
+
+
+def tie_break(
+    scores: dict[str, float], hits: dict[str, int], grounded: set[str]
+) -> tuple[str | None, dict[str, float]]:
+    """Add ``KEYWORD_WEIGHT`` per keyword hit (``hits``: distinct keywords per area, for the areas
+    close to the leader). The new leader wins only if the hits are its own, it has a reference
+    that is not a precedent mention, and it now has ``CLEAR_LEAD`` over the runner-up. A
+    runner-up's hit never crowns the area that was leading anyway. Returns the winner (or None)
+    and the adjusted scores."""
+    adjusted = {area: score + KEYWORD_WEIGHT * hits.get(area, 0) for area, score in scores.items()}
+    ranked = _ranked(adjusted)
+    leader, top = ranked[0]
+    second = ranked[1][1] if len(ranked) > 1 else 0.0
+    if hits.get(leader) and leader in grounded and top >= CLEAR_LEAD * second:
+        return leader, adjusted
+    return None, adjusted
 
 
 def _rule_key(rule: StatuteRule) -> str:
