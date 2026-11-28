@@ -433,7 +433,8 @@ def test_a_reload_keeps_the_area_label(engine: Engine) -> None:
     assert (report.inserted, report.updated, report.unchanged) == (0, 0, 2)
 
     # A changed record is updated, and keeps its label until the classifier runs again.
-    revised = _records("Bail under section 9(c) CNSA, the text revised. ", "a1-revised")
+    # The revision adds an ATA charge, so the classifier has something new to write afterwards.
+    revised = _records("Bail under section 9(c) CNSA and section 7 ATA. ", "a1-revised")
     report = load(engine, revised, "p@1")
     assert (report.inserted, report.updated) == (0, 1)
     with engine.connect() as conn:
@@ -444,7 +445,12 @@ def test_a_reload_keeps_the_area_label(engine: Engine) -> None:
     assert raws["1/2024"]["area_label"]["area"] == "narcotics"
     assert raws["1/2024"]["file_status"] == "ok"
     assert raws["2/2024"]["area_label"]["area"] == UNCLASSIFIED
-    assert run(engine, TAXONOMY)[2] == 1  # only the revised judgment's evidence changed
+    assert run(engine, TAXONOMY)[2] == 1  # only the revised judgment is relabelled
+    with engine.connect() as conn:
+        label = conn.execute(
+            text("SELECT raw->'area_label' FROM corpus.documents WHERE case_number = '1/2024'")
+        ).scalar_one()
+    assert set(label["scores"]) == {"narcotics", "terrorism"}
 
 
 def test_a_sample_of_zero_is_refused_before_touching_the_database(
