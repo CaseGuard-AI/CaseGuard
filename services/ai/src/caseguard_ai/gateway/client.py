@@ -25,6 +25,8 @@ log = structlog.get_logger("gateway")
 
 RETRYABLE = {429, 500, 502, 503, 504}
 MAX_RETRY_WAIT_S = 10.0
+# The most a call that ran out of budget is retried with (#192): 4096 → 8192 by default.
+RETRY_MAX_TOKENS = 16_384
 
 
 class NoProviderError(Exception):
@@ -96,14 +98,61 @@ class ModelGateway:
         max_tokens: int | None = None,
         temperature: float = 0.0,
     ) -> ChatResult:
-        """``max_tokens`` defaults to the role's LLM_<ROLE>_MAX_TOKENS."""
+        """``max_tokens`` defaults to the role's LLM_<ROLE>_MAX_TOKENS.
+
+        With the default budget, a call that stops at the limit (``finish=length``) is sent once
+        more with twice the budget, up to ``RETRY_MAX_TOKENS``: reasoning models can spend the
+        whole budget thinking and return nothing, or cut the answer off (#192). A budget the
+        caller sets is used as given.
+        """
         provider = self.provider_for(role, allowed_providers, override)
+        retry = max_tokens is None
         if max_tokens is None:
             max_tokens = (
                 self._settings.llm_judge_max_tokens
                 if role == "judge"
                 else self._settings.llm_generation_max_tokens
             )
+        while True:
+            text, finish, latency_ms, data = self._complete(
+                provider, messages, max_tokens, temperature
+            )
+            if finish != "length" or not retry or max_tokens >= RETRY_MAX_TOKENS:
+                break
+            log.warning(
+                "llm_budget_exhausted",
+                role=role,
+                provider=provider.id,
+                max_tokens=max_tokens,
+                empty=not text,
+            )
+            retry = False
+            max_tokens = min(max_tokens * 2, RETRY_MAX_TOKENS)
+        if not text:
+            # Reasoning models can spend the whole budget thinking and return no content.
+            hint = " (the model used its whole budget reasoning)" if finish == "length" else ""
+            raise GatewayError(provider.id, "empty answer" + hint)
+        log.info(
+            "llm_call",
+            role=role,
+            provider=provider.id,
+            model=provider.model,
+            latency_ms=latency_ms,
+            finish=finish,
+        )
+        if finish == "length":
+            log.warning("llm_truncated", role=role, provider=provider.id, max_tokens=max_tokens)
+        return ChatResult(
+            text, provider.id, provider.model, latency_ms, finish, data.get("usage") or {}
+        )
+
+    def _complete(
+        self,
+        provider: ProviderConfig,
+        messages: list[dict[str, str]],
+        max_tokens: int,
+        temperature: float,
+    ) -> tuple[str, str | None, int, dict[str, Any]]:
         body = {
             "model": provider.model,
             "messages": messages,
@@ -119,21 +168,7 @@ class ModelGateway:
             finish = choice.get("finish_reason")
         except (KeyError, IndexError, TypeError, AttributeError) as exc:
             raise GatewayError(provider.id, "unexpected response shape") from exc
-        if not text:
-            # Reasoning models can spend the whole budget thinking and return no content.
-            hint = " (the model used its whole budget reasoning)" if finish == "length" else ""
-            raise GatewayError(provider.id, "empty answer" + hint)
-        log.info(
-            "llm_call",
-            role=role,
-            provider=provider.id,
-            model=provider.model,
-            latency_ms=latency_ms,
-            finish=finish,
-        )
-        return ChatResult(
-            text, provider.id, provider.model, latency_ms, finish, data.get("usage") or {}
-        )
+        return text, finish, latency_ms, data
 
     def _post(self, provider: ProviderConfig, body: dict[str, Any]) -> dict[str, Any]:
         headers = {"Accept": "application/json"}

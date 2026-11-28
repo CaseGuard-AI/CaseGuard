@@ -217,6 +217,60 @@ def test_an_empty_answer_from_a_reasoning_model_is_an_error() -> None:
         )
 
 
+def _scripted(*responses: httpx.Response) -> tuple[ModelGateway, list[int]]:
+    budgets: list[int] = []
+    it = iter(responses)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        budgets.append(json.loads(request.content)["max_tokens"])
+        return next(it)
+
+    return gateway(nim(), handler), budgets
+
+
+def test_an_answer_lost_to_reasoning_is_asked_again_with_twice_the_budget() -> None:
+    # #192: Nemotron reasoned through all 4,096 tokens on a CrPC s. 497 question (HTTP 503).
+    gw, budgets = _scripted(ok(text="", finish="length"), ok("Bail is refused when..."))
+    result = gw.chat("generation", [], ["nvidia-nim"])
+    assert result.text == "Bail is refused when..."
+    assert budgets == [4096, 8192]
+
+
+def test_a_cut_off_answer_is_asked_again_rather_than_returned_truncated() -> None:
+    gw, budgets = _scripted(ok("The Federal Government shall", finish="length"), ok("Complete."))
+    assert gw.chat("generation", [], ["nvidia-nim"]).text == "Complete."
+    assert budgets == [4096, 8192]
+
+
+def test_the_budget_retry_happens_once() -> None:
+    gw, budgets = _scripted(ok(text="", finish="length"), ok(text="", finish="length"))
+    with pytest.raises(GatewayError, match="whole budget reasoning"):
+        gw.chat("generation", [], ["nvidia-nim"])
+    assert budgets == [4096, 8192]
+    gw, budgets = _scripted(ok("Cut", finish="length"), ok("Still cut", finish="length"))
+    result = gw.chat("generation", [], ["nvidia-nim"])
+    assert (result.text, result.finish_reason, budgets) == ("Still cut", "length", [4096, 8192])
+
+
+def test_a_budget_the_caller_sets_is_not_raised() -> None:
+    gw, budgets = _scripted(ok("Cut", finish="length"))
+    assert gw.chat("generation", [], ["nvidia-nim"], max_tokens=64).finish_reason == "length"
+    assert budgets == [64]
+
+
+def test_the_retry_budget_is_capped() -> None:
+    s = nim(llm_generation_max_tokens=12_000)
+    seen: list[int] = []
+    it = iter([ok(text="", finish="length"), ok("Done.")])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content)["max_tokens"])
+        return next(it)
+
+    gateway(s, handler).chat("generation", [], ["nvidia-nim"])
+    assert seen == [12_000, 16_384]
+
+
 def _sent_budgets(s: Settings, *calls: tuple[str, int | None]) -> list[int]:
     seen: list[int] = []
 
