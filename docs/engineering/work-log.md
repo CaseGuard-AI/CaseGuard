@@ -414,3 +414,21 @@ The questions went from the laptop to `POST /ai/v1/research/answer`, through the
   - The QSO question cited art. 39 and head-notes instead of art. 38, so retrieval missed the gold article.
   - The judge passed QSO citations whose NLI support score was 0.005–0.09 as `verified`. Check that against the 20% spot check (PRD §11).
   - A whole multi-clause sentence still gets one marker (plan 0067).
+
+### Evaluation test set frozen (#22)
+`eval/testset` (PR #264) has 60 dev and 40 held-out extractive questions. Each split is half civil and half criminal, and 10% of each is off-corpus. The team reviewed the held-out questions, and the set is frozen: `FROZEN.sha256` holds `74a663ef…`, and the commit is tagged `eval-heldout-v1`. The corpus behind it was first pinned as `dumps/2026-11-28-3` (`dump/eval-frozen-1`). After #263 it was re-pinned as `dumps/2026-11-28-4` (`dump/eval-frozen-2`), before any measured run. Follow-ups:
+- #268: the 8 as-of questions, which go in dev once the curated versions exist.
+- #105: the 15 Urdu phrasings.
+
+### Statute section ids fixed, corpus re-published (#263)
+Before this fix:
+- CrPC and CPC were `kind='other'`, so they were never split by section. The collector's type guess missed titles that start with "Code of …".
+- The PPC's contents were read as its body: the "end of contents" check counted "11." as a "1.". So PPC `34`, `53`, `82`, `84` and `96` pointed at contents entries.
+- PPC s. 375 had two nested amendment marks and got no chunk of its own.
+
+PR #272 fixed all three, and re-chunking now keeps the vector of any chunk whose text didn't change. On Colab (T4, dump `2026-11-28-3` restored):
+- Reloading the seed laws updated 2 documents, CrPC and CPC.
+- `ingest.embed` (chunker version 2) re-chunked all 56,658 documents into 60,769 chunks. It embedded only 1,688 of them and kept 59,081 vectors, in 707 s.
+- `eval.testset check --corpus` gives `ok` with no section_id warnings, down from 20.
+
+The result is published as `dumps/2026-11-28-4` (tags `dump/2026-11-28-4` and `dump/eval-frozen-2`). Through the tunnel, CrPC s. 497 now cites `s. 497` (verified) instead of `para 442`, and CPC s. 115 cites `s. 115` (verified).

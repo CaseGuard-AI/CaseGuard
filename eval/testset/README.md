@@ -28,12 +28,14 @@ The ground truth is mechanical (PRD §11), so no expert has to mark it. An answe
 - **As-of questions:** PRD §11 asks for at least 8. They need the curated section versions (§10, M2), which don't exist yet, so `check` reports the gap rather than failing. Add them to `dev.jsonl` when the versions land. The held-out set is frozen before that, so it won't get any.
 - **Urdu:** 15 rows have machine-written Urdu and Roman-Urdu. They wait for the native-speaker review (#105).
 
-## Corpus defects this surfaced
-`check --corpus` warns when no chunk carries the gold `section_id`. Retrieval cites by `section_id`, so these sections can't be cited by number. Today that covers every CrPC and CPC section, which the corpus holds as `kind='other'` with no `section_id`, and PPC s. 34. There are also wrong ids: PPC `34`/`53`/`82`/`84`/`96` point to ss. 334/353/482/484/496, because footnote numbers get glued onto section numbers.
+## Corpus check
+`check --corpus` warns when no chunk carries a gold row's `section_id`: retrieval cites by it, so such a section can't be cited by number. Since #263 (corpus `eval-frozen-2`) there are no such warnings. Any that come back are a chunker regression.
 
 ## Freezing
 1. The team skims both files.
 2. `pnpm eval:testset -- freeze`, then commit `FROZEN.sha256`.
-3. Tag that commit `eval-heldout-v1`, then `pnpm data:dump -- --freeze eval-frozen-1` so the corpus is pinned too (data-storage spec §4).
+3. Tag that commit `eval-heldout-v1`, then `pnpm data:dump -- --freeze eval-frozen-N` so the corpus is pinned too (data-storage spec §4).
+
+**Frozen on 2026-11-28.** `heldout.jsonl` has sha256 `74a663ef872e76065b3cee8245294d5fbee568d288b0a8a620a4526f2740a121`. The commit is tagged `eval-heldout-v1`, and the corpus is pinned as `dumps/2026-11-28-4` (tag `dump/eval-frozen-2`, AI migration `0003`, chunker version 2). Restore that corpus with `pnpm data:pull -- --dump eval-frozen-2` before a measured run, and record it in the run (PRD §11). It replaced `eval-frozen-1` (`dumps/2026-11-28-3`) the same day, before any measured run used it: #263 fixed the section ids that the earlier pin got wrong.
 
 After the freeze, `check` fails if `heldout.jsonl` changes.
