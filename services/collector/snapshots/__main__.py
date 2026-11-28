@@ -4,11 +4,13 @@ docs/engineering/data-storage.md §3, §7. Exit codes: 0 done, 1 Hugging Face er
 from __future__ import annotations
 
 import argparse
+import importlib
+import shutil
 import sys
 from datetime import date
 from pathlib import Path
 
-from snapshots import SnapshotRefused, check_partition_name
+from snapshots import DAY, SnapshotRefused, check_partition_name
 from snapshots.manifest import COLLECTOR_DIR, describe
 
 STAGING = COLLECTOR_DIR / ".snapshots"  # git-ignored
@@ -68,6 +70,8 @@ def _push(args: argparse.Namespace) -> int:
     partition = check_partition_name(args.snapshot)
     partition_dir: Path = args.dir or default_partitions_dir() / partition
     day = args.date or date.today().isoformat()
+    if not DAY.fullmatch(day):
+        raise SnapshotRefused(f"bad --date {day!r}: YYYY-MM-DD (the -N is picked for you)")
     hub = None
     if args.no_upload:
         folder = day
@@ -77,6 +81,9 @@ def _push(args: argparse.Namespace) -> int:
         hub = SnapshotHub.from_env()
         folder = hub.next_folder(partition, day)
     out_dir: Path = args.out or STAGING / partition / folder
+    if args.out is None and out_dir.exists():
+        # Ours and git-ignored: left over from a refused, declined or --no-upload push.
+        shutil.rmtree(out_dir)
     print(f"packing {partition_dir} into {out_dir} ...", file=sys.stderr, flush=True)
     packed = pack(partition_dir, out_dir, partition=partition, folder=folder)
     print(describe(packed.manifest))
@@ -165,6 +172,21 @@ def _status() -> int:
     return 0
 
 
+def network_errors() -> tuple[type[BaseException], ...]:
+    """Connection and timeout errors of the HTTP clients huggingface_hub may use."""
+    found: list[type[BaseException]] = []
+    for module, name in (
+        ("httpx2", "HTTPError"),
+        ("httpx", "HTTPError"),
+        ("requests", "RequestException"),
+    ):
+        try:
+            found.append(getattr(importlib.import_module(module), name))
+        except (ImportError, AttributeError):
+            continue
+    return tuple(found)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args([a for a in (sys.argv[1:] if argv is None else argv) if a != "--"])
     try:
@@ -176,6 +198,9 @@ def main(argv: list[str] | None = None) -> int:
     except SnapshotRefused as exc:
         print(f"refusing: {exc}", file=sys.stderr)
         return 2
+    except network_errors() as exc:  # offline, DNS, timeouts: a line, not a traceback
+        print(f"could not reach Hugging Face ({type(exc).__name__}: {exc})", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

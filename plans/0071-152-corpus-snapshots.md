@@ -1,4 +1,4 @@
-> **Status:** In progress · **Issue:** [#152](https://github.com/CaseGuard-AI/CaseGuard/issues/152) · **PR:** [#255](https://github.com/CaseGuard-AI/CaseGuard/pull/255)
+> **Status:** In review · **Issue:** [#152](https://github.com/CaseGuard-AI/CaseGuard/issues/152) · **PR:** [#255](https://github.com/CaseGuard-AI/CaseGuard/pull/255)
 
 # #152: corpus snapshot push/pull/status (`data:push`, `data:pull --snapshot`, `data:status`)
 
@@ -23,3 +23,14 @@ Crawls were shared by hand-uploading tars to `caseguard/corpus` (session-handoff
 
 - The first real `data:push` of each partition: the owners do that (the 2026-11-10 hand-uploaded tars have no manifest and aren't pullable).
 - Matching the loaded corpus to a dump folder: `data:status` shows the loaded corpus's summary (counts, model, built at, input snapshots), as `data:pull --dump` does.
+
+## Review fixes (PR #255)
+
+1. `push` clears its own staging folder (`.snapshots/<p>/<folder>`) first, so a refused, declined or `--no-upload` push doesn't block the next one. An explicit `--out` that isn't empty is still refused.
+2. `unpack` builds the new layout in a temporary folder next to the partition and swaps `documents/`, `state/` (and `raw/` + `text/`) in whole, so a refusal leaves the partition untouched.
+3. Swapping `state/` whole drops an old `state.db-wal`/`-shm`, which SQLite would otherwise replay onto the new database.
+4. Only folders with a manifest and their `snap/<p>/<folder>` tag are pullable. `publish` first tags any untagged folder at `main` (safe, since published folders never change), and `data:status` marks them.
+5. `pull` checks `--yes` before resolving or downloading anything.
+6. The gate refuses a record whose `file_path` is still absolute after packing.
+7. `push --date` is checked on every path.
+8. Connection and timeout errors (httpx2, httpx, requests) print one line and exit 1.

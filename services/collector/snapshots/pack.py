@@ -23,6 +23,7 @@ import re
 import shutil
 import sqlite3
 import tarfile
+import tempfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -198,14 +199,17 @@ def has_content(partition_dir: Path, *, with_files: bool) -> bool:
     return any((partition_dir / n).is_dir() and any((partition_dir / n).iterdir()) for n in names)
 
 
-def unpack(snapshot_dir: Path, partition_dir: Path, *, with_files: bool) -> Manifest:
-    """Lay a verified snapshot out as a partition directory, replacing what was there."""
-    manifest = Manifest.read(snapshot_dir / MANIFEST_FILE)
-    documents = partition_dir / DOCUMENTS
-    if documents.is_dir():
-        for old in documents.glob("*.jsonl"):
-            old.unlink()
-    documents.mkdir(parents=True, exist_ok=True)
+def _check_tar(tar: tarfile.TarFile) -> None:
+    for member in tar.getmembers():
+        parts = PurePosixPath(member.name).parts
+        if not parts or parts[0] not in FILE_DIRS or not (member.isfile() or member.isdir()):
+            raise SnapshotRefused(f"{FILES_TAR} holds an unexpected entry {member.name!r}")
+
+
+def _build(snapshot_dir: Path, staged: Path, *, with_files: bool, manifest: Manifest) -> None:
+    """Write the new partition layout into the empty folder ``staged``; raises on bad input."""
+    documents = staged / DOCUMENTS
+    documents.mkdir(parents=True)
     handles: dict[str, Any] = {}
     try:
         with gzip.open(snapshot_dir / RECORDS_FILE, "rt", encoding="utf-8") as fh:
@@ -224,23 +228,67 @@ def unpack(snapshot_dir: Path, partition_dir: Path, *, with_files: bool) -> Mani
         for handle in handles.values():
             handle.close()
 
-    state_dir = partition_dir / "state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(snapshot_dir / STATE_FILE, state_dir / "state.db")
+    (staged / "state").mkdir()
+    shutil.copyfile(snapshot_dir / STATE_FILE, staged / STATE_DB)
 
     if with_files and FILES_TAR in manifest.files:
-        for name in FILE_DIRS:
-            shutil.rmtree(partition_dir / name, ignore_errors=True)
         with tarfile.open(snapshot_dir / FILES_TAR, "r") as tar:
-            for member in tar.getmembers():
-                parts = PurePosixPath(member.name).parts
-                if (
-                    not parts
-                    or parts[0] not in FILE_DIRS
-                    or not (member.isfile() or member.isdir())
-                ):
-                    raise SnapshotRefused(f"{FILES_TAR} holds an unexpected entry {member.name!r}")
-            tar.extractall(partition_dir, filter="data")  # no absolute paths, no ../, no links
+            _check_tar(tar)
+            tar.extractall(staged, filter="data")  # no absolute paths, no ../, no links
+        for name in FILE_DIRS:
+            (staged / name).mkdir(exist_ok=True)
+    manifest.write(staged / "snapshot.json")  # which snapshot this partition came from
 
-    manifest.write(partition_dir / "snapshot.json")  # which snapshot this partition came from
+
+def _remove(path: Path) -> None:
+    if path.is_dir():
+        shutil.rmtree(path)
+    elif path.exists():
+        path.unlink()
+
+
+def _swap(staged: Path, partition_dir: Path, names: list[str]) -> None:
+    """Move ``names`` from ``staged`` into ``partition_dir``, keeping the old ones until done."""
+    backup = staged.with_name(staged.name + ".old")
+    backup.mkdir()
+    moved: list[str] = []
+    try:
+        for name in names:
+            current = partition_dir / name
+            if current.exists():
+                current.rename(backup / name)
+            moved.append(name)
+            (staged / name).rename(current)
+    except BaseException:
+        for name in reversed(moved):  # put the old partition back as it was
+            _remove(partition_dir / name)
+            if (backup / name).exists():
+                (backup / name).rename(partition_dir / name)
+        raise
+    finally:
+        shutil.rmtree(backup, ignore_errors=True)
+
+
+def unpack(snapshot_dir: Path, partition_dir: Path, *, with_files: bool) -> Manifest:
+    """Lay a verified snapshot out as a partition directory, replacing what was there.
+
+    Everything is written into a temporary folder next to the partition first, so a refusal
+    (a bad source name, an unexpected tar entry) leaves the partition exactly as it was. Then
+    ``documents/`` and ``state/`` (with any old ``state.db-wal``/``-shm``, which SQLite would
+    otherwise replay onto the new database) are swapped in whole, and ``raw/`` + ``text/`` with
+    ``--with-files``. ``logs/`` and ``reports/`` are left alone.
+    """
+    manifest = Manifest.read(snapshot_dir / MANIFEST_FILE)
+    partition_dir.mkdir(parents=True, exist_ok=True)
+    staged = Path(
+        tempfile.mkdtemp(prefix=f".{partition_dir.name}.unpack-", dir=partition_dir.parent)
+    )
+    try:
+        _build(snapshot_dir, staged, with_files=with_files, manifest=manifest)
+        names = [DOCUMENTS, "state", "snapshot.json"]
+        if with_files and FILES_TAR in manifest.files:
+            names.extend(FILE_DIRS)
+        _swap(staged, partition_dir, names)
+    finally:
+        shutil.rmtree(staged, ignore_errors=True)
     return manifest

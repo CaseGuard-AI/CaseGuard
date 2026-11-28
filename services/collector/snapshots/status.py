@@ -56,6 +56,15 @@ def local_lines(partitions_dir: Path) -> list[str]:
     return lines
 
 
+def _note(inv: Inventory, partition: str, folder: str) -> str:
+    """Why a folder isn't pullable, or "" when it is."""
+    if (partition, folder) not in inv.with_manifest:
+        return ", no manifest: uploaded by hand, not pullable"
+    if (partition, folder) not in inv.tagged:
+        return ", no tag: the next data:push repairs it"
+    return ""
+
+
 def report(repo_id: str, inv: Inventory, partitions_dir: Path | None = None) -> str:
     lines = [f"{repo_id}"]
     lines.append("snapshots:")
@@ -63,13 +72,8 @@ def report(repo_id: str, inv: Inventory, partitions_dir: Path | None = None) -> 
         lines.append("  none yet")
     for partition, folders in sorted(inv.snapshots.items()):
         ordered = sorted(folders, key=folder_key)
-        real = [f for f in ordered if (partition, f) in inv.with_manifest]
-        listed = ", ".join(
-            f"{f} ({_size(folders[f])}"
-            + ("" if f in real else ", no manifest: uploaded by hand, not pullable")
-            + ")"
-            for f in ordered
-        )
+        real = [f for f in ordered if not _note(inv, partition, f)]
+        listed = ", ".join(f"{f} ({_size(folders[f])}{_note(inv, partition, f)})" for f in ordered)
         lines.append(f"  {partition:<16} {listed}  latest {real[-1] if real else 'none'}")
     lines.append("dumps:")
     if not inv.dumps:

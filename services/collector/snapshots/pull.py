@@ -1,12 +1,14 @@
 """Fetch a published snapshot into ``data/partitions/<partition>/`` (data-storage spec §7).
 
-1. Resolve ``--date`` (default: the newest folder) and download the manifest at its tag.
-2. Download ``records.jsonl.gz`` and ``state.db``, and ``files.tar`` only with ``--with-files``
+1. Refuse to replace a partition that already has records or state, unless ``--yes``. This is
+   checked before anything is downloaded.
+2. Resolve ``--date`` (default: the newest tagged folder) and download the manifest at its tag.
+3. Download ``records.jsonl.gz`` and ``state.db``, and ``files.tar`` only with ``--with-files``
    (it is most of the size, and only needed to re-extract, OCR or audit an original).
-3. Check every downloaded file's size and SHA-256, and recount the records.
-4. Refuse to replace a partition that already has records or state, unless ``--yes``.
-5. Unpack: ``documents/<source>.jsonl``, ``state/state.db``, ``raw/`` + ``text/``, and
-   ``snapshot.json`` (the manifest, so you can tell later where the partition came from).
+4. Check every downloaded file's size and SHA-256, and recount the records.
+5. Unpack (into a temporary folder, then swapped in): ``documents/<source>.jsonl``,
+   ``state/state.db``, ``raw/`` + ``text/``, and ``snapshot.json`` (the manifest, so you can tell
+   later where the partition came from).
 """
 
 from __future__ import annotations
@@ -45,6 +47,12 @@ def pull(
     yes: bool = False,
 ) -> Pulled:
     """Download (or take ``source_dir``), verify and unpack one snapshot of ``partition``."""
+    # Before any download: a refused pull should not fetch gigabytes first.
+    if has_content(partition_dir, with_files=with_files) and not yes:
+        raise SnapshotRefused(
+            f"{partition_dir} already has records or crawl state. Pass --yes to replace them "
+            "with the snapshot (anything crawled since is lost unless you push it first)"
+        )
     if source_dir is not None:
         snapshot_dir = source_dir
         manifest = Manifest.read(snapshot_dir / MANIFEST_FILE)
@@ -61,11 +69,6 @@ def pull(
     skip = [n for n in manifest.files if n not in _wanted(manifest, with_files)]
     manifest = verify_snapshot(snapshot_dir, skip=skip)
 
-    if has_content(partition_dir, with_files=with_files) and not yes:
-        raise SnapshotRefused(
-            f"{partition_dir} already has records or crawl state. Pass --yes to replace them "
-            "with the snapshot (anything crawled since is lost unless you push it first)"
-        )
     unpack(snapshot_dir, partition_dir, with_files=with_files)
     return Pulled(
         manifest=manifest,

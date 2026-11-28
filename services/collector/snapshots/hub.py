@@ -53,6 +53,7 @@ class Inventory:
 
     snapshots: dict[str, dict[str, int]] = field(default_factory=dict)  # partition -> folder -> B
     with_manifest: set[tuple[str, str]] = field(default_factory=set)  # (partition, folder)
+    tagged: set[tuple[str, str]] = field(default_factory=set)  # (partition, folder)
     dumps: dict[str, int] = field(default_factory=dict)  # folder -> bytes
     total_bytes: int = 0
     latest_dump: str | None = None
@@ -117,13 +118,44 @@ class SnapshotHub:
             n += 1
         return f"{day}-{n}"
 
+    def untagged(self, partition: str) -> list[str]:
+        """Folders with a manifest but no tag: a publish whose ``create_tag`` failed."""
+        tags = self._tags()
+        return sorted(
+            (
+                f
+                for f, names in self._contents(partition).items()
+                if MANIFEST_FILE in names and tag_for(partition, f) not in tags
+            ),
+            key=folder_key,
+        )
+
+    def repair_tags(self, partition: str) -> list[str]:
+        """Tag every untagged snapshot folder at ``main``.
+
+        Safe because a published folder never changes: its files at ``main`` are the files of
+        the commit that published it.
+        """
+        missing = self.untagged(partition)
+        if missing:
+            head = self._head()
+            for folder in missing:
+                self.api.create_tag(
+                    self.repo_id, tag=tag_for(partition, folder), revision=head, repo_type=REPO_TYPE
+                )
+        return missing
+
     def publish(self, snapshot_dir: Path) -> str:
-        """Upload a packed, checked snapshot to its folder in one commit, and tag it."""
+        """Upload a packed, checked snapshot to its folder in one commit, and tag it.
+
+        An earlier publish whose tag failed is repaired first, so it becomes pullable.
+        """
         from huggingface_hub import CommitOperationAdd
 
         manifest = verify_snapshot(snapshot_dir)  # never upload a file that fails its checksum
         partition, folder = check_partition_name(manifest.partition), manifest.folder
         folder_key(folder)
+        self.repair_tags(partition)
         if self._taken(partition, folder, self._tags(), set(self._contents(partition))):
             raise SnapshotRefused(
                 f"snapshots/{partition}/{folder} was published meanwhile: run data:push again"
@@ -145,12 +177,19 @@ class SnapshotHub:
     # ── fetch ─────────────────────────────────────────────────────────────────────────────────
 
     def folders(self, partition: str) -> list[str]:
-        """The partition's published snapshots (folders with a manifest), oldest first.
+        """The partition's published snapshots, oldest first: folders with a manifest and a tag.
 
-        Folders without one (tars uploaded by hand before #152) are not snapshots and are skipped.
+        Folders without a manifest (tars uploaded by hand before #152) are not snapshots, and a
+        folder without its ``snap/<p>/<folder>`` tag (a failed publish) can't be downloaded at
+        its tag; both are skipped. The next ``data:push`` repairs a missing tag.
         """
         check_partition_name(partition)
-        published = [f for f, names in self._contents(partition).items() if MANIFEST_FILE in names]
+        tags = self._tags()
+        published = [
+            f
+            for f, names in self._contents(partition).items()
+            if MANIFEST_FILE in names and tag_for(partition, f) in tags
+        ]
         return sorted(published, key=folder_key)
 
     def resolve(self, partition: str, date: str | None) -> str:
@@ -195,6 +234,10 @@ class SnapshotHub:
 
     def inventory(self) -> Inventory:
         inv = Inventory()
+        for tag in self._tags():
+            bits = tag.split("/")
+            if len(bits) == 3 and bits[0] == "snap":
+                inv.tagged.add((bits[1], bits[2]))
         for entry in self.api.list_repo_tree(self.repo_id, recursive=True, repo_type=REPO_TYPE):
             size = getattr(entry, "size", None)
             if size is None:  # a folder

@@ -4,6 +4,7 @@
 - uncommitted changes in ``services/collector`` (the manifest's commit must be the code that made
   the data), or no git at all;
 - anything that looks like a user upload, an ``.env`` file, a key or a token;
+- a record whose ``file_path`` is still an absolute local path (it names the user);
 - third-party (``hf_*``) records in a normal partition, or normal records in a bootstrap one;
 - an empty partition.
 
@@ -13,8 +14,9 @@ Every problem is reported, not only the first.
 from __future__ import annotations
 
 import gzip
+import json
 import re
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from snapshots import FILES_TAR, MANIFEST_FILE, RECORDS_FILE, SnapshotRefused, is_bootstrap
 from snapshots.manifest import Manifest, verify_snapshot
@@ -82,6 +84,23 @@ def token_lines(records_gz: Path) -> list[int]:
     return hits
 
 
+def is_absolute_path(value: object) -> bool:
+    r"""A Windows (``C:\...``, ``\\server``) or POSIX absolute path, on any OS."""
+    if not isinstance(value, str) or not value:
+        return False
+    return value.startswith(("/", "\\")) or PureWindowsPath(value).is_absolute()
+
+
+def absolute_path_lines(records_gz: Path) -> list[int]:
+    """Records whose ``file_path`` is still absolute: it would leak a local path or user name."""
+    hits: list[int] = []
+    with gzip.open(records_gz, "rt", encoding="utf-8") as fh:
+        for line_no, line in enumerate(fh, 1):
+            if line.strip() and is_absolute_path(json.loads(line).get("file_path")):
+                hits.append(line_no)
+    return hits
+
+
 def _sample(items: list[str], n: int = 5) -> str:
     more = f" and {len(items) - n} more" if len(items) > n else ""
     return ", ".join(items[:n]) + more
@@ -136,6 +155,13 @@ def problems(partition_dir: Path, snapshot_dir: Path) -> list[str]:
                 f"raw/ or text/: {_sample(odd)}"
             )
     if (snapshot_dir / RECORDS_FILE).is_file():
+        absolute = absolute_path_lines(snapshot_dir / RECORDS_FILE)
+        if absolute:
+            found.append(
+                "file_path outside the partition, still an absolute local path (it would publish "
+                f"the folder and user name) in {RECORDS_FILE} record lines "
+                f"{_sample([str(n) for n in absolute])}: move the files into the partition"
+            )
         lines = token_lines(snapshot_dir / RECORDS_FILE)
         if lines:
             found.append(

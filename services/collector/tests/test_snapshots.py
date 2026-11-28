@@ -467,3 +467,157 @@ def test_status_warns_from_75_gb() -> None:
     assert not any("WARNING" in line for line in usage_lines(WARN_BYTES - 1))
     warned = usage_lines(WARN_BYTES)
     assert any("caseguard/corpus-v2" in line for line in warned)
+
+
+# ── review fixes (#255) ───────────────────────────────────────────────────────────────────────
+
+
+def _files_of(pdir: Path) -> dict[str, bytes]:
+    """Every file of a partition, for "left exactly as it was" checks."""
+    return {p.relative_to(pdir).as_posix(): p.read_bytes() for p in pdir.rglob("*") if p.is_file()}
+
+
+def test_a_refused_unpack_leaves_the_partition_as_it_was(tmp_path: Path) -> None:
+    _, out, _ = packed(tmp_path)
+    target = make_partition(tmp_path / "local")
+    before = _files_of(target)
+    evil = tmp_path / "evil.txt"
+    evil.write_text("x", encoding="utf-8")
+    with tarfile.open(out / FILES_TAR, "a") as tar:
+        tar.add(evil, arcname="logs/evil.txt")
+    with pytest.raises(SnapshotRefused, match="unexpected entry"):
+        unpack(out, target, with_files=True)
+    assert _files_of(target) == before
+    assert [p.name for p in target.parent.iterdir()] == [target.name]  # no temp folders left
+
+
+def test_a_bad_source_name_leaves_the_partition_as_it_was(tmp_path: Path) -> None:
+    root = tmp_path / "d"
+    probe = root / "partitions" / "pk-code-seed"
+    pdir = make_partition(root, records=[_record(0, probe), _record(1, probe, source="../x")])
+    out = tmp_path / "out"
+    pack(pdir, out, partition="pk-code-seed", folder="2026-11-28", prov=CLEAN)
+    target = make_partition(tmp_path / "local")
+    before = _files_of(target)
+    with pytest.raises(SnapshotRefused, match="bad source name"):
+        unpack(out, target, with_files=False)
+    assert _files_of(target) == before
+
+
+def test_unpack_drops_the_old_wal_files(tmp_path: Path) -> None:
+    _, out, _ = packed(tmp_path)
+    target = make_partition(tmp_path / "local")
+    (target / "state" / "state.db-wal").write_bytes(b"old wal")
+    (target / "state" / "state.db-shm").write_bytes(b"old shm")
+    (target / "logs" / "keep.log").write_text("kept", encoding="utf-8")
+    unpack(out, target, with_files=False)
+    assert sorted(p.name for p in (target / "state").iterdir()) == ["state.db"]
+    store = StateStore(target / "state" / "state.db")
+    assert store.runs()[0]["run_id"] == "run1"
+    store.close()
+    assert (target / "logs" / "keep.log").is_file()  # logs are never touched
+
+
+def test_an_absolute_file_path_left_over_is_refused(tmp_path: Path) -> None:
+    root = tmp_path / "d"
+    probe = root / "partitions" / "pk-code-seed"
+    outside = _record(1, probe, file_path=r"C:\Users\Some One\Downloads\act.pdf")
+    pdir = make_partition(root, records=[_record(0, probe), outside])
+    _, out, _ = packed(tmp_path, pdir)
+    found = " ".join(problems(pdir, out))
+    assert "absolute local path" in found and "lines 2" in found
+
+
+def test_a_failed_tag_is_never_latest_and_the_next_publish_repairs_it(tmp_path: Path) -> None:
+    fake, hub = _hub(tmp_path)
+    pdir = make_partition(tmp_path / "d")
+    real_tag = fake.create_tag
+
+    def broken(*a: Any, **k: Any) -> None:
+        raise RuntimeError("tag failed")
+
+    fake.create_tag = broken  # type: ignore[method-assign]
+    with pytest.raises(RuntimeError):
+        _publish(tmp_path, hub, pdir, "2026-11-28", "a")
+    assert hub.folders("pk-code-seed") == []  # committed, but not pullable
+    assert hub.untagged("pk-code-seed") == ["2026-11-28"]
+    assert "no tag" in report(hub.repo_id, hub.inventory())
+    with pytest.raises(SnapshotRefused, match="no snapshots"):
+        hub.resolve("pk-code-seed", None)
+
+    fake.create_tag = real_tag  # type: ignore[method-assign]
+    assert _publish(tmp_path, hub, pdir, "2026-11-28", "b") == "2026-11-28-2"
+    assert hub.folders("pk-code-seed") == ["2026-11-28", "2026-11-28-2"]
+    assert hub.untagged("pk-code-seed") == []
+
+
+def test_a_refused_pull_downloads_nothing(tmp_path: Path) -> None:
+    fake, hub = _hub(tmp_path)
+    pdir = make_partition(tmp_path / "d")
+    _publish(tmp_path, hub, pdir, "2026-11-28", "a")
+    calls: list[str] = []
+    real = fake.hf_hub_download
+
+    def counted(*a: Any, **k: Any) -> str:
+        calls.append(a[1])
+        return real(*a, **k)
+
+    fake.hf_hub_download = counted  # type: ignore[method-assign]
+    with pytest.raises(SnapshotRefused, match="--yes"):
+        pull("pk-code-seed", pdir, hub=hub)
+    assert calls == []
+
+
+# the CLI
+
+
+@pytest.fixture
+def cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+    import snapshots.__main__ as cli_module
+
+    monkeypatch.setattr(cli_module, "STAGING", tmp_path / "staging")
+    return cli_module
+
+
+def test_a_second_push_the_same_day_replaces_the_leftover_staging(tmp_path: Path, cli: Any) -> None:
+    pdir = make_partition(tmp_path / "d")
+    argv = ["push", "--snapshot", "pk-code-seed", "--dir", str(pdir), "--no-upload"]
+    argv += ["--date", "2026-11-28"]
+    assert cli.main(argv) == 0
+    assert (tmp_path / "staging" / "pk-code-seed" / "2026-11-28" / MANIFEST_FILE).is_file()
+    assert cli.main(argv) == 0  # used to fail: "... is not empty"
+
+
+def test_an_explicit_out_that_is_not_empty_is_still_refused(tmp_path: Path, cli: Any) -> None:
+    pdir = make_partition(tmp_path / "d")
+    out = tmp_path / "mine"
+    out.mkdir()
+    (out / "keep.txt").write_text("x", encoding="utf-8")
+    argv = ["push", "--snapshot", "pk-code-seed", "--dir", str(pdir), "--no-upload"]
+    assert cli.main([*argv, "--out", str(out)]) == 2
+    assert (out / "keep.txt").is_file()
+
+
+@pytest.mark.parametrize("day", ["28-11-2026", "2026-11-28-2", "today"])
+def test_push_checks_the_date_even_without_upload(tmp_path: Path, cli: Any, day: str) -> None:
+    pdir = make_partition(tmp_path / "d")
+    argv = ["push", "--snapshot", "pk-code-seed", "--dir", str(pdir), "--no-upload"]
+    assert cli.main([*argv, "--date", day]) == 2
+    assert not (tmp_path / "staging").exists()
+
+
+def test_a_network_error_is_one_line_not_a_traceback(
+    cli: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import httpx2
+
+    class Offline:
+        def list_repo_refs(self, *a: Any, **k: Any) -> Any:
+            raise httpx2.ConnectError("no route to host")
+
+        def list_repo_tree(self, *a: Any, **k: Any) -> Any:
+            raise httpx2.ConnectError("no route to host")
+
+    monkeypatch.setattr(SnapshotHub, "from_env", classmethod(lambda c: c(Offline(), "x/y")))
+    assert cli.main(["status"]) == 1
+    assert "could not reach Hugging Face (ConnectError" in capsys.readouterr().err
