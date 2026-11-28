@@ -36,4 +36,6 @@ The ground truth is mechanical (PRD §11), so no expert has to mark it. An answe
 2. `pnpm eval:testset -- freeze`, then commit `FROZEN.sha256`.
 3. Tag that commit `eval-heldout-v1`, then `pnpm data:dump -- --freeze eval-frozen-1` so the corpus is pinned too (data-storage spec §4).
 
+**Frozen on 2026-11-28.** `heldout.jsonl` has sha256 `74a663ef872e76065b3cee8245294d5fbee568d288b0a8a620a4526f2740a121`. The commit is tagged `eval-heldout-v1`, and the corpus is pinned as `dumps/2026-11-28-3` (tag `dump/eval-frozen-1`, AI migration `0003`). Restore that corpus with `pnpm data:pull -- --dump eval-frozen-1` before a measured run, and record it in the run (PRD §11).
+
 After the freeze, `check` fails if `heldout.jsonl` changes.

@@ -414,3 +414,9 @@ The questions went from the laptop to `POST /ai/v1/research/answer`, through the
   - The QSO question cited art. 39 and head-notes instead of art. 38, so retrieval missed the gold article.
   - The judge passed QSO citations whose NLI support score was 0.005–0.09 as `verified`. Check that against the 20% spot check (PRD §11).
   - A whole multi-clause sentence still gets one marker (plan 0067).
+
+### Evaluation test set frozen (#22)
+`eval/testset` (PR #264) has 60 dev and 40 held-out extractive questions. Each split is half civil and half criminal, and 10% of each is off-corpus. The team reviewed the held-out questions, and the set is frozen: `FROZEN.sha256` holds `74a663ef…`, and the commit is tagged `eval-heldout-v1`. The corpus behind it is pinned as `dumps/2026-11-28-3`, tag `dump/eval-frozen-1`. Follow-ups:
+- #268: the 8 as-of questions, which go in dev once the curated versions exist.
+- #263: section ids. `check --corpus` warns on 20 gold sections.
+- #105: the 15 Urdu phrasings.
