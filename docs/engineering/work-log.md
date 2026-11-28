@@ -386,3 +386,30 @@ Restored `dumps/2026-11-22` (56,658 documents, 60,062 chunks, bge-m3) into a dev
 
 ### Corpus dump re-published at AI migration 0002 (#240)
 Published `dumps/2026-11-28` (tag `dump/2026-11-28`) from `staging` at AI migration `0002`, with a clean tree. It holds the same corpus as `dumps/2026-11-22`: 56,658 documents, 60,062 chunks, bge-m3. `latest` now resolves to it, so `pnpm data:pull -- --dump latest` restores without the `alembic stamp 0001` → pull → `alembic stamp 0002` workaround from 2026-11-27, and that workaround is gone from `session-handoff.md`.
+
+### Corpus dump re-published at AI migration 0003
+Migration `0003` (#253, `ai.ingestions`) made the 0002 dump refuse to restore: `data:pull --dump` and Colab step 5 both stopped with "the dump is at 0002 and the code at 0003". Published `dumps/2026-11-28-2` (tag `dump/2026-11-28-2`) from `staging` at `0003`. It holds the same corpus (56,658 documents, 60,062 chunks, bge-m3), and `latest` resolves to it. #261 also lets the Colab notebook restore across 0001/0002 → 0003, because 0003 adds only `ai.ingestions`, which a dump never contains.
+
+### The answer path on NVIDIA NIM over the real laws (#192)
+The questions went from the laptop to `POST /ai/v1/research/answer`, through the Colab notebook's tunnel. The setup was services/ai on a T4, dump `2026-11-28`, `allowedProviders: ["nvidia-nim"]`, and `nvidia/nemotron-3.5-super-vl-120b-a12b` for both generation and the judge. There were 10 questions, 8 on the seed laws and 2 off-corpus. Times include the support check.
+
+| Question | Time | Answerable | Citations (locator: status) |
+|---|---|---|---|
+| PPC s. 302 punishment | 41 s | yes | s. 302: needs_review (one marker for a 115-word claim) |
+| CrPC s. 497 bail | ~50 s | **HTTP 503** ×3 | none: the model spent its whole 4,096-token budget reasoning |
+| Contract Act s. 73 | 45 s | yes | s. 73: verified, s. 73: needs_review, s. 74: verified |
+| Specific Relief s. 12 | 68 s | yes | s. 12 ×5: needs_review (support uncertain) |
+| CPC s. 115 revision | 39 s | yes | para 113: verified, paras 8-11: needs_review |
+| Limitation s. 5 | 33 s | yes | s. 5: verified |
+| QSO art. 38 | 42 s | yes | head-note: verified, **s. 39**: verified, head-note: verified |
+| FRDLA s. 3 | 60 s | yes | s. 3: 1 verified, 4 needs_review. **The answer was cut off** (`finish=length`) |
+| India BNS 2023 (off-corpus) | 29 s | **no** | none |
+| EU GDPR (off-corpus) | 28 s | **no** | none |
+
+- **Answer format:** every answered question came back with well-formed `[[c:<id>]]` markers. As many markers parsed as there were citations. The HTTP response doesn't carry `invalid_markers` or the finish reason, so invalid markers weren't counted. The finish reasons above come from the service log.
+- **Fixed in #265:** the 503 and the cut-off answer. A call that stops at `finish=length` on the default budget is retried once with twice the budget.
+- **Open:**
+  - #263: CrPC and CPC have no section ids, hence `paras 8-11`.
+  - The QSO question cited art. 39 and head-notes instead of art. 38, so retrieval missed the gold article.
+  - The judge passed QSO citations whose NLI support score was 0.005–0.09 as `verified`. Check that against the 20% spot check (PRD §11).
+  - A whole multi-clause sentence still gets one marker (plan 0067).

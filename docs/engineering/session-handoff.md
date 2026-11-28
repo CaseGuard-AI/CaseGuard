@@ -15,7 +15,7 @@
 
 ## Who does what now
 
-The full corpus is published as a database dump (`dumps/2026-11-28`: 56,658 documents and 60,062 chunks, embedded with bge-m3). Restore it with "Downloading the database" below; nobody needs to embed. None of these tasks waits for it:
+The full corpus is published as a database dump (`dumps/2026-11-28-2`: 56,658 documents and 60,062 chunks, embedded with bge-m3). Restore it with "Downloading the database" below; nobody needs to embed. None of these tasks waits for it:
 
 | Who | Task | Needs the corpus? |
 |---|---|---|
@@ -25,7 +25,7 @@ The full corpus is published as a database dump (`dumps/2026-11-28`: 56,658 docu
 | One member | **Demo model:** install Ollama and `ollama pull qwen2.5:7b`, or get a free NVIDIA NIM or Gemini key | No |
 | Others | **Stream A P1 items** (#86–#113), in the order of the [Stream A roadmap](stream-a-roadmap.md) | No |
 | Whoever tries the demo | **M1 demo** (see "Running the demo") | Yes: pull the published dump |
-| One member | **#192, answer format on the real laws:** `pnpm research:ask -- "<question>" --providers nvidia-nim` over the full corpus. Unblocked now that the dump is published | Yes: pull the published dump |
+| One member | **#192, answer format on the real laws:** measured on 2026-11-28 (see the work log). Left to do: confirm #265 on Colab with the CrPC s. 497 question, plus #263 (section ids) and the judge passing near-zero-support citations | Yes: pull the published dump |
 
 ## Hugging Face (`caseguard` org)
 
@@ -119,12 +119,12 @@ Then pass all four partition folders to one `pnpm data:load` command.
 2. In the admin console, enable a provider: Ollama with `OLLAMA_MODEL`, or NIM/Gemini with a key in `.env`.
 3. In the Research Hub, ask "What is the punishment under s. 302 PPC?". You should get a cited answer with statuses.
 
-The embedder, the reranker and the NLI checker download on first use: about 4.6 GB together, pinned to the revisions in `services/ai/src/caseguard_ai/config.py`. On an 8 GB laptop, use the Colab notebook instead ([`local-setup.md`](local-setup.md#low-on-ram-run-the-ai-service-on-colab)). How well a model follows the answer format hasn't been measured yet: `pnpm research:ask -- "<question>" --providers nvidia-nim` runs the answer path from the terminal and shows the raw reply (#191); the measurement on the real laws is #192, unblocked now that the dump is published.
+The embedder, the reranker and the NLI checker download on first use: about 4.6 GB together, pinned to the revisions in `services/ai/src/caseguard_ai/config.py`. On an 8 GB laptop, use the Colab notebook instead ([`local-setup.md`](local-setup.md#low-on-ram-run-the-ai-service-on-colab)). The answer format on NIM was measured on the real laws on 2026-11-28 (#192, in the work log). The markers parse, both off-corpus questions return "Answerable: no", and the open problems are listed there. `pnpm research:ask -- "<question>" --providers nvidia-nim` runs the answer path from the terminal and shows the raw reply (#191).
 
 ## Open items
 
 - **#152, crawl snapshots:** built (`pnpm data:push`, `data:pull --snapshot`, `data:status`). Next: each owner pushes the first real snapshot of their partition.
-- **#154, database dumps:** done. The current dump is `dumps/2026-11-28`, published from `staging` at AI migration `0002`, so `pnpm data:pull -- --dump latest` restores it directly. It replaces `dumps/2026-11-22`, which was made at `0001`.
+- **#154, database dumps:** done. The current dump is `dumps/2026-11-28-2`, published from `staging` at AI migration `0003`, so `pnpm data:pull -- --dump latest` restores it directly after `pnpm db:migrate:ai`. It replaces `dumps/2026-11-28` (made at `0002`) and `dumps/2026-11-22` (made at `0001`).
 - **`--full-text-first` for `data:embed`** (not built): embed the laws and full judgments before the 56k short head-notes, so the demo works within minutes.
 - **Small follow-ups:**
   - add the 10 unmapped SHC case-type codes to `selections/matter_type_map.csv`, marked `confirmed=no`;
