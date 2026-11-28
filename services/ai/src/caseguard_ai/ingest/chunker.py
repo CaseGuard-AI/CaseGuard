@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from dataclasses import asdict, dataclass, field
 
-CHUNKER_VERSION = "1"
+CHUNKER_VERSION = "2"  # 2: the contents end of a statute without an enacting formula (#263)
 
 _TOKEN = re.compile(r"\w+|[^\w\s]")
 _SENTENCE_END = re.compile(r"(?<=[.;:])\s+(?=[(\[A-Z0-9“\"])")
@@ -55,8 +55,9 @@ class Chunk:
 
 # "302. Punishment of qatl-i-amd.—Whoever ...", "24A. Appearance ...", "3[3A. Inserted ...",
 # "7. 5[* * *]", or the number alone on its line with the title below it (the CrPC's layout).
+# Amendments can nest their marks: "3[2[375. Rape.__" (#263).
 _SECTION_HEAD = re.compile(
-    r"^\s*(?:\d{1,2}\[)?(\d{1,4}[A-Z]{0,3})\s?\.\]?(?:\s+(?=[\[“\"'(A-Za-z]|\d{1,2}\[)|\s*$)"
+    r"^\s*(?:\d{1,2}\[){0,2}(\d{1,4}[A-Z]{0,3})\s?\.\]?(?:\s+(?=[\[“\"'(A-Za-z]|\d{1,2}\[)|\s*$)"
 )
 _ORDER_HEAD = re.compile(r"^\s*ORDER\s+([IVXLC]+)\s*$")  # the CPC's First Schedule
 # "THE FIRST SCHEDULE", "SCHEDULE III", "1SCHEDULE–II", "4[SCHEDULE IV", "SCHEDULE I.__ [Rep.]"
@@ -200,7 +201,11 @@ def _best_run(candidates: list[_Candidate]) -> list[_Candidate]:
 def _contents_end(lines: list[str]) -> int:
     """Without an enacting formula: where a table of contents (a run of one-line entries
     starting at "1.") ends and the body's own "1." begins; 0 when there is no such table."""
-    starts = [c.line for c in _candidates(lines, 0, len(lines)) if c.number == "1"]
+    # Only a "1." as written: "11." and "21." also read as "1" with a footnote mark stripped,
+    # which put the PPC's end of contents at its "11." entry, inside the contents (#263).
+    starts = [
+        c.line for c in _candidates(lines, 0, len(lines)) if c.number == "1" and not c.stripped
+    ]
     if len(starts) < 2:
         return 0
     entries = [c for c in _candidates(lines, starts[0], starts[1]) if c.number != "1"]

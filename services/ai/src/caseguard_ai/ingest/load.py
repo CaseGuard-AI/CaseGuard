@@ -133,6 +133,10 @@ def kind_of(document_type: str | None, source: str = "") -> str:
         return "rule"
     if value in _JUDGMENT:
         return "judgment"
+    # Pakistan Code publishes only legislation: a type the collector couldn't guess is still a
+    # statute ("Code of Criminal Procedure" was "unknown", so it was never split by section, #263).
+    if value in {"", "unknown"} and source in LEGISLATION_SOURCES:
+        return "statute"
     return "other"
 
 
@@ -230,10 +234,11 @@ def to_row(record: dict[str, Any], snapshot: str | None) -> tuple[dict[str, Any]
 _CHANGED = text(
     "NOT (excluded.headnote_only AND NOT corpus.documents.headnote_only) AND"
     " (corpus.documents.content_hash, corpus.documents.title, corpus.documents.official_url,"
-    " corpus.documents.headnote_only, corpus.documents.third_party, corpus.documents.snapshot,"
-    " corpus.documents.raw - 'area_label') IS DISTINCT FROM (excluded.content_hash,"
-    " excluded.title, excluded.official_url, excluded.headnote_only, excluded.third_party,"
-    " excluded.snapshot, excluded.raw - 'area_label')"
+    " corpus.documents.kind, corpus.documents.headnote_only, corpus.documents.third_party,"
+    " corpus.documents.snapshot, corpus.documents.raw - 'area_label') IS DISTINCT FROM"
+    " (excluded.content_hash, excluded.title, excluded.official_url, excluded.kind,"
+    " excluded.headnote_only, excluded.third_party, excluded.snapshot,"
+    " excluded.raw - 'area_label')"
 )
 # raw.area_label is written by the area classifier (#200), not the collector: a reload keeps it,
 # as it keeps the area and subcategory columns it sits beside.

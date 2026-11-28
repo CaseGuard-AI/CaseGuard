@@ -80,6 +80,11 @@ def judgment(n: int, **overrides: Any) -> dict[str, Any]:
         ("order", "shc_caselaw", "judgment"),
         ("cause_list", "shc_caselaw", "other"),
         (None, "x", "other"),
+        # #263: the collector couldn't guess "Code of Criminal Procedure"; Pakistan Code has
+        # nothing but legislation, so it is still a statute. Elsewhere unknown stays other.
+        ("unknown", "pakistan_code", "statute"),
+        ("", "pakistan_code", "statute"),
+        ("unknown", "shc_caselaw", "other"),
     ],
 )
 def test_kinds(document_type: str | None, source: str, kind: str) -> None:
@@ -191,6 +196,18 @@ def test_a_changed_record_is_updated(engine: Engine) -> None:
     report = load(engine, [judgment(1, title="Corrected title")], "p@2")
     assert report.updated == 1
     assert _rows(engine)[judgment(1)["id"]]["snapshot"] == "p@2"
+
+
+@db
+def test_a_reload_that_changes_only_the_kind_updates_the_row(engine: Engine) -> None:
+    # As after the #263 fix: the same record, now mapped to another kind, must reach the row,
+    # so its chunks go stale and are re-chunked as a statute.
+    load(engine, [record(document_type="unknown")], "p@1")
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE corpus.documents SET kind = 'other'"))
+    report = load(engine, [record(document_type="unknown")], "p@1")
+    assert report.updated == 1
+    assert _rows(engine)[record()["id"]]["kind"] == "statute"
 
 
 @db

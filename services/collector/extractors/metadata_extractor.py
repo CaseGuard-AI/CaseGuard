@@ -192,20 +192,22 @@ def guess_document_type(title: str | None, category: str | None = None) -> str:
         return "unknown"
     if "constitution" in haystack and "amendment" not in haystack:
         return "constitution"
+    # Whole words, so a title that starts with the word counts: "Code of Criminal Procedure"
+    # was "unknown" while the needle was " code" (#263).
     ordered = (
-        ("amendment", "amendment"),
-        ("ordinance", "ordinance"),
-        (" bill", "bill"),
-        ("regulation", "regulation"),
-        (" rules", "rules"),
-        (" code", "code"),
-        ("judgment", "judgment"),
-        ("judgement", "judgment"),
-        ("order", "order"),
-        (" act", "act"),
+        (r"amendment", "amendment"),
+        (r"ordinance", "ordinance"),
+        (r"\bbill\b", "bill"),
+        (r"regulation", "regulation"),
+        (r"\brules\b", "rules"),
+        (r"\bcode\b", "code"),
+        (r"judgment", "judgment"),
+        (r"judgement", "judgment"),
+        (r"order", "order"),
+        (r"\bact\b", "act"),
     )
-    for needle, label in ordered:
-        if needle in haystack:
+    for pattern, label in ordered:
+        if re.search(pattern, haystack):
             return label
     return "unknown"
 
