@@ -21,8 +21,17 @@ export interface IngestJob {
   submitted: boolean;
   /** The delay before the next poll; doubles up to 30 s. */
   pollMs: number;
-  /** When polling this attempt gives up (ISO time); null until submitted. */
+  /**
+   * When polling this attempt gives up (ISO time). Null until services/ai reports it `running`,
+   * so time spent waiting in services/ai's queue doesn't count against the attempt (#258).
+   */
   deadline: string | null;
+  /**
+   * When an attempt still `queued` in services/ai gives up (ISO time), set at submit. Longer than
+   * the attempt limit, but a stuck queue still ends the document as failed (NFR-13). Optional:
+   * jobs enqueued before #258 have no such field and carry a deadline from submit instead.
+   */
+  queuedDeadline?: string | null;
 }
 
 export interface PurgeJob {
@@ -51,6 +60,7 @@ export const firstStep = (
   submitted: false,
   pollMs: 2000,
   deadline: null,
+  queuedDeadline: null,
 });
 
 /**

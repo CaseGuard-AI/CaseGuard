@@ -10,7 +10,10 @@ import type { Logger } from "../lib/logger.js";
 import type { IngestJob, JobQueue } from "./queue.js";
 
 export const POLL_MAX_MS = 30_000;
+/** How long an attempt may run once services/ai has started it. */
 export const ATTEMPT_TIMEOUT_MS = 30 * 60_000;
+/** How long an attempt may wait in services/ai's queue (one attempt runs at a time there). */
+export const QUEUED_TIMEOUT_MS = 6 * 60 * 60_000;
 /** Seconds before automatic retry n (1, 2, …) is submitted. */
 export const retryDelaySeconds = (n: number) => 30 * n;
 
@@ -66,11 +69,13 @@ export async function runIngestStep(deps: IngestDeps, job: IngestJob): Promise<v
       log.warn({ err }, "could not submit the ingestion");
       return fail(deps, doc, job, MESSAGES.unavailable, true);
     }
-    const deadline = new Date(now(deps).getTime() + ATTEMPT_TIMEOUT_MS).toISOString();
-    return apply(deps, doc, { ...job, submitted: true, deadline }, status);
+    // The attempt's own deadline starts when it runs (apply); until then only the queue limit.
+    const queuedDeadline = after(deps, QUEUED_TIMEOUT_MS);
+    return apply(deps, doc, { ...job, submitted: true, deadline: null, queuedDeadline }, status);
   }
 
-  if (job.deadline && now(deps) > new Date(job.deadline)) {
+  const limit = job.deadline ?? job.queuedDeadline;
+  if (limit && now(deps) > new Date(limit)) {
     log.warn("ingestion timed out");
     return fail(deps, doc, job, MESSAGES.timeout, true);
   }
@@ -104,7 +109,13 @@ async function apply(deps: IngestDeps, doc: Document, job: IngestJob, status: In
         ifAttempt: job.attempt,
         pages: status.pages,
       });
-      if (moved) await pollAgain(deps, job);
+      const started = status.state === "running" && !job.deadline;
+      if (moved) {
+        await pollAgain(
+          deps,
+          started ? { ...job, deadline: after(deps, ATTEMPT_TIMEOUT_MS) } : job,
+        );
+      }
       return;
     }
     case "done":
@@ -141,7 +152,14 @@ async function fail(
     });
     if (moved) {
       await deps.queue.ingest(
-        { ...job, attempt: next, submitted: false, pollMs: 2000, deadline: null },
+        {
+          ...job,
+          attempt: next,
+          submitted: false,
+          pollMs: 2000,
+          deadline: null,
+          queuedDeadline: null,
+        },
         retryDelaySeconds(used),
       );
     }
@@ -164,3 +182,4 @@ function pollAgain(deps: IngestDeps, job: IngestJob) {
 }
 
 const now = (deps: IngestDeps) => deps.now?.() ?? new Date();
+const after = (deps: IngestDeps, ms: number) => new Date(now(deps).getTime() + ms).toISOString();
