@@ -406,7 +406,7 @@ The questions went from the laptop to `POST /ai/v1/research/answer`, through the
 | India BNS 2023 (off-corpus) | 29 s | **no** | none |
 | EU GDPR (off-corpus) | 28 s | **no** | none |
 
-- **Answer format:** every answered question came back with well-formed `[[c:<id>]]` markers. As many markers parsed as there were citations, and no marker was invalid.
+- **Answer format:** every answered question came back with well-formed `[[c:<id>]]` markers. As many markers parsed as there were citations. The HTTP response doesn't carry `invalid_markers` or the finish reason, so invalid markers weren't counted. The finish reasons above come from the service log.
 - **Fixed in #265:** the 503 and the cut-off answer. A call that stops at `finish=length` on the default budget is retried once with twice the budget.
 - **Open:**
   - #263: CrPC and CPC have no section ids, hence `paras 8-11`.
