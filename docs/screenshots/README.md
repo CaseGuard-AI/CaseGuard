@@ -89,6 +89,6 @@ are skipped.
 | 09 | Precedent search answers an error or finds nothing |
 | 10 | As 09, or no hit has a relationship in the graph |
 | 12 | Drafting assist shows an error or returns no text |
-| 15 | The uploaded PDF fails, or is still processing after two minutes. Always skipped for now: services/ai doesn't serve `POST /ai/v1/documents/{documentId}/ingestion` yet (Stream C, plan 0046), so every upload ends `failed`. Locally or on Colab makes no difference |
+| 15 | The uploaded PDF fails, or is still processing after two minutes. services/ai reads the upload from the local `uploads/` folder, so 15 needs the AI service on the same machine as the api: with the AI service on Colab it is skipped. Only the embedder loads for it, so on a small laptop run services/ai with no model provider (07 and 12 are then skipped) and `pnpm screenshots -g 15` |
 | 17 | `pnpm db:create-admin` fails |
 | 19 | No "Soon" badge in the sidebar |
