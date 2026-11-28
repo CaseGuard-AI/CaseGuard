@@ -46,6 +46,7 @@ services:
     env_file: .env
     environment:
       AI_DATABASE_URL: postgresql+psycopg://caseguard_ai:${AI_DB_PASSWORD}@db:5432/${POSTGRES_DB}
+      UPLOADS_DIR: /data/uploads # the api's blob store, read by the ingestion worker (#253)
     depends_on:
       db: { condition: service_healthy }
     volumes:

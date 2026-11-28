@@ -72,6 +72,32 @@ class IngestSettings(EmbeddingSettings, DatabaseSettings):
     """For the ingestion jobs: the database and the embedding model, no service token."""
 
 
+class DocumentSettings(BaseSettings):
+    """Users' uploaded documents (#253, ADR-0010). Read without the service token, so the
+    worker can start before any request arrives."""
+
+    model_config = _ENV
+
+    # The blob store apps/api writes (data-storage §6), read-only here. The same variable as
+    # apps/api's: empty = the git-ignored /uploads at the repo root; Docker sets /data/uploads.
+    uploads_dir: str = ""
+    # The background worker that processes submitted documents. Off only in tests.
+    ingest_workers_enabled: bool = True
+    ingest_poll_seconds: float = 2.0  # how often an idle worker looks for queued documents
+    ingest_shutdown_seconds: float = 30.0  # how long shutdown waits for the attempt in flight
+    # A longer text is cut (and flagged `truncated`): about 1,500 pages of dense text.
+    ingest_max_chars: int = 5_000_000
+
+    @property
+    def uploads_path(self) -> Path:
+        return Path(self.uploads_dir) if self.uploads_dir else _REPO_ROOT / "uploads"
+
+
+@lru_cache
+def get_document_settings() -> DocumentSettings:
+    return DocumentSettings()
+
+
 class Settings(EmbeddingSettings):
     model_config = _ENV
 

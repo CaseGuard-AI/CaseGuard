@@ -4,13 +4,18 @@ COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PROJECT_ENVIRONMENT=/opt/venv PATH="/opt/venv/bin:$PATH"
 WORKDIR /app
 
+# Tesseract (English) for OCR of scanned uploads (#253); it runs locally, never remotely (ADR-0008).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
 # Dependencies first (cached layer), then the project itself.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --extra ocr --no-install-project
 COPY src ./src
 COPY README.md alembic.ini ./
 COPY migrations ./migrations
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --extra ocr
 
 RUN useradd --system --uid 10001 caseguard
 USER caseguard

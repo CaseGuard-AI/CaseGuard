@@ -77,7 +77,7 @@ services/ai owns two schemas (ADR-0002) and migrates them with Alembic, as `case
 | Schema | Tables | Shared? |
 |---|---|---|
 | `corpus` | `documents` (one per statute or judgment, with provenance and `headnote_only` / `third_party`), `chunks` (bge-m3 `vector(1024)` + HNSW, generated `tsvector` + GIN), `corpus_meta` (one row: the embedding and chunker settings the corpus was built with) | Yes, through corpus dumps (#154) |
-| `ai` | `answer_traces` (ranked lists per question, never the question), `citations`, `verifications` (**the single trust store**, one row per citation), `case_chunks` (users' case files, #101) | Never |
+| `ai` | `answer_traces` (ranked lists per question, never the question), `citations`, `verifications` (**the single trust store**, one row per citation), `case_chunks` (users' case files, #101), `ingestions` (their processing state, #253) | Never |
 
 ```bash
 pnpm db:migrate:ai          # alembic upgrade head (also run by the image on start)
@@ -202,6 +202,15 @@ pnpm data:pull -- --dump latest|<date>[-N]|eval-frozen-N [--from DIR] [--yes]  #
 - `GET /ai/v1/drafting/templates`: the bail application (s.497/498 CrPC), plaint (Order VII CPC) and legal notice, from `drafting/templates/*.yaml`. Each template has a `version`, fields (with the `caseField` apps/api fills them from) and sections in document order. Bump `version` whenever a field or section changes. A file that doesn't validate fails at load.
 - `POST /ai/v1/drafting/sections` drafts one `assistable` section. It follows the research pipeline: the allow-list first (503), retrieval within the scope, prompt `draft-section-v1` (same `[[p:N]]` and `QUOTES:` shape as `answer-v1`, so `parse_reply` reads it), then the shared trust checks in `trust/verify.py` and the same store. The citations returned are read back from it (FR-TRUST-10). A section that cites nothing comes back as plain text with no citations.
 - **Audit (FR-TRUST-12):** one `ai.answer_traces` row per `requestId`, with `models.kind = drafting`, `models.prompt = draft-section-v1`, the template and the section. The instruction and the field values are never stored or logged.
+
+## Document ingestion (#253)
+
+`POST`/`GET /ai/v1/documents/{documentId}/ingestion` and `DELETE /ai/v1/documents/{documentId}` ([ADR-0010](../../docs/adr/0010-document-ingestion-handoff.md)). apps/api submits and polls each attempt; the work runs in a background worker inside this process (`ingest/ingestion.py`), never in the request.
+
+- **State** lives in `ai.ingestions`, one row per document (Alembic `0003`). A submit is an upsert keyed on the attempt: the same attempt returns its status, a higher one resets the row to `queued` (the running attempt stops at its next stage), and a lower one is a 409. On start-up, rows left `running` become `failed` and `retryable`.
+- **Stages** (`ingest/documents.py`): `ocr` (Tesseract, English, only with `uv sync --extra ocr` and the `tesseract` binary; otherwise scanned pages are flagged `unreadable_page`), `extract` (PyMuPDF, python-docx), `clean`, `structure`, `chunk` (the corpus chunker, with page locators such as `p. 3, para 4`), `embed` (the same embedder as retrieval) and `index`. The `index` stage replaces the document's `ai.case_chunks` in one transaction, so the old chunks stay retrievable until then.
+- **Files** are read only from `UPLOADS_DIR` (the api's blob store, `/data/uploads` in Docker), by the checked `storageKey`. Nothing is sent to a model provider.
+- `INGEST_WORKERS_ENABLED=false` turns the worker off (the tests do, and run the queue with `run_queue`).
 
 ## The procedural linter (#214)
 
