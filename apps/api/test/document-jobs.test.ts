@@ -14,6 +14,7 @@ import { migrateUp } from "../src/db/migrate.js";
 import {
   ATTEMPT_TIMEOUT_MS,
   MESSAGES,
+  QUEUED_TIMEOUT_MS,
   runIngestStep,
   type IngestDeps,
 } from "../src/jobs/ingest.js";
@@ -187,7 +188,8 @@ describe.skipIf(!url)("document jobs (ADR-0010, NFR-13)", () => {
     expect(next.job).toMatchObject({
       submitted: true,
       pollMs: 4000,
-      deadline: new Date(clock.getTime() + ATTEMPT_TIMEOUT_MS).toISOString(),
+      deadline: null,
+      queuedDeadline: new Date(clock.getTime() + QUEUED_TIMEOUT_MS).toISOString(),
     });
     expect((await row(id)).status).toBe("queued");
 
@@ -196,6 +198,8 @@ describe.skipIf(!url)("document jobs (ADR-0010, NFR-13)", () => {
     expect((await row(id)).status).toBe("processing");
     next = nextJob();
     expect([next.delaySeconds, next.job.pollMs]).toEqual([4, 8000]);
+    // The attempt's deadline starts when it runs (#258).
+    expect(next.job.deadline).toBe(new Date(clock.getTime() + ATTEMPT_TIMEOUT_MS).toISOString());
     for (const expected of [8, 16, 30]) {
       await runIngestStep(deps(), next.job);
       next = nextJob();
@@ -318,14 +322,77 @@ describe.skipIf(!url)("document jobs (ADR-0010, NFR-13)", () => {
     expect((await row(id)).status).toBe("queued");
   });
 
-  it("an attempt past its deadline counts as a retryable failure", async () => {
+  const minutes = (n: number) => new Date(clock.getTime() + n * 60_000);
+
+  it("an attempt running past its deadline counts as a retryable failure", async () => {
     const { id, job } = await uploaded();
     await runIngestStep(deps(), job);
+    onGet = async (docId) => status(docId, 1, "running");
+    await runIngestStep(deps(), nextJob().job);
     const poll = nextJob().job;
     clock = new Date(clock.getTime() + ATTEMPT_TIMEOUT_MS + 1);
     await runIngestStep(deps(), poll);
     expect(await row(id)).toMatchObject({ status: "processing", attempt: 2 });
-    expect(nextJob().job.attempt).toBe(2);
+    expect(nextJob().job).toMatchObject({ attempt: 2, deadline: null, queuedDeadline: null });
+  });
+
+  it("time spent queued in services/ai doesn't count against the attempt (#258)", async () => {
+    const { id, job } = await uploaded();
+    await runIngestStep(deps(), job);
+    onGet = async (docId) => status(docId, 1, "queued");
+    clock = minutes(40);
+    await runIngestStep(deps(), nextJob().job);
+    expect(await row(id)).toMatchObject({ status: "queued", attempt: 1 });
+    onGet = async (docId) => status(docId, 1, "running");
+    await runIngestStep(deps(), nextJob().job);
+    // 20 minutes into the run, 60 after submit: still within the attempt.
+    clock = minutes(20);
+    await runIngestStep(deps(), nextJob().job);
+    expect(await row(id)).toMatchObject({ status: "processing", attempt: 1 });
+    onGet = async (docId) => status(docId, 1, "done");
+    await runIngestStep(deps(), nextJob().job);
+    expect(await row(id)).toMatchObject({ status: "done", attempt: 1 });
+  });
+
+  it("an attempt queued past the queue limit is failed as timed out, then retried", async () => {
+    const { id, job } = await uploaded();
+    await runIngestStep(deps(), job);
+    onGet = async (docId) => status(docId, 1, "queued");
+    clock = new Date(clock.getTime() + QUEUED_TIMEOUT_MS + 1);
+    await runIngestStep(deps(), nextJob().job);
+    expect(await row(id)).toMatchObject({ status: "processing", attempt: 2 });
+    expect(nextJob().job).toMatchObject({ attempt: 2, submitted: false });
+  });
+
+  it("the last attempt queued past the limit leaves the document failed (NFR-13)", async () => {
+    const { id, job } = await uploaded();
+    await pool.query("UPDATE app.documents SET attempt = 3 WHERE id = $1", [id]);
+    await runIngestStep(deps(), {
+      ...job,
+      attempt: 3,
+      firstAttempt: 1,
+      submitted: true,
+      deadline: null,
+      queuedDeadline: new Date(clock.getTime() - 1).toISOString(),
+    });
+    expect(await row(id)).toMatchObject({ status: "failed", error: MESSAGES.timeout });
+    expect(queue.ingested).toEqual([]);
+  });
+
+  it("a job enqueued before #258 (deadline from submit, no queue limit) still times out", async () => {
+    const { id, job } = await uploaded();
+    const legacy = {
+      ...job,
+      submitted: true,
+      deadline: new Date(clock.getTime() + ATTEMPT_TIMEOUT_MS).toISOString(),
+    } as IngestJob;
+    delete legacy.queuedDeadline;
+    onGet = async (docId) => status(docId, 1, "running");
+    await runIngestStep(deps(), legacy);
+    expect(nextJob().job.deadline).toBe(legacy.deadline);
+    clock = new Date(clock.getTime() + ATTEMPT_TIMEOUT_MS + 1);
+    await runIngestStep(deps(), legacy);
+    expect(await row(id)).toMatchObject({ status: "processing", attempt: 2 });
   });
 
   it("stops when the document was deleted or a newer attempt took over", async () => {
