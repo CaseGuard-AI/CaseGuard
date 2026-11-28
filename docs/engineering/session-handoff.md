@@ -25,7 +25,7 @@ The full corpus is published as a database dump (`dumps/2026-11-28-2`: 56,658 do
 | One member | **Demo model:** install Ollama and `ollama pull qwen2.5:7b`, or get a free NVIDIA NIM or Gemini key | No |
 | Others | **Stream A P1 items** (#86–#113), in the order of the [Stream A roadmap](stream-a-roadmap.md) | No |
 | Whoever tries the demo | **M1 demo** (see "Running the demo") | Yes: pull the published dump |
-| One member | **#192, answer format on the real laws:** measured on 2026-11-28 (see the work log). Left to do: confirm #265 on Colab with the CrPC s. 497 question, plus #263 (section ids) and the judge passing near-zero-support citations | Yes: pull the published dump |
+| One member | **#192, answer format on the real laws:** done 2026-11-28 (see the work log; #265 confirmed on Colab). Follow-ups: #263 (section ids), and the judge passing near-zero-support citations | Yes: pull the published dump |
 
 ## Hugging Face (`caseguard` org)
 

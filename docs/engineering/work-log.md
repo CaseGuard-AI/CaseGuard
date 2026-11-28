@@ -408,6 +408,7 @@ The questions went from the laptop to `POST /ai/v1/research/answer`, through the
 
 - **Answer format:** every answered question came back with well-formed `[[c:<id>]]` markers. As many markers parsed as there were citations. The HTTP response doesn't carry `invalid_markers` or the finish reason, so invalid markers weren't counted. The finish reasons above come from the service log.
 - **Fixed in #265:** the 503 and the cut-off answer. A call that stops at `finish=length` on the default budget is retried once with twice the budget.
+- **Re-test after #265** (Colab on `cf19e91`): CrPC s. 497 now answers, HTTP 200 in 76.5 s with 6 citations (2 verified, 4 needs_review), where it was a 503 every time before. The first try after the merge still failed, because the notebook's step 3 never updated an existing clone (#267). The answer's second sentence misreads the s. 497 proviso: it says bail "may be refused unless" the accused is a woman, a minor and so on, where the proviso lets the court release such persons. Its citations came back `needs_review`/`fail`, so the trust layer flagged it. The citations point to `para 442` and head-notes, not `s. 497` (#263).
 - **Open:**
   - #263: CrPC and CPC have no section ids, hence `paras 8-11`.
   - The QSO question cited art. 39 and head-notes instead of art. 38, so retrieval missed the gold article.
