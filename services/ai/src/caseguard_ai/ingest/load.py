@@ -231,9 +231,16 @@ _CHANGED = text(
     "NOT (excluded.headnote_only AND NOT corpus.documents.headnote_only) AND"
     " (corpus.documents.content_hash, corpus.documents.title, corpus.documents.official_url,"
     " corpus.documents.headnote_only, corpus.documents.third_party, corpus.documents.snapshot,"
-    " corpus.documents.raw) IS DISTINCT FROM (excluded.content_hash, excluded.title,"
-    " excluded.official_url, excluded.headnote_only, excluded.third_party, excluded.snapshot,"
-    " excluded.raw)"
+    " corpus.documents.raw - 'area_label') IS DISTINCT FROM (excluded.content_hash,"
+    " excluded.title, excluded.official_url, excluded.headnote_only, excluded.third_party,"
+    " excluded.snapshot, excluded.raw - 'area_label')"
+)
+# raw.area_label is written by the area classifier (#200), not the collector: a reload keeps it,
+# as it keeps the area and subcategory columns it sits beside.
+_RAW = text(
+    "CASE WHEN corpus.documents.raw->'area_label' IS NULL THEN excluded.raw"
+    " ELSE excluded.raw || jsonb_build_object('area_label', corpus.documents.raw->'area_label')"
+    " END"
 )
 
 
@@ -301,7 +308,11 @@ def _write_batch(engine: Engine, rows: list[dict[str, Any]], report: Report) -> 
         ]
         upsert = stmt.on_conflict_do_update(
             index_elements=[documents.c.collector_id],
-            set_={**{name: excluded[name] for name in updatable}, "updated_at": text("now()")},
+            set_={
+                **{name: excluded[name] for name in updatable},
+                "raw": _RAW,
+                "updated_at": text("now()"),
+            },
             where=_CHANGED,
         ).returning(documents.c.collector_id, text("(xmax = 0) AS inserted"))
         written = conn.execute(upsert).all()
